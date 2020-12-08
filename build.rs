@@ -12,7 +12,7 @@ fn main() {
     for entry in shader_paths {
         match entry {
             Ok(path) => {
-                println!("Compiling {}", path.display().to_string().as_str());
+                println!("cargo:rerun-if-changed={}", path.display().to_string().as_str());
 
                 Command::new("./tools/glslangValidator")
                     .arg("-V")

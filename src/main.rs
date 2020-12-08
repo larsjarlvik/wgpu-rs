@@ -4,19 +4,18 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-mod state;
-mod texture;
 mod camera;
 mod camera_controller;
+mod default_render_pipeline;
+mod state;
+mod texture;
+mod vertex;
 pub use state::*;
 
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("WGPU-RS")
-        .build(&event_loop)
-        .unwrap();
+    let window = WindowBuilder::new().with_title("WGPU-RS").build(&event_loop).unwrap();
     let mut state = block_on(state::State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -32,10 +31,7 @@ fn main() {
         Event::MainEventsCleared => {
             window.request_redraw();
         }
-        Event::WindowEvent {
-            ref event,
-            window_id,
-        } if window_id == window.id() => match event {
+        Event::WindowEvent { ref event, window_id } if window_id == window.id() => match event {
             WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
             WindowEvent::KeyboardInput { input, .. } => match input {
                 KeyboardInput {

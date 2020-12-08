@@ -4,10 +4,14 @@ version = "0.1.0"
 authors = ["larsjarlvik <lars.jarlvik@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 winit = "0.23.0"
 wgpu = "0.6.2"
 env_logger = "0.8.2"
 futures = "0.3.8"
+glob = "0.3"
+
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.1"
+glob = "0.3"

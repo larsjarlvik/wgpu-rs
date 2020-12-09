@@ -1,32 +1,10 @@
-use wgpu::util::DeviceExt;
-use winit::{event::*, window::Window};
 use crate::camera;
-use crate::texture;
 use crate::camera_controller;
 use crate::default_render_pipeline;
+use crate::model;
+use crate::texture;
 use crate::vertex::*;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct Uniforms {
-    view_proj: [[f32; 4]; 4],
-}
-
-#[rustfmt::skip]
-const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], },
-    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], },
-    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397057], },
-    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 0.84732911], },
-    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 0.2652641], },
-];
-
-#[rustfmt::skip]
-const INDICES: &[u16] = &[
-    0, 1, 4,
-    1, 2, 4,
-    2, 3, 4,
-];
+use winit::{event::*, window::Window};
 
 pub struct State {
     surface: wgpu::Surface,
@@ -35,15 +13,9 @@ pub struct State {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     render_pipeline: default_render_pipeline::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
-    diffuse_bind_group: wgpu::BindGroup,
     camera: camera::Camera,
     camera_controller: camera_controller::CameraController,
-    uniforms: Uniforms,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group: wgpu::BindGroup,
+    model: model::Model,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
@@ -65,19 +37,6 @@ impl Vertex {
                 },
             ],
         }
-    }
-}
-
-impl Uniforms {
-    fn new() -> Self {
-        use cgmath::SquareMatrix;
-        Self {
-            view_proj: cgmath::Matrix4::identity().into(),
-        }
-    }
-
-    fn update_view_proj(&mut self, camera: &camera::Camera) {
-        self.view_proj = camera.build_view_projection_matrix().into();
     }
 }
 
@@ -117,66 +76,17 @@ impl State {
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-        // Buffers
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsage::INDEX,
-        });
-        let num_indices = INDICES.len() as u32;
-
-        // Render pipeline
-        let render_pipeline = default_render_pipeline::RenderPipeline::new(&device);
+        // Camera
+        let camera = camera::Camera::new(sc_desc.width as f32 / sc_desc.height as f32);
 
         // Texture
         let diffuse_bytes = include_bytes!("./textures/texture.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &render_pipeline.texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
-        // Camera
-        let camera = camera::Camera::new(sc_desc.width as f32 / sc_desc.height as f32);
-        let mut uniforms = Uniforms::new();
-        uniforms.update_view_proj(&camera);
-
-        let uniform_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Uniform Buffer"),
-                contents: bytemuck::cast_slice(&[uniforms]),
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            }
-        );
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &render_pipeline.uniform_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..))
-                }
-            ],
-            label: Some("uniform_bind_group"),
-        });
-
+        // Render pipeline
+        let render_pipeline = default_render_pipeline::RenderPipeline::new(&device, &diffuse_texture);
         let camera_controller = camera_controller::CameraController::new(0.2);
+        let model = model::Model::new(&device);
 
         Self {
             surface,
@@ -186,15 +96,9 @@ impl State {
             swap_chain,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
-            diffuse_bind_group,
             camera,
             camera_controller,
-            uniforms,
-            uniform_buffer,
-            uniform_bind_group,
+            model,
         }
     }
 
@@ -212,17 +116,21 @@ impl State {
 
     pub fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        self.uniforms.update_view_proj(&self.camera);
-        self.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[self.uniforms]));
+        self.render_pipeline
+            .uniforms
+            .set(self.camera.build_view_projection_matrix().into());
+        self.queue.write_buffer(
+            &self.render_pipeline.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[self.render_pipeline.uniforms]),
+        );
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -243,11 +151,11 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..));
-            render_pass.draw_indexed(0..self.num_indices, 0, 1..2);
+            render_pass.set_bind_group(0, &self.render_pipeline.texture_target.bind_group, &[]);
+            render_pass.set_bind_group(1, &self.render_pipeline.uniform_target.bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.model.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.model.index_buffer.slice(..));
+            render_pass.draw_indexed(0..self.model.num_indices, 0, 1..2);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

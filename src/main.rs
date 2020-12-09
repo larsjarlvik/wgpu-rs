@@ -10,6 +10,7 @@ mod default_render_pipeline;
 mod state;
 mod texture;
 mod vertex;
+mod model;
 pub use state::*;
 
 fn main() {

@@ -1,54 +1,99 @@
 use crate::texture;
 use crate::vertex;
-use wgpu::util::DeviceExt;
 use cgmath::SquareMatrix;
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
-    view_proj: [[f32; 4]; 4],
-}
-
-impl Uniforms {
-    pub fn new() -> Self {
-        Self {
-            view_proj: cgmath::Matrix4::identity().into(),
-        }
-    }
-
-    pub fn set(&mut self, view_proj: [[f32; 4]; 4]) {
-        self.view_proj = view_proj;
-    }
+    pub view_proj: [[f32; 4]; 4],
+    pub transform: [[f32; 4]; 4],
 }
 
 pub struct RenderPipeline {
     pub render_pipeline: wgpu::RenderPipeline,
+    pub uniform_bind_group: wgpu::BindGroup,
+    pub texture: wgpu::BindGroup,
     pub uniforms: Uniforms,
-    pub uniform_buffer: wgpu::Buffer,
-    pub texture_target: Target,
-    pub uniform_target: Target,
-}
-
-pub struct Target {
-    pub bind_group_layout: wgpu::BindGroupLayout,
-    pub bind_group: wgpu::BindGroup,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
+    uniform_buffer: wgpu::Buffer,
 }
 
 impl RenderPipeline {
     pub fn new(device: &wgpu::Device, diffuse_texture: &texture::Texture) -> Self {
-        let uniforms = Uniforms::new();
+        let uniforms = Uniforms {
+            view_proj: cgmath::Matrix4::identity().into(),
+            transform: cgmath::Matrix4::identity().into(),
+        };
+
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
             contents: bytemuck::cast_slice(&[uniforms]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
 
-        let texture_target = create_texture_target(&device, &diffuse_texture);
-        let uniform_target = create_uniform_target(&device, &uniform_buffer);
+        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("uniform_bind_group_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("uniform_bind_group"),
+            layout: &uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
+            }],
+        });
+
+        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("texture_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::SampledTexture {
+                        multisampled: false,
+                        dimension: wgpu::TextureViewDimension::D2,
+                        component_type: wgpu::TextureComponentType::Uint,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    count: None,
+                },
+            ],
+        });
+
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&texture_target.bind_group_layout, &uniform_target.bind_group_layout],
+            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
             push_constant_ranges: &[],
+        });
+
+        let texture = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Diffuse Texture"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
         });
 
         let vs_module = device.create_shader_module(wgpu::include_spirv!("shaders-compiled/default.vert.spv"));
@@ -91,83 +136,15 @@ impl RenderPipeline {
 
         RenderPipeline {
             render_pipeline,
-            texture_target,
-            uniform_target,
-            uniforms,
+            texture_bind_group_layout,
+            uniform_bind_group,
             uniform_buffer,
+            uniforms,
+            texture,
         }
     }
-}
 
-fn create_uniform_target(device: &wgpu::Device, uniform_buffer: &wgpu::Buffer) -> Target {
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::UniformBuffer {
-                dynamic: false,
-                min_binding_size: None,
-            },
-            count: None,
-        }],
-        label: Some("uniform_bind_group_layout"),
-    });
-
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
-        }],
-        label: Some("uniform_bind_group"),
-    });
-
-    Target {
-        bind_group_layout,
-        bind_group,
-    }
-}
-
-fn create_texture_target(device: &wgpu::Device, diffuse_texture: &texture::Texture) -> Target {
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::SampledTexture {
-                    multisampled: false,
-                    dimension: wgpu::TextureViewDimension::D2,
-                    component_type: wgpu::TextureComponentType::Uint,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::Sampler { comparison: false },
-                count: None,
-            },
-        ],
-        label: Some("texture_bind_group_layout"),
-    });
-
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-            },
-        ],
-        label: Some("diffuse_bind_group"),
-    });
-
-    Target {
-        bind_group_layout,
-        bind_group,
+    pub fn queue_uniforms(&mut self, queue: &wgpu::Queue) {
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[self.uniforms]));
     }
 }

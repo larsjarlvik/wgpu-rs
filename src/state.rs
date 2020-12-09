@@ -10,9 +10,9 @@ pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    sc_desc: wgpu::SwapChainDescriptor,
+    swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    render_pipeline: default_render_pipeline::RenderPipeline,
+    pipelines: Vec<default_render_pipeline::RenderPipeline>,
     camera: camera::Camera,
     camera_controller: camera_controller::CameraController,
     model: model::Model,
@@ -67,35 +67,55 @@ impl State {
             .unwrap();
 
         // Swap chain
-        let sc_desc = wgpu::SwapChainDescriptor {
+        let swap_chain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
         };
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
-        // Camera
-        let camera = camera::Camera::new(sc_desc.width as f32 / sc_desc.height as f32);
+        let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
         // Texture
-        let diffuse_bytes = include_bytes!("./textures/texture.png");
-        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+        let default_texture = texture::Texture::from_bytes(
+            &device,
+            &queue,
+            include_bytes!("./textures/texture.png"),
+            "happy-tree.png",
+        )
+        .unwrap();
 
-        // Render pipeline
-        let render_pipeline = default_render_pipeline::RenderPipeline::new(&device, &diffuse_texture);
+        let brdf_texture = texture::Texture::from_bytes(
+            &device,
+            &queue,
+            include_bytes!("./textures/brdf_lut.png"),
+            "brdf_lut",
+        )
+        .unwrap();
+
+        // Render pipelines
+        let mut pipelines = Vec::new();
+        let mut pipeline1 = default_render_pipeline::RenderPipeline::new(&device, &default_texture);
+        pipeline1.uniforms.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x:-0.5, y: 0.0, z: 0.0 }).into();
+        pipelines.push(pipeline1);
+        let mut pipeline2 = default_render_pipeline::RenderPipeline::new(&device, &brdf_texture);
+        pipeline2.uniforms.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.5, y: 0.0, z:-0.5 }).into();
+        pipelines.push(pipeline2);
+
         let camera_controller = camera_controller::CameraController::new(0.2);
         let model = model::Model::new(&device);
+
+        // Camera
+        let camera = camera::Camera::new(swap_chain_desc.width as f32 / swap_chain_desc.height as f32);
 
         Self {
             surface,
             device,
             queue,
-            sc_desc,
             swap_chain,
+            swap_chain_desc,
             size,
-            render_pipeline,
+            pipelines,
             camera,
             camera_controller,
             model,
@@ -104,10 +124,10 @@ impl State {
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
-        self.sc_desc.width = new_size.width;
-        self.sc_desc.height = new_size.height;
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
-        self.camera = camera::Camera::new(self.sc_desc.width as f32 / self.sc_desc.height as f32);
+        self.swap_chain_desc.width = new_size.width;
+        self.swap_chain_desc.height = new_size.height;
+        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
+        self.camera = camera::Camera::new(self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32);
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -116,14 +136,12 @@ impl State {
 
     pub fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-        self.render_pipeline
-            .uniforms
-            .set(self.camera.build_view_projection_matrix().into());
-        self.queue.write_buffer(
-            &self.render_pipeline.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[self.render_pipeline.uniforms]),
-        );
+
+        let view_proj = self.camera.build_view_projection_matrix().into();
+        for i in 0..2 {
+            self.pipelines[i].uniforms.view_proj = view_proj;
+            self.pipelines[i].queue_uniforms(&self.queue);
+        }
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -150,12 +168,14 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline.render_pipeline);
-            render_pass.set_bind_group(0, &self.render_pipeline.texture_target.bind_group, &[]);
-            render_pass.set_bind_group(1, &self.render_pipeline.uniform_target.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.model.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.model.index_buffer.slice(..));
-            render_pass.draw_indexed(0..self.model.num_indices, 0, 1..2);
+            for pipeline in &self.pipelines {
+                render_pass.set_pipeline(&pipeline.render_pipeline);
+                render_pass.set_bind_group(0, &pipeline.texture, &[]);
+                render_pass.set_bind_group(1, &pipeline.uniform_bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.model.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(self.model.index_buffer.slice(..));
+                render_pass.draw_indexed(0..self.model.num_indices, 0, 1..2);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

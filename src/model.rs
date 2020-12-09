@@ -1,5 +1,5 @@
-use wgpu::util::DeviceExt;
 use crate::vertex::*;
+use wgpu::util::DeviceExt;
 
 #[rustfmt::skip]
 const VERTICES: &[Vertex] = &[
@@ -40,7 +40,7 @@ impl Model {
         Self {
             vertex_buffer,
             index_buffer,
-            num_indices
+            num_indices,
         }
     }
 }

@@ -1,37 +1,13 @@
-use crate::texture;
 use crate::vertex;
-use cgmath::SquareMatrix;
-use wgpu::util::DeviceExt;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Uniforms {
-    pub view_proj: [[f32; 4]; 4],
-    pub transform: [[f32; 4]; 4],
-}
 
 pub struct RenderPipeline {
     pub render_pipeline: wgpu::RenderPipeline,
-    pub uniform_bind_group: wgpu::BindGroup,
-    pub texture: wgpu::BindGroup,
-    pub uniforms: Uniforms,
-    texture_bind_group_layout: wgpu::BindGroupLayout,
-    uniform_buffer: wgpu::Buffer,
+    pub texture_bind_group_layout: wgpu::BindGroupLayout,
+    pub uniform_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl RenderPipeline {
-    pub fn new(device: &wgpu::Device, diffuse_texture: &texture::Texture) -> Self {
-        let uniforms = Uniforms {
-            view_proj: cgmath::Matrix4::identity().into(),
-            transform: cgmath::Matrix4::identity().into(),
-        };
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniforms]),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
-
+    pub fn new(device: &wgpu::Device) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -42,14 +18,6 @@ impl RenderPipeline {
                     min_binding_size: None,
                 },
                 count: None,
-            }],
-        });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("uniform_bind_group"),
-            layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
             }],
         });
 
@@ -81,23 +49,8 @@ impl RenderPipeline {
             push_constant_ranges: &[],
         });
 
-        let texture = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Diffuse Texture"),
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-        });
-
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("shaders-compiled/default.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("shaders-compiled/default.frag.spv"));
+        let vs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/default.vert.spv"));
+        let fs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/default.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -136,15 +89,8 @@ impl RenderPipeline {
 
         RenderPipeline {
             render_pipeline,
+            uniform_bind_group_layout,
             texture_bind_group_layout,
-            uniform_bind_group,
-            uniform_buffer,
-            uniforms,
-            texture,
         }
-    }
-
-    pub fn queue_uniforms(&mut self, queue: &wgpu::Queue) {
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[self.uniforms]));
     }
 }

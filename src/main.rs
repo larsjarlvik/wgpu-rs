@@ -4,11 +4,15 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+mod pipeline {
+    pub mod render;
+    pub mod uniform;
+    pub mod texture;
+}
+mod drawable;
 mod camera;
 mod camera_controller;
-mod default_render_pipeline;
 mod state;
-mod texture;
 mod vertex;
 mod model;
 pub use state::*;

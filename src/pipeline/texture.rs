@@ -1,19 +1,21 @@
+use std::io::BufReader;
+use std::fs::File;
 use image::GenericImageView;
 use anyhow::*;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
-    pub sampler: wgpu::Sampler,
 }
 
 impl Texture {
-    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: &str) -> Result<Self> {
-        let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, Some(label))
+    pub fn load_image(path: &str) -> Result<image::DynamicImage> {
+        let file = File::open(path).expect("Failed to load image!");
+        let reader = BufReader::new(file);
+        Ok(image::load(reader, image::ImageFormat::Png)?)
     }
 
-    pub fn from_image(device: &wgpu::Device, queue: &wgpu::Queue, img: &image::DynamicImage, label: Option<&str>) -> Result<Self> {
+    pub fn from_image(device: &wgpu::Device, queue: &wgpu::Queue, img: &image::DynamicImage) -> Result<Self> {
         let rgba = img.as_rgba8().unwrap();
         let dimensions = img.dimensions();
 
@@ -23,7 +25,7 @@ impl Texture {
             depth: 1,
         };
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label,
+            label: Some("texture"),
             size,
             mip_level_count: 1,
             sample_count: 1,
@@ -48,20 +50,26 @@ impl Texture {
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         Ok(Self {
             texture,
             view,
-            sampler,
+        })
+    }
+
+    pub fn create_texture_bind_group(&self, device: &wgpu::Device, sampler: &wgpu::Sampler, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Diffuse Texture"),
+            layout: &layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
         })
     }
 }

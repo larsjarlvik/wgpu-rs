@@ -1,8 +1,7 @@
 use crate::camera;
 use crate::camera_controller;
-use crate::default_render_pipeline;
-use crate::model;
-use crate::texture;
+use crate::drawable::Drawable;
+use crate::pipeline::*;
 use crate::vertex::*;
 use winit::{event::*, window::Window};
 
@@ -12,10 +11,10 @@ pub struct State {
     queue: wgpu::Queue,
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    pipelines: Vec<default_render_pipeline::RenderPipeline>,
+    render_pipeline: render::RenderPipeline,
+    drawables: Vec<Drawable>,
     camera: camera::Camera,
     camera_controller: camera_controller::CameraController,
-    model: model::Model,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
@@ -76,36 +75,33 @@ impl State {
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
-        // Texture
-        let default_texture = texture::Texture::from_bytes(
-            &device,
-            &queue,
-            include_bytes!("./textures/texture.png"),
-            "happy-tree.png",
-        )
-        .unwrap();
+        // Sampler
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
 
-        let brdf_texture = texture::Texture::from_bytes(
-            &device,
-            &queue,
-            include_bytes!("./textures/brdf_lut.png"),
-            "brdf_lut",
-        )
-        .unwrap();
+        // Drawing
+        let render_pipeline = render::RenderPipeline::new(&device);
+        let mut drawables = Vec::new();
 
-        // Render pipelines
-        let mut pipelines = Vec::new();
-        let mut pipeline1 = default_render_pipeline::RenderPipeline::new(&device, &default_texture);
-        pipeline1.uniforms.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x:-0.5, y: 0.0, z: 0.0 }).into();
-        pipelines.push(pipeline1);
-        let mut pipeline2 = default_render_pipeline::RenderPipeline::new(&device, &brdf_texture);
-        pipeline2.uniforms.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.5, y: 0.0, z:-0.5 }).into();
-        pipelines.push(pipeline2);
+        let t1 = texture::Texture::load_image("./textures/texture.png").unwrap();
+        let mut d1 = Drawable::new(&device, &render_pipeline, &queue, &sampler, &t1);
+        d1.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -0.5, y: 0.0, z: 0.0 }).into();
+        drawables.push(d1);
 
-        let camera_controller = camera_controller::CameraController::new(0.2);
-        let model = model::Model::new(&device);
+        let t2 = texture::Texture::load_image("./textures/brdf_lut.png").unwrap();
+        let mut d2 = Drawable::new(&device, &render_pipeline, &queue, &sampler, &t2);
+        d2.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.5, y: 0.0, z: 0.0 }).into();
+        drawables.push(d2);
 
         // Camera
+        let camera_controller = camera_controller::CameraController::new(0.2);
         let camera = camera::Camera::new(swap_chain_desc.width as f32 / swap_chain_desc.height as f32);
 
         Self {
@@ -115,10 +111,10 @@ impl State {
             swap_chain,
             swap_chain_desc,
             size,
-            pipelines,
+            render_pipeline,
+            drawables,
             camera,
             camera_controller,
-            model,
         }
     }
 
@@ -139,8 +135,12 @@ impl State {
 
         let view_proj = self.camera.build_view_projection_matrix().into();
         for i in 0..2 {
-            self.pipelines[i].uniforms.view_proj = view_proj;
-            self.pipelines[i].queue_uniforms(&self.queue);
+            self.drawables[i].uniforms.data.view_proj = view_proj;
+            self.queue.write_buffer(
+                &self.drawables[i].uniforms.buffer,
+                0,
+                bytemuck::cast_slice(&[self.drawables[i].uniforms.data]),
+            );
         }
     }
 
@@ -168,13 +168,13 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            for pipeline in &self.pipelines {
-                render_pass.set_pipeline(&pipeline.render_pipeline);
-                render_pass.set_bind_group(0, &pipeline.texture, &[]);
-                render_pass.set_bind_group(1, &pipeline.uniform_bind_group, &[]);
-                render_pass.set_vertex_buffer(0, self.model.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(self.model.index_buffer.slice(..));
-                render_pass.draw_indexed(0..self.model.num_indices, 0, 1..2);
+            render_pass.set_pipeline(&self.render_pipeline.render_pipeline);
+            for drawable in &self.drawables {
+                render_pass.set_bind_group(0, &drawable.texture_bind_group, &[]);
+                render_pass.set_bind_group(1, &drawable.uniforms.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, drawable.model.vertex_buffer.slice(..));
+                render_pass.set_index_buffer(drawable.model.index_buffer.slice(..));
+                render_pass.draw_indexed(0..drawable.model.num_indices, 0, 1..2);
             }
         }
 

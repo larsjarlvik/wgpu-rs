@@ -1,6 +1,6 @@
+use crate::state::texture::Texture;
 use crate::camera;
 use crate::camera_controller;
-use crate::drawable::Drawable;
 use crate::pipeline::*;
 use crate::vertex::*;
 use winit::{event::*, window::Window};
@@ -12,9 +12,10 @@ pub struct State {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     render_pipeline: render::RenderPipeline,
-    drawables: Vec<Drawable>,
+    drawables: Vec<drawable::Drawable>,
     camera: camera::Camera,
     camera_controller: camera_controller::CameraController,
+    depth_texture: Texture,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
@@ -86,19 +87,30 @@ impl State {
             ..Default::default()
         });
 
+        // Depth sampler
+        let depth_texture = texture::Texture::create_depth_texture(&device, &swap_chain_desc);
+
         // Drawing
         let render_pipeline = render::RenderPipeline::new(&device);
         let mut drawables = Vec::new();
-
-        let t1 = texture::Texture::load_image("./textures/texture.png").unwrap();
-        let mut d1 = Drawable::new(&device, &render_pipeline, &queue, &sampler, &t1);
-        d1.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -0.5, y: 0.0, z: 0.0 }).into();
-        drawables.push(d1);
-
-        let t2 = texture::Texture::load_image("./textures/brdf_lut.png").unwrap();
-        let mut d2 = Drawable::new(&device, &render_pipeline, &queue, &sampler, &t2);
-        d2.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.5, y: 0.0, z: 0.0 }).into();
-        drawables.push(d2);
+        {
+            let t = texture::Texture::load_image("./textures/texture.png").unwrap();
+            let mut d = drawable::Drawable::new(&device, &render_pipeline, &queue, &sampler, &t);
+            d.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -0.5, y: 0.0, z: 0.0 }).into();
+            drawables.push(d);
+        }
+        {
+            let t = texture::Texture::load_image("./textures/texture.png").unwrap();
+            let mut d = drawable::Drawable::new(&device, &render_pipeline, &queue, &sampler, &t);
+            d.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.0, y: 0.0, z: -0.5 }).into();
+            drawables.push(d);
+        }
+        {
+            let t = texture::Texture::load_image("./textures/texture.png").unwrap();
+            let mut d = drawable::Drawable::new(&device, &render_pipeline, &queue, &sampler, &t);
+            d.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.5, y: 0.0, z: 0.0 }).into();
+            drawables.push(d);
+        }
 
         // Camera
         let camera_controller = camera_controller::CameraController::new(0.2);
@@ -111,6 +123,7 @@ impl State {
             swap_chain,
             swap_chain_desc,
             size,
+            depth_texture,
             render_pipeline,
             drawables,
             camera,
@@ -124,6 +137,7 @@ impl State {
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
         self.camera = camera::Camera::new(self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32);
+        self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.swap_chain_desc);
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -134,13 +148,9 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera);
 
         let view_proj = self.camera.build_view_projection_matrix().into();
-        for i in 0..2 {
-            self.drawables[i].uniforms.data.view_proj = view_proj;
-            self.queue.write_buffer(
-                &self.drawables[i].uniforms.buffer,
-                0,
-                bytemuck::cast_slice(&[self.drawables[i].uniforms.data]),
-            );
+        for (_, drawable) in self.drawables.iter_mut().enumerate() {
+            drawable.uniforms.data.view_proj = view_proj;
+            self.queue.write_buffer(&drawable.uniforms.buffer, 0, bytemuck::cast_slice(&[drawable.uniforms.data]));
         }
     }
 
@@ -165,7 +175,14 @@ impl State {
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline.render_pipeline);

@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use futures::executor::block_on;
 use winit::{
     event::*,
@@ -8,8 +10,8 @@ mod pipeline {
     pub mod render;
     pub mod uniform;
     pub mod texture;
+    pub mod drawable;
 }
-mod drawable;
 mod camera;
 mod camera_controller;
 mod state;

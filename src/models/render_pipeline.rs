@@ -1,9 +1,18 @@
-use crate::vertex;
+use crate::models::*;
+use cgmath::SquareMatrix;
+
+pub struct Primitive {
+    pub texture_bind_group: wgpu::BindGroup,
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_elements: u32,
+}
 
 pub struct RenderPipeline {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
     pub uniform_bind_group_layout: wgpu::BindGroupLayout,
+    pub uniforms: data::UniformBuffer,
 }
 
 impl RenderPipeline {
@@ -84,18 +93,27 @@ impl RenderPipeline {
                 stencil: wgpu::StencilStateDescriptor::default(),
             }),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[vertex::Vertex::desc()],
+                index_format: wgpu::IndexFormat::Uint32,
+                vertex_buffers: &[data::Vertex::desc(), data::Instance::desc()],
             },
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
 
+        let uniforms = data::UniformBuffer::new(
+            &device,
+            &uniform_bind_group_layout,
+            data::Uniforms {
+                view_proj: cgmath::Matrix4::identity().into(),
+            },
+        );
+
         RenderPipeline {
             render_pipeline,
             uniform_bind_group_layout,
             texture_bind_group_layout,
+            uniforms,
         }
     }
 }

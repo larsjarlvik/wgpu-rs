@@ -1,8 +1,8 @@
-use crate::state::texture::Texture;
 use crate::camera;
+use crate::models;
 use crate::camera_controller;
-use crate::pipeline::*;
-use crate::vertex::*;
+use crate::texture;
+use rand::prelude::*;
 use winit::{event::*, window::Window};
 
 pub struct State {
@@ -11,33 +11,11 @@ pub struct State {
     queue: wgpu::Queue,
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    render_pipeline: render::RenderPipeline,
-    drawables: Vec<drawable::Drawable>,
     camera: camera::Camera,
     camera_controller: camera_controller::CameraController,
-    depth_texture: Texture,
+    depth_texture: texture::Texture,
+    models: models::Models,
     pub size: winit::dpi::PhysicalSize<u32>,
-}
-
-impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
-                },
-            ],
-        }
-    }
 }
 
 impl State {
@@ -72,45 +50,40 @@ impl State {
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
-        // Sampler
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
 
         // Depth sampler
         let depth_texture = texture::Texture::create_depth_texture(&device, &swap_chain_desc);
 
         // Drawing
-        let render_pipeline = render::RenderPipeline::new(&device);
-        let mut drawables = Vec::new();
-        {
-            let t = texture::Texture::load_image("./textures/texture.png").unwrap();
-            let mut d = drawable::Drawable::new(&device, &render_pipeline, &queue, &sampler, &t);
-            d.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: -0.5, y: 0.0, z: 0.0 }).into();
-            drawables.push(d);
+        let mut models = models::Models::new(&device);
+        models.load_model(&device, &queue, "box", "box.glb");
+        models.load_model(&device, &queue, "sphere", "sphere.glb");
+
+        let mut rng = rand::thread_rng();
+        for _ in 0..1000 {
+            models.add_instance("box", models::data::Instance {
+                transform: cgmath::Matrix4::from_translation(cgmath::Vector3 {
+                    x: (rng.gen::<f32>() - 0.5) * 100.0,
+                    y: (rng.gen::<f32>() - 0.5) * 100.0,
+                    z: (rng.gen::<f32>() - 0.5) * 100.0,
+                })
+                .into(),
+            });
+            models.add_instance("sphere", models::data::Instance {
+                transform: cgmath::Matrix4::from_translation(cgmath::Vector3 {
+                    x: (rng.gen::<f32>() - 0.5) * 100.0,
+                    y: (rng.gen::<f32>() - 0.5) * 100.0,
+                    z: (rng.gen::<f32>() - 0.5) * 100.0,
+                })
+                .into(),
+            });
         }
-        {
-            let t = texture::Texture::load_image("./textures/texture.png").unwrap();
-            let mut d = drawable::Drawable::new(&device, &render_pipeline, &queue, &sampler, &t);
-            d.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.0, y: 0.0, z: -0.5 }).into();
-            drawables.push(d);
-        }
-        {
-            let t = texture::Texture::load_image("./textures/texture.png").unwrap();
-            let mut d = drawable::Drawable::new(&device, &render_pipeline, &queue, &sampler, &t);
-            d.uniforms.data.transform = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: 0.5, y: 0.0, z: 0.0 }).into();
-            drawables.push(d);
-        }
+        models.write_instance_buffers(&device, "box");
+        models.write_instance_buffers(&device, "sphere");
 
         // Camera
         let camera_controller = camera_controller::CameraController::new(0.2);
@@ -124,8 +97,7 @@ impl State {
             swap_chain_desc,
             size,
             depth_texture,
-            render_pipeline,
-            drawables,
+            models,
             camera,
             camera_controller,
         }
@@ -146,12 +118,8 @@ impl State {
 
     pub fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
-
         let view_proj = self.camera.build_view_projection_matrix().into();
-        for (_, drawable) in self.drawables.iter_mut().enumerate() {
-            drawable.uniforms.data.view_proj = view_proj;
-            self.queue.write_buffer(&drawable.uniforms.buffer, 0, bytemuck::cast_slice(&[drawable.uniforms.data]));
-        }
+        self.models.set_uniforms(&self.queue, models::data::Uniforms { view_proj });
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -185,14 +153,7 @@ impl State {
                 }),
             });
 
-            render_pass.set_pipeline(&self.render_pipeline.render_pipeline);
-            for drawable in &self.drawables {
-                render_pass.set_bind_group(0, &drawable.texture_bind_group, &[]);
-                render_pass.set_bind_group(1, &drawable.uniforms.bind_group, &[]);
-                render_pass.set_vertex_buffer(0, drawable.model.vertex_buffer.slice(..));
-                render_pass.set_index_buffer(drawable.model.index_buffer.slice(..));
-                render_pass.draw_indexed(0..drawable.model.num_indices, 0, 1..2);
-            }
+            &self.models.render(&mut render_pass);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

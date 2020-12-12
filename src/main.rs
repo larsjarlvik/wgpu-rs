@@ -6,17 +6,11 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-mod pipeline {
-    pub mod render;
-    pub mod uniform;
-    pub mod texture;
-    pub mod drawable;
-}
+mod models;
 mod camera;
 mod camera_controller;
 mod state;
-mod vertex;
-mod model;
+mod texture;
 pub use state::*;
 
 fn main() {

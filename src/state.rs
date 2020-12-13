@@ -66,7 +66,7 @@ impl State {
         let mut rng = rand::thread_rng();
         let mut models = models::Models::new(&device);
         models.load_model(&device, &queue, "pine", "pine.glb");
-        for _ in 0..10000 {
+        for _ in 0..100000 {
             models.add_instance(
                 "pine",
                 models::data::Instance {

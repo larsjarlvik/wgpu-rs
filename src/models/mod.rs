@@ -5,33 +5,38 @@ mod mesh;
 mod render_pipeline;
 
 pub struct Model {
-    pub primitives: Vec<render_pipeline::Primitive>,
-    pub instances: data::InstanceBuffer,
+    primitives: Vec<render_pipeline::Primitive>,
+    instances: data::InstanceBuffer,
 }
 
 pub struct Models {
-    pub render_pipeline: render_pipeline::RenderPipeline,
-    pub models: HashMap<String, Model>,
-    pub sampler: wgpu::Sampler,
+    render_pipeline: render_pipeline::RenderPipeline,
+    models: HashMap<String, Model>,
+    sampler: wgpu::Sampler,
+    pub render_bundle: wgpu::RenderBundle,
 }
 
 impl Models {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let render_pipeline = render_pipeline::RenderPipeline::new(&device);
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &swap_chain_desc);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
+
+        let models = HashMap::new();
+        let render_bundle = create_bundle(&device, &swap_chain_desc, &render_pipeline, &models);
 
         Self {
             sampler,
             render_pipeline,
-            models: HashMap::new(),
+            models,
+            render_bundle,
         }
     }
 
@@ -64,6 +69,10 @@ impl Models {
         });
     }
 
+    pub fn refresh_render_bundle(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) {
+        self.render_bundle = create_bundle(&device, &swap_chain_desc, &self.render_pipeline, &self.models);
+    }
+
     pub fn set_uniforms(&mut self, queue: &wgpu::Queue, uniforms: data::Uniforms) {
         self.render_pipeline.uniforms.data = uniforms;
         queue.write_buffer(
@@ -72,19 +81,30 @@ impl Models {
             bytemuck::cast_slice(&[self.render_pipeline.uniforms.data]),
         );
     }
+}
 
-    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
-        render_pass.set_pipeline(&self.render_pipeline.render_pipeline);
-        render_pass.set_bind_group(1, &self.render_pipeline.uniforms.bind_group, &[]);
+pub fn create_bundle(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, render_pipeline: &render_pipeline::RenderPipeline, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
+    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+        label: None,
+        color_formats: &[swap_chain_desc.format],
+        depth_stencil_format: Some(wgpu::TextureFormat::Depth32Float),
+        sample_count: 1,
+    });
 
-        for model in self.models.values() {
-            for mesh in &model.primitives {
-                render_pass.set_bind_group(0, &mesh.texture_bind_group, &[]);
-                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                render_pass.set_vertex_buffer(1, model.instances.buffer.slice(..));
-                render_pass.set_index_buffer(mesh.index_buffer.slice(..));
-                render_pass.draw_indexed(0..mesh.num_elements, 0, 0..model.instances.data.len() as _);
-            }
+    encoder.set_pipeline(&render_pipeline.render_pipeline);
+    encoder.set_bind_group(1, &render_pipeline.uniforms.bind_group, &[]);
+
+    for model in models.values() {
+        for mesh in &model.primitives {
+            encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
+            encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
+            encoder.set_index_buffer(mesh.index_buffer.slice(..));
+            encoder.draw_indexed(0..mesh.num_elements, 0, 0..model.instances.data.len() as _);
         }
     }
+
+    encoder.finish(&wgpu::RenderBundleDescriptor {
+        label: Some("models"),
+    })
 }

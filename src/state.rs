@@ -30,7 +30,7 @@ impl State {
                 compatible_surface: Some(&surface),
             })
             .await
-            .unwrap();
+            .expect("Failed to request adapter");
 
         let (device, queue) = adapter
             .request_device(
@@ -42,7 +42,7 @@ impl State {
                 None,
             )
             .await
-            .unwrap();
+            .expect("Failed to request device");
 
         // Swap chain
         let swap_chain_desc = wgpu::SwapChainDescriptor {
@@ -58,36 +58,31 @@ impl State {
         // Depth sampler
         let depth_texture = texture::Texture::create_depth_texture(&device, &swap_chain_desc);
 
-        // Drawing
-        let mut models = models::Models::new(&device);
-        models.load_model(&device, &queue, "box", "box.glb");
-        models.load_model(&device, &queue, "sphere", "sphere.glb");
-
-        let mut rng = rand::thread_rng();
-        for _ in 0..1000 {
-            models.add_instance("box", models::data::Instance {
-                transform: cgmath::Matrix4::from_translation(cgmath::Vector3 {
-                    x: (rng.gen::<f32>() - 0.5) * 100.0,
-                    y: (rng.gen::<f32>() - 0.5) * 100.0,
-                    z: (rng.gen::<f32>() - 0.5) * 100.0,
-                })
-                .into(),
-            });
-            models.add_instance("sphere", models::data::Instance {
-                transform: cgmath::Matrix4::from_translation(cgmath::Vector3 {
-                    x: (rng.gen::<f32>() - 0.5) * 100.0,
-                    y: (rng.gen::<f32>() - 0.5) * 100.0,
-                    z: (rng.gen::<f32>() - 0.5) * 100.0,
-                })
-                .into(),
-            });
-        }
-        models.write_instance_buffers(&device, "box");
-        models.write_instance_buffers(&device, "sphere");
-
         // Camera
         let camera_controller = camera_controller::CameraController::new(0.2);
         let camera = camera::Camera::new(swap_chain_desc.width as f32 / swap_chain_desc.height as f32);
+
+        // Drawing
+        let mut rng = rand::thread_rng();
+        let mut models = models::Models::new(&device, &swap_chain_desc);
+        models.load_model(&device, &queue, "pine", "pine.glb");
+        for _ in 0..1000 {
+            models.add_instance(
+                "pine",
+                models::data::Instance {
+                    transform: {
+                        cgmath::Matrix4::from_translation(cgmath::Vector3 {
+                            x: (rng.gen::<f32>() - 0.5) * 100.0,
+                            y: (rng.gen::<f32>() - 0.5) * 100.0,
+                            z: (rng.gen::<f32>() - 0.5) * 100.0,
+                        }) * cgmath::Matrix4::from_scale(rng.gen::<f32>() * 2.0 + 0.5)
+                    }
+                    .into(),
+                },
+            );
+        }
+        models.write_instance_buffers(&device, "pine");
+        models.refresh_render_bundle(&device, &swap_chain_desc);
 
         Self {
             surface,
@@ -124,36 +119,32 @@ impl State {
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
-
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.02,
-                            g: 0.02,
-                            b: 0.02,
-                            a: 1.0,
+            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &frame.view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.02,
+                                g: 0.02,
+                                b: 0.02,
+                                a: 1.0,
+                            }),
+                            store: true,
+                        },
+                    }],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                        attachment: &self.depth_texture.view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: true,
                         }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
+                        stencil_ops: None,
                     }),
-                    stencil_ops: None,
-                }),
-            });
-
-            &self.models.render(&mut render_pass);
+                })
+                .execute_bundles(std::iter::once(&self.models.render_bundle));
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

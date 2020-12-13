@@ -19,7 +19,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(aspect: f32) -> Self {
         Camera {
-            eye: (0.0, 0.0, 5.0).into(),
+            eye: (0.0, 50.0, 50.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: cgmath::Vector3::unit_y(),
             aspect: aspect,

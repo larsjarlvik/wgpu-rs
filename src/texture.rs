@@ -1,3 +1,5 @@
+use crate::settings;
+
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -14,9 +16,9 @@ impl Texture {
             label: Some("Depth Texture"),
             size,
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count: settings::SAMPLE_COUNT,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
+            format: settings::DEPTH_TEXTURE_FORMAT,
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
         };
         let texture = device.create_texture(&desc);
@@ -45,5 +47,29 @@ impl Texture {
                 },
             ],
         })
+    }
+
+    pub fn create_multisampled_framebuffer(
+        device: &wgpu::Device,
+        swap_chain_desc: &wgpu::SwapChainDescriptor
+    ) -> wgpu::TextureView {
+        let multisampled_texture_extent = wgpu::Extent3d {
+            width: swap_chain_desc.width,
+            height: swap_chain_desc.height,
+            depth: 1,
+        };
+        let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+            size: multisampled_texture_extent,
+            mip_level_count: 1,
+            sample_count: settings::SAMPLE_COUNT,
+            dimension: wgpu::TextureDimension::D2,
+            format: swap_chain_desc.format,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            label: None,
+        };
+
+        device
+            .create_texture(multisampled_frame_descriptor)
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 }

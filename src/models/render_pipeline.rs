@@ -1,4 +1,5 @@
 use crate::models::*;
+use crate::settings;
 use cgmath::SquareMatrix;
 
 pub struct Primitive {
@@ -16,7 +17,7 @@ pub struct RenderPipeline {
 }
 
 impl RenderPipeline {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -77,9 +78,9 @@ impl RenderPipeline {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[swap_chain_desc.format.into()],
+            color_states: &[settings::COLOR_TEXTURE_FORMAT.into()],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: wgpu::TextureFormat::Depth32Float,
+                format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilStateDescriptor::default(),
@@ -88,7 +89,7 @@ impl RenderPipeline {
                 index_format: wgpu::IndexFormat::Uint32,
                 vertex_buffers: &[data::Vertex::desc(), data::Instance::desc()],
             },
-            sample_count: 1,
+            sample_count: settings::SAMPLE_COUNT,
             sample_mask: !0,
             alpha_to_coverage_enabled: true,
         });

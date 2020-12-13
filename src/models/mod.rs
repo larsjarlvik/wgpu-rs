@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
+use crate::settings;
 pub mod data;
 mod mesh;
 mod render_pipeline;
@@ -17,8 +18,8 @@ pub struct Models {
 }
 
 impl Models {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
-        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &swap_chain_desc);
+    pub fn new(device: &wgpu::Device) -> Self {
+        let render_pipeline = render_pipeline::RenderPipeline::new(&device);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -30,7 +31,7 @@ impl Models {
         });
 
         let models = HashMap::new();
-        let render_bundle = create_bundle(&device, &swap_chain_desc, &render_pipeline, &models);
+        let render_bundle = create_bundle(&device, &render_pipeline, &models);
 
         Self {
             sampler,
@@ -69,8 +70,8 @@ impl Models {
         });
     }
 
-    pub fn refresh_render_bundle(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) {
-        self.render_bundle = create_bundle(&device, &swap_chain_desc, &self.render_pipeline, &self.models);
+    pub fn refresh_render_bundle(&mut self, device: &wgpu::Device) {
+        self.render_bundle = create_bundle(&device, &self.render_pipeline, &self.models);
     }
 
     pub fn set_uniforms(&mut self, queue: &wgpu::Queue, uniforms: data::Uniforms) {
@@ -83,12 +84,12 @@ impl Models {
     }
 }
 
-pub fn create_bundle(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, render_pipeline: &render_pipeline::RenderPipeline, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
+pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::RenderPipeline, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
-        color_formats: &[swap_chain_desc.format],
-        depth_stencil_format: Some(wgpu::TextureFormat::Depth32Float),
-        sample_count: 1,
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT],
+        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+        sample_count: settings::SAMPLE_COUNT,
     });
 
     encoder.set_pipeline(&render_pipeline.render_pipeline);

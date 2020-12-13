@@ -11,6 +11,7 @@ mod camera;
 mod camera_controller;
 mod state;
 mod texture;
+mod settings;
 pub use state::*;
 
 fn main() {

@@ -1,4 +1,5 @@
 use crate::camera;
+use crate::settings;
 use crate::models;
 use crate::camera_controller;
 use crate::texture;
@@ -15,6 +16,7 @@ pub struct State {
     camera_controller: camera_controller::CameraController,
     depth_texture: texture::Texture,
     models: models::Models,
+    multisampled_framebuffer: wgpu::TextureView,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
@@ -47,16 +49,14 @@ impl State {
         // Swap chain
         let swap_chain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: settings::COLOR_TEXTURE_FORMAT,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Immediate,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
-
-
-        // Depth sampler
         let depth_texture = texture::Texture::create_depth_texture(&device, &swap_chain_desc);
+        let multisampled_framebuffer = texture::Texture::create_multisampled_framebuffer(&device, &swap_chain_desc);
 
         // Camera
         let camera_controller = camera_controller::CameraController::new(0.2);
@@ -64,17 +64,17 @@ impl State {
 
         // Drawing
         let mut rng = rand::thread_rng();
-        let mut models = models::Models::new(&device, &swap_chain_desc);
+        let mut models = models::Models::new(&device);
         models.load_model(&device, &queue, "pine", "pine.glb");
-        for _ in 0..1000 {
+        for _ in 0..10000 {
             models.add_instance(
                 "pine",
                 models::data::Instance {
                     transform: {
                         cgmath::Matrix4::from_translation(cgmath::Vector3 {
-                            x: (rng.gen::<f32>() - 0.5) * 100.0,
-                            y: (rng.gen::<f32>() - 0.5) * 100.0,
-                            z: (rng.gen::<f32>() - 0.5) * 100.0,
+                            x: (rng.gen::<f32>() - 0.5) * 500.0,
+                            y: 0.0,
+                            z: (rng.gen::<f32>() - 0.5) * 500.0,
                         }) * cgmath::Matrix4::from_scale(rng.gen::<f32>() * 2.0 + 0.5)
                     }
                     .into(),
@@ -82,7 +82,7 @@ impl State {
             );
         }
         models.write_instance_buffers(&device, "pine");
-        models.refresh_render_bundle(&device, &swap_chain_desc);
+        models.refresh_render_bundle(&device);
 
         Self {
             surface,
@@ -92,9 +92,10 @@ impl State {
             swap_chain_desc,
             size,
             depth_texture,
-            models,
+            multisampled_framebuffer,
             camera,
             camera_controller,
+            models,
         }
     }
 
@@ -104,6 +105,7 @@ impl State {
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
         self.camera = camera::Camera::new(self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32);
+        self.multisampled_framebuffer = texture::Texture::create_multisampled_framebuffer(&self.device, &self.swap_chain_desc);
         self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.swap_chain_desc);
     }
 
@@ -123,8 +125,8 @@ impl State {
         {
             encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &frame.view,
-                        resolve_target: None,
+                        attachment: &self.multisampled_framebuffer,
+                        resolve_target: Some(&frame.view),
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
                                 r: 0.02,

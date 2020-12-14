@@ -10,7 +10,7 @@ mod models;
 mod camera;
 mod camera_controller;
 mod state;
-mod texture;
+mod deferred;
 mod settings;
 pub use state::*;
 

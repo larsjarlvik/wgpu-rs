@@ -54,7 +54,7 @@ impl RenderPipeline {
         });
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
+            label: Some("model_pipeline_layout"),
             bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
             push_constant_ranges: &[],
         });
@@ -62,7 +62,7 @@ impl RenderPipeline {
         let vs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/default.vert.spv"));
         let fs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/default.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("model_pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
@@ -78,7 +78,7 @@ impl RenderPipeline {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into()],
+            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -89,7 +89,7 @@ impl RenderPipeline {
                 index_format: wgpu::IndexFormat::Uint32,
                 vertex_buffers: &[data::Vertex::desc(), data::Instance::desc()],
             },
-            sample_count: settings::SAMPLE_COUNT,
+            sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: true,
         });

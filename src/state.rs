@@ -1,8 +1,7 @@
-use crate::camera;
-use crate::settings;
-use crate::models;
 use crate::camera_controller;
-use crate::texture;
+use crate::models;
+use crate::settings;
+use crate::{camera, deferred};
 use rand::prelude::*;
 use winit::{event::*, window::Window};
 
@@ -14,9 +13,8 @@ pub struct State {
     swap_chain: wgpu::SwapChain,
     camera: camera::Camera,
     camera_controller: camera_controller::CameraController,
-    depth_texture: texture::Texture,
     models: models::Models,
-    multisampled_framebuffer: wgpu::TextureView,
+    deferred_render: deferred::DeferredRender,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
@@ -55,8 +53,7 @@ impl State {
             present_mode: wgpu::PresentMode::Immediate,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
-        let depth_texture = texture::Texture::create_depth_texture(&device, &swap_chain_desc);
-        let multisampled_framebuffer = texture::Texture::create_multisampled_framebuffer(&device, &swap_chain_desc);
+        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc);
 
         // Camera
         let camera_controller = camera_controller::CameraController::new(0.2);
@@ -66,7 +63,7 @@ impl State {
         let mut rng = rand::thread_rng();
         let mut models = models::Models::new(&device);
         models.load_model(&device, &queue, "pine", "pine.glb");
-        for _ in 0..100000 {
+        for _ in 0..10000 {
             models.add_instance(
                 "pine",
                 models::data::Instance {
@@ -91,8 +88,7 @@ impl State {
             swap_chain,
             swap_chain_desc,
             size,
-            depth_texture,
-            multisampled_framebuffer,
+            deferred_render,
             camera,
             camera_controller,
             models,
@@ -105,8 +101,7 @@ impl State {
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
         self.camera = camera::Camera::new(self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32);
-        self.multisampled_framebuffer = texture::Texture::create_multisampled_framebuffer(&self.device, &self.swap_chain_desc);
-        self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.swap_chain_desc);
+        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc);
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -121,24 +116,30 @@ impl State {
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
+        let ops = wgpu::Operations {
+            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+            store: true,
+        };
+
+        // Main render pass
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &self.multisampled_framebuffer,
-                        resolve_target: Some(&frame.view),
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.02,
-                                g: 0.02,
-                                b: 0.02,
-                                a: 1.0,
-                            }),
-                            store: true,
+            encoder
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[
+                        wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &self.deferred_render.position_texture_view,
+                            resolve_target: None,
+                            ops,
                         },
-                    }],
+                        wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &self.deferred_render.base_color_texture_view,
+                            resolve_target: None,
+                            ops,
+                        },
+                    ],
                     depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                        attachment: &self.depth_texture.view,
+                        attachment: &self.deferred_render.depth_texture_view,
                         depth_ops: Some(wgpu::Operations {
                             load: wgpu::LoadOp::Clear(1.0),
                             store: true,
@@ -147,6 +148,17 @@ impl State {
                     }),
                 })
                 .execute_bundles(std::iter::once(&self.models.render_bundle));
+
+            encoder
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &frame.view,
+                        resolve_target: None,
+                        ops,
+                    }],
+                    depth_stencil_attachment: None,
+                })
+                .execute_bundles(std::iter::once(&self.deferred_render.render_bundle));
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

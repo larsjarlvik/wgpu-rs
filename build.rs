@@ -28,6 +28,4 @@ fn main() {
     }
 
     println!("DONE!");
-
 }
-

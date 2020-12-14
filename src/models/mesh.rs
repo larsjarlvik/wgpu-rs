@@ -1,18 +1,21 @@
 use crate::models::*;
-use crate::texture;
 use wgpu::util::DeviceExt;
 use wgpu_mipmap::*;
 
-pub struct Material {
-    pub name: String,
-    pub base_color_texture: texture::Texture,
+struct Texture {
+    pub texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+}
+
+struct Material {
+    base_color_texture: Texture,
 }
 
 pub struct Mesh {
     pub name: String,
-    pub vertices: Vec<data::Vertex>,
-    pub indices: Vec<u32>,
-    pub material: Material,
+    vertices: Vec<data::Vertex>,
+    indices: Vec<u32>,
+    material: Material,
 }
 
 impl Mesh {
@@ -43,7 +46,6 @@ impl Mesh {
 
             let base_color_texture = load_texture(&device, &queue, images.iter().nth(0).unwrap());
             let material = Material {
-                name: "Image".to_string(),
                 base_color_texture,
             };
 
@@ -75,10 +77,21 @@ impl Mesh {
             usage: wgpu::BufferUsage::INDEX,
         });
         let num_elements = self.indices.len() as u32;
-        let texture_bind_group =
-            self.material
-                .base_color_texture
-                .create_texture_bind_group(&device, &sampler, &render_pipeline.texture_bind_group_layout);
+
+        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Diffuse Texture"),
+            layout: &render_pipeline.texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.material.base_color_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+        });
 
         render_pipeline::Primitive {
             texture_bind_group,
@@ -89,7 +102,7 @@ impl Mesh {
     }
 }
 
-fn load_texture(device: &wgpu::Device, queue: &wgpu::Queue, image: &gltf::image::Data) -> texture::Texture {
+fn load_texture(device: &wgpu::Device, queue: &wgpu::Queue, image: &gltf::image::Data) -> Texture {
     let size = wgpu::Extent3d {
         width: image.width,
         height: image.height,
@@ -135,5 +148,5 @@ fn load_texture(device: &wgpu::Device, queue: &wgpu::Queue, image: &gltf::image:
     generator.generate(&device, &mut encoder, &texture, &texture_descriptor).unwrap();
     queue.submit(std::iter::once(encoder.finish()));
 
-    texture::Texture { texture, view }
+    Texture { texture, view }
 }

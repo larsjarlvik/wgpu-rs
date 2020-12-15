@@ -34,12 +34,14 @@ impl Mesh {
 
             let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<_>>();
             let positions = reader.read_positions().unwrap().collect::<Vec<_>>();
+            let normals = reader.read_normals().unwrap().collect::<Vec<_>>();
             let tex_coords = reader.read_tex_coords(0).unwrap().into_f32().collect::<Vec<_>>();
 
             let mut vertices = vec![];
             for i in 0..positions.len() {
                 vertices.push(data::Vertex {
                     position: positions[i],
+                    normals: normals[i],
                     tex_coords: tex_coords[i],
                 });
             }

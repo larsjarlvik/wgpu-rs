@@ -22,7 +22,7 @@ impl State {
     pub async fn new(window: &Window) -> Self {
         // Device
         let size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::BackendBit::VULKAN);
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -129,6 +129,11 @@ impl State {
                     color_attachments: &[
                         wgpu::RenderPassColorAttachmentDescriptor {
                             attachment: &self.deferred_render.position_texture_view,
+                            resolve_target: None,
+                            ops,
+                        },
+                        wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &self.deferred_render.normals_texture_view,
                             resolve_target: None,
                             ops,
                         },

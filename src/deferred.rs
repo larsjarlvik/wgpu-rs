@@ -3,6 +3,7 @@ use crate::settings;
 pub struct DeferredRender {
     pub render_bundle: wgpu::RenderBundle,
     pub position_texture_view: wgpu::TextureView,
+    pub normals_texture_view: wgpu::TextureView,
     pub base_color_texture_view: wgpu::TextureView,
     pub depth_texture_view: wgpu::TextureView,
 }
@@ -12,38 +13,12 @@ impl DeferredRender {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
+                create_bind_group_layout(0, wgpu::TextureComponentType::Float),
+                create_bind_group_layout(1, wgpu::TextureComponentType::Uint),
+                create_bind_group_layout(2, wgpu::TextureComponentType::Uint),
+                create_bind_group_layout(3, wgpu::TextureComponentType::Uint),
                 wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Float,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Uint,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Uint,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 3,
+                    binding: 4,
                     visibility: wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Sampler { comparison: false },
                     count: None,
@@ -60,12 +35,11 @@ impl DeferredRender {
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         });
-        let texture = create_render_texture(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
-        let position_texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let base_color_texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let depth_texture = create_render_texture(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
-        let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let position_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let normals_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let base_color_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let depth_texture_view = create_texture_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
 
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("texture_array"),
@@ -81,10 +55,14 @@ impl DeferredRender {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&base_color_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&normals_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&base_color_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
@@ -131,13 +109,14 @@ impl DeferredRender {
         DeferredRender {
             render_bundle,
             position_texture_view,
+            normals_texture_view,
             base_color_texture_view,
             depth_texture_view,
         }
     }
 }
 
-fn create_render_texture(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, format: wgpu::TextureFormat) -> wgpu::Texture {
+fn create_texture_view(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, format: wgpu::TextureFormat) -> wgpu::TextureView {
     let texture_extent = wgpu::Extent3d {
         width: swap_chain_desc.width,
         height: swap_chain_desc.height,
@@ -152,7 +131,21 @@ fn create_render_texture(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChai
         format: format,
         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
     };
-    device.create_texture(frame_descriptor)
+    let texture = device.create_texture(frame_descriptor);
+    texture.create_view(&wgpu::TextureViewDescriptor::default())
+}
+
+fn create_bind_group_layout(binding: u32, component_type: wgpu::TextureComponentType) -> wgpu::BindGroupLayoutEntry  {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStage::FRAGMENT,
+        ty: wgpu::BindingType::SampledTexture {
+            multisampled: false,
+            dimension: wgpu::TextureViewDimension::D2,
+            component_type,
+        },
+        count: None,
+    }
 }
 
 pub fn create_bundle(

@@ -87,7 +87,7 @@ impl Models {
 pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::RenderPipeline, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
         depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
         sample_count: 1,
     });

@@ -15,7 +15,7 @@ layout(location=2) out vec2 v_tex_coords;
 
 void main() {
     v_position = model_matrix * vec4(a_position, 1.0);
-    v_normals = a_normals;
+    v_normals = mat3(transpose(inverse(model_matrix))) * a_normals;
     v_tex_coords = a_tex_coords;
     gl_Position = u_view_proj * v_position;
 }

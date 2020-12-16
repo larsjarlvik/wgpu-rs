@@ -112,6 +112,7 @@ impl State {
         self.camera_controller.update_camera(&mut self.camera);
         let view_proj = self.camera.build_view_projection_matrix().into();
         self.models.set_uniforms(&self.queue, models::data::Uniforms { view_proj });
+        self.deferred_render.set_camera(&self.queue, self.camera.eye);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

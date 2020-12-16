@@ -1,4 +1,3 @@
-use crate::models::*;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -79,13 +78,13 @@ impl Instance {
 }
 
 pub struct UniformBuffer {
-    pub data: data::Uniforms,
+    pub data: Uniforms,
     pub buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
 }
 
 impl UniformBuffer {
-    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, data: data::Uniforms) -> Self {
+    pub fn new(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, data: Uniforms) -> Self {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform_buffer"),
             contents: bytemuck::cast_slice(&[data]),
@@ -104,12 +103,12 @@ impl UniformBuffer {
 }
 
 pub struct InstanceBuffer {
-    pub data: Vec<data::Instance>,
+    pub data: Vec<Instance>,
     pub buffer: wgpu::Buffer,
 }
 
 impl InstanceBuffer {
-    pub fn new(device: &wgpu::Device, data: Vec<data::Instance>) -> Self {
+    pub fn new(device: &wgpu::Device, data: Vec<Instance>) -> Self {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("instance_buffer"),
             contents: bytemuck::cast_slice(&data),

@@ -14,12 +14,16 @@ fn main() {
             Ok(path) => {
                 println!("cargo:rerun-if-changed={}", path.display().to_string().as_str());
 
-                Command::new("./tools/glslangValidator")
+                let result = Command::new("./tools/glslangValidator")
                     .arg("-V")
                     .arg(path.display().to_string().as_str())
                     .arg("-o")
                     .arg(path.display().to_string().replace("src\\shaders", output_dir) + ".spv")
-                    .status().unwrap();
+                    .status();
+
+                if !result.unwrap().success() {
+                    std::process::exit(-1);
+                }
             }
             Err(e) => {
                 println!("{}", e);

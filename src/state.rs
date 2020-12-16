@@ -1,7 +1,4 @@
-use crate::camera_controller;
-use crate::models;
-use crate::settings;
-use crate::{camera, deferred};
+use crate::{camera, deferred, models, settings};
 use rand::prelude::*;
 use winit::{event::*, window::Window};
 
@@ -12,7 +9,6 @@ pub struct State {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     camera: camera::Camera,
-    camera_controller: camera_controller::CameraController,
     models: models::Models,
     deferred_render: deferred::DeferredRender,
     pub size: winit::dpi::PhysicalSize<u32>,
@@ -53,15 +49,15 @@ impl State {
             present_mode: wgpu::PresentMode::Immediate,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
-        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc);
 
         // Camera
-        let camera_controller = camera_controller::CameraController::new(0.2);
-        let camera = camera::Camera::new(swap_chain_desc.width as f32 / swap_chain_desc.height as f32);
+        let camera = camera::Camera::new(&device, swap_chain_desc.width as f32 / swap_chain_desc.height as f32);
 
         // Drawing
+        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
+
         let mut rng = rand::thread_rng();
-        let mut models = models::Models::new(&device);
+        let mut models = models::Models::new(&device, &camera);
         models.load_model(&device, &queue, "pine", "pine.glb");
         for _ in 0..10000 {
             models.add_instance(
@@ -72,14 +68,15 @@ impl State {
                             x: (rng.gen::<f32>() - 0.5) * 500.0,
                             y: 0.0,
                             z: (rng.gen::<f32>() - 0.5) * 500.0,
-                        }) * cgmath::Matrix4::from_scale(rng.gen::<f32>() * 2.0 + 0.5)
+                        }) * cgmath::Matrix4::from_angle_y(cgmath::Deg(rng.gen::<f32>() * 360.0))
+                            * cgmath::Matrix4::from_scale(rng.gen::<f32>() * 2.0 + 0.5)
                     }
                     .into(),
                 },
             );
         }
         models.write_instance_buffers(&device, "pine");
-        models.refresh_render_bundle(&device);
+        models.refresh_render_bundle(&device, &camera);
 
         Self {
             surface,
@@ -90,7 +87,6 @@ impl State {
             size,
             deferred_render,
             camera,
-            camera_controller,
             models,
         }
     }
@@ -100,19 +96,16 @@ impl State {
         self.swap_chain_desc.width = new_size.width;
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.camera = camera::Camera::new(self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32);
-        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc);
+        self.camera.aspect = self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32;
+        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
+        self.camera.process_events(event)
     }
 
     pub fn update(&mut self) {
-        self.camera_controller.update_camera(&mut self.camera);
-        let view_proj = self.camera.build_view_projection_matrix().into();
-        self.models.set_uniforms(&self.queue, models::data::Uniforms { view_proj });
-        self.deferred_render.set_camera(&self.queue, self.camera.eye);
+        self.camera.update_camera(&self.queue);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

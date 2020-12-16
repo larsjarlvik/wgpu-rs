@@ -8,7 +8,6 @@ use winit::{
 };
 mod models;
 mod camera;
-mod camera_controller;
 mod state;
 mod deferred;
 mod settings;

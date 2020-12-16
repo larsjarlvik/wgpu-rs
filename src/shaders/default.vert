@@ -5,8 +5,9 @@ layout(location=1) in vec3 a_normals;
 layout(location=2) in vec2 a_tex_coords;
 layout(location=5) in mat4 model_matrix;
 
-layout(set=1, binding=0) uniform GlobalUniforms {
+layout(set=1, binding=0) uniform Camera {
     mat4 u_view_proj;
+    vec3 u_eye_pos;
 };
 
 layout(location=0) out vec4 v_position;

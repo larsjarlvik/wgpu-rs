@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-use crate::settings;
+use crate::{camera, settings};
 pub mod data;
 mod mesh;
 mod render_pipeline;
@@ -18,8 +18,8 @@ pub struct Models {
 }
 
 impl Models {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let render_pipeline = render_pipeline::RenderPipeline::new(&device);
+    pub fn new(device: &wgpu::Device, camera: &camera::Camera) -> Self {
+        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &camera);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -31,7 +31,7 @@ impl Models {
         });
 
         let models = HashMap::new();
-        let render_bundle = create_bundle(&device, &render_pipeline, &models);
+        let render_bundle = create_bundle(&device, &render_pipeline, &camera, &models);
 
         Self {
             sampler,
@@ -70,21 +70,12 @@ impl Models {
         });
     }
 
-    pub fn refresh_render_bundle(&mut self, device: &wgpu::Device) {
-        self.render_bundle = create_bundle(&device, &self.render_pipeline, &self.models);
-    }
-
-    pub fn set_uniforms(&mut self, queue: &wgpu::Queue, uniforms: data::Uniforms) {
-        self.render_pipeline.uniforms.data = uniforms;
-        queue.write_buffer(
-            &self.render_pipeline.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.render_pipeline.uniforms.data]),
-        );
+    pub fn refresh_render_bundle(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
+        self.render_bundle = create_bundle(&device, &self.render_pipeline, &camera, &self.models);
     }
 }
 
-pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::RenderPipeline, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
+pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::RenderPipeline, camera: &camera::Camera, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
         color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
@@ -93,7 +84,7 @@ pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::R
     });
 
     encoder.set_pipeline(&render_pipeline.render_pipeline);
-    encoder.set_bind_group(1, &render_pipeline.uniforms.bind_group, &[]);
+    encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
     for model in models.values() {
         for mesh in &model.primitives {

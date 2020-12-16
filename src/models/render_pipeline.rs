@@ -1,6 +1,5 @@
-use crate::models::*;
+use crate::{camera, models::*};
 use crate::settings;
-use cgmath::SquareMatrix;
 
 pub struct Primitive {
     pub texture_bind_group: wgpu::BindGroup,
@@ -12,25 +11,10 @@ pub struct Primitive {
 pub struct RenderPipeline {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
-    pub uniform_bind_group_layout: wgpu::BindGroupLayout,
-    pub uniforms: data::UniformBuffer,
 }
 
 impl RenderPipeline {
-    pub fn new(device: &wgpu::Device) -> Self {
-        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("uniform_bind_group_layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-
+    pub fn new(device: &wgpu::Device, camera: &camera::Camera) -> Self {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
@@ -55,7 +39,7 @@ impl RenderPipeline {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("model_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
+            bind_group_layouts: &[&texture_bind_group_layout, &camera.uniforms.bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -94,19 +78,10 @@ impl RenderPipeline {
             alpha_to_coverage_enabled: true,
         });
 
-        let uniforms = data::UniformBuffer::new(
-            &device,
-            &uniform_bind_group_layout,
-            data::Uniforms {
-                view_proj: cgmath::Matrix4::identity().into(),
-            },
-        );
 
         RenderPipeline {
             render_pipeline,
-            uniform_bind_group_layout,
             texture_bind_group_layout,
-            uniforms,
         }
     }
 }

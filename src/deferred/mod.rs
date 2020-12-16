@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::{camera, settings};
 mod data;
 
 pub struct DeferredRender {
@@ -11,7 +11,7 @@ pub struct DeferredRender {
 }
 
 impl DeferredRender {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -85,7 +85,7 @@ impl DeferredRender {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("deferred_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
+            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &camera.uniforms.bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -126,11 +126,10 @@ impl DeferredRender {
                 light_dir: [1.0, -1.0, 0.0],
                 light_color: [0.75, 0.75, 0.67, 0.0],
                 ambient_strength: 0.3,
-                eye_pos: [0.0, 0.0, 0.0],
             },
         );
 
-        let render_bundle = create_bundle(&device, &render_pipeline, &texture_bind_group, &uniforms.bind_group);
+        let render_bundle = create_bundle(&device, &render_pipeline, &texture_bind_group, &uniforms.bind_group, &camera);
 
         DeferredRender {
             render_bundle,
@@ -140,15 +139,6 @@ impl DeferredRender {
             depth_texture_view,
             uniforms,
         }
-    }
-
-    pub fn set_camera(&mut self, queue: &wgpu::Queue, eye_pos: cgmath::Point3<f32>) {
-        self.uniforms.data.eye_pos = eye_pos.into();
-        queue.write_buffer(
-            &self.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.uniforms.data]),
-        );
     }
 }
 
@@ -189,6 +179,7 @@ pub fn create_bundle(
     render_pipeline: &wgpu::RenderPipeline,
     texture_bind_group: &wgpu::BindGroup,
     uniform_bind_group: &wgpu::BindGroup,
+    camera: &camera::Camera,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -200,6 +191,7 @@ pub fn create_bundle(
     encoder.set_pipeline(&render_pipeline);
     encoder.set_bind_group(0, &texture_bind_group, &[]);
     encoder.set_bind_group(1, &uniform_bind_group, &[]);
+    encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
     encoder.draw(0..6, 0..1);
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
 }

@@ -1,9 +1,7 @@
+use super::elevation;
 use crate::{camera, settings};
 use cgmath::{InnerSpace, Vector3};
-use noise::{
-    utils::{NoiseMap, NoiseMapBuilder, PlaneMapBuilder},
-    OpenSimplex,
-};
+use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -33,7 +31,7 @@ impl Vertex {
         }
     }
 }
-pub struct Quad {
+pub struct Tile {
     vertex_buffer: wgpu::Buffer,
     num_elements: u32,
 }
@@ -41,8 +39,8 @@ pub struct Quad {
 pub struct Terrain {
     pub render_bundle: wgpu::RenderBundle,
     render_pipeline: wgpu::RenderPipeline,
-    noise: NoiseMap,
-    quads: Vec<Quad>,
+    seed: i32,
+    tiles: Vec<Tile>,
 }
 
 impl Terrain {
@@ -93,31 +91,33 @@ impl Terrain {
         });
 
         let render_bundle = build_render_bundle(&device, &render_pipeline, &camera, &Vec::new());
-        let open_simplex = OpenSimplex::new();
-        let noise = PlaneMapBuilder::new(&open_simplex).build();
-
         Terrain {
             render_pipeline,
             render_bundle,
-            noise,
-            quads: Vec::new(),
+            seed: 100,
+            tiles: Vec::new(),
         }
     }
 
-    pub fn add_quad(&mut self, device: &wgpu::Device, camera: &camera::Camera, tx: f32, ty: f32) {
-        let mut vertices = vec![];
-        let size = 50;
+    pub fn add_tile(&mut self, device: &wgpu::Device, tx: f32, ty: f32, tile_size: f32) {
+        let mut to_generate = Vec::new();
+        let half_tile_size = (tile_size / 2.0) as i32;
 
-        for y in (-size..size).map(|i| (i as f32)) {
-            for x in (-size..size).map(|i| (i as f32)) {
-                vertices.push(gen_vertex(&self.noise, tx + x, ty + y + 1.0));
-                vertices.push(gen_vertex(&self.noise, tx + x, ty + y));
-                vertices.push(gen_vertex(&self.noise, tx + x + 1.0, ty + y));
-                vertices.push(gen_vertex(&self.noise, tx + x + 1.0, ty + y + 1.0));
-                vertices.push(gen_vertex(&self.noise, tx + x, ty + y + 1.0));
-                vertices.push(gen_vertex(&self.noise, tx + x + 1.0, ty + y));
+        for y in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
+            for x in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
+                to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x, ty + y));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
             }
         }
+
+        let vertices = to_generate
+            .par_iter()
+            .map(|point| gen_vertex(self.seed, point.x, point.y))
+            .collect::<Vec<Vertex>>();
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -126,16 +126,18 @@ impl Terrain {
         });
         let num_elements = vertices.len() as u32;
 
-        &self.quads.push(Quad {
+        &self.tiles.push(Tile {
             vertex_buffer,
             num_elements,
         });
+    }
 
-        self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &camera, &self.quads);
+    pub fn build(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
+        self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &camera, &self.tiles);
     }
 
     pub fn get_elevation(&self, x: f32, z: f32) -> f32 {
-        get_elevation(&self.noise, x, z)
+        get_elevation(self.seed, x, z)
     }
 }
 
@@ -143,7 +145,7 @@ fn build_render_bundle(
     device: &wgpu::Device,
     render_pipeline: &wgpu::RenderPipeline,
     camera: &camera::Camera,
-    quads: &Vec<Quad>,
+    tiles: &Vec<Tile>,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -158,28 +160,28 @@ fn build_render_bundle(
     encoder.set_pipeline(&render_pipeline);
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
 
-    for quad in quads {
-        encoder.set_vertex_buffer(0, quad.vertex_buffer.slice(..));
-        encoder.draw(0..quad.num_elements, 0..1);
+    for tile in tiles {
+        encoder.set_vertex_buffer(0, tile.vertex_buffer.slice(..));
+        encoder.draw(0..tile.num_elements, 0..1);
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })
 }
 
-fn get_elevation(noise: &NoiseMap, x: f32, z: f32) -> f32 {
-    noise.get_value(x as usize, z as usize) as f32 * 60.0
+fn get_elevation(seed: i32, x: f32, z: f32) -> f32 {
+    elevation::perlin(x * 0.02, 0.0, z * 0.02, 4, 0.5, seed) * 30.0
 }
 
-fn gen_vertex(noise: &NoiseMap, x: f32, z: f32) -> Vertex {
-    let h_l = get_elevation(&noise, x - 1.0, z);
-    let h_r = get_elevation(&noise, x + 1.0, z);
-    let h_d = get_elevation(&noise, x, x - 1.0);
-    let h_u = get_elevation(&noise, x, x + 1.0);
+fn gen_vertex(seed: i32, x: f32, z: f32) -> Vertex {
+    let h_l = get_elevation(seed, x - 1.0, z);
+    let h_r = get_elevation(seed, x + 1.0, z);
+    let h_d = get_elevation(seed, x, x - 1.0);
+    let h_u = get_elevation(seed, x, x + 1.0);
 
     let normals = Vector3::new(h_l - h_r, 2.0, h_d - h_u);
 
     Vertex {
-        position: [x, get_elevation(&noise, x, z), z],
+        position: [x, get_elevation(seed, x, z), z],
         normals: normals.normalize().into(),
     }
 }

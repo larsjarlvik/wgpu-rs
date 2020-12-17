@@ -14,8 +14,8 @@ anyhow = "1.0"
 cgmath = "0.17.0"
 rand = "0.7.3"
 wgpu-mipmap = "0.1"
+rayon = "1.1"
 bytemuck = { version = "1.4", features = [ "derive" ] }
-noise = "0.6"
 
 [dependencies.gltf]
 version = "0.15.0"

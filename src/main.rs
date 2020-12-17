@@ -1,5 +1,3 @@
-#![windows_subsystem = "windows"]
-
 use futures::executor::block_on;
 use winit::{
     event::*,

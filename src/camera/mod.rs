@@ -1,4 +1,5 @@
 use cgmath::SquareMatrix;
+use std::time::Duration;
 use winit::event::WindowEvent;
 
 mod controller;
@@ -26,7 +27,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(device: &wgpu::Device, aspect: f32) -> Self {
-        let controller = controller::CameraController::new(0.2);
+        let controller = controller::CameraController::new(60.0);
         let uniforms = uniforms::UniformBuffer::new(
             &device,
             uniforms::Uniforms {
@@ -47,19 +48,15 @@ impl Camera {
         }
     }
 
-    pub fn update_camera(&mut self, queue: &wgpu::Queue) {
-        self.eye = self.controller.update_camera(&self);
+    pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration) {
+        self.eye = self.controller.update_camera(&self, frame_time);
 
         let view = cgmath::Matrix4::look_at(self.eye, self.target, self.up);
         let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
         self.uniforms.data.eye_pos = self.eye.into();
         self.uniforms.data.view_proj = (OPENGL_TO_WGPU_MATRIX * proj * view).into();
 
-        queue.write_buffer(
-            &self.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.uniforms.data]),
-        );
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {

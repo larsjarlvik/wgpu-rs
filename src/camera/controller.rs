@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::camera;
 use crate::KeyboardInput;
 use winit::event::*;
@@ -57,18 +59,19 @@ impl CameraController {
         }
     }
 
-    pub fn update_camera(&self, camera: &camera::Camera) -> cgmath::Point3<f32> {
+    pub fn update_camera(&self, camera: &camera::Camera, frame_time: &Duration) -> cgmath::Point3<f32> {
         use cgmath::InnerSpace;
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude() as f32;
         let mut eye = camera.eye;
+        let speed = self.speed * frame_time.as_millis() as f32 * 0.001;
 
-        if self.is_forward_pressed && forward_mag > self.speed {
-            eye += forward_norm * self.speed;
+        if self.is_forward_pressed && forward_mag > speed {
+            eye += forward_norm * speed;
         }
         if self.is_backward_pressed {
-            eye -= forward_norm * self.speed;
+            eye -= forward_norm * speed;
         }
 
         let right = forward_norm.cross(camera.up);
@@ -76,10 +79,10 @@ impl CameraController {
         let forward_mag = forward.magnitude() as f32;
 
         if self.is_right_pressed {
-            eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+            eye = camera.target - (forward + right * speed).normalize() * forward_mag;
         }
         if self.is_left_pressed {
-            eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+            eye = camera.target - (forward - right * speed).normalize() * forward_mag;
         }
 
         eye

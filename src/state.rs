@@ -1,5 +1,4 @@
-use crate::{camera, deferred, models, settings};
-use rand::prelude::*;
+use crate::{camera, deferred, models, settings, world};
 use winit::{event::*, window::Window};
 
 pub struct State {
@@ -10,6 +9,7 @@ pub struct State {
     swap_chain: wgpu::SwapChain,
     camera: camera::Camera,
     models: models::Models,
+    world: world::World,
     deferred_render: deferred::DeferredRender,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
@@ -55,28 +55,11 @@ impl State {
 
         // Drawing
         let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
-
-        let mut rng = rand::thread_rng();
         let mut models = models::Models::new(&device, &camera);
-        models.load_model(&device, &queue, "pine", "pine.glb");
-        for _ in 0..10000 {
-            models.add_instance(
-                "pine",
-                models::data::Instance {
-                    transform: {
-                        cgmath::Matrix4::from_translation(cgmath::Vector3 {
-                            x: (rng.gen::<f32>() - 0.5) * 500.0,
-                            y: 0.0,
-                            z: (rng.gen::<f32>() - 0.5) * 500.0,
-                        }) * cgmath::Matrix4::from_angle_y(cgmath::Deg(rng.gen::<f32>() * 360.0))
-                            * cgmath::Matrix4::from_scale(rng.gen::<f32>() * 2.0 + 0.5)
-                    }
-                    .into(),
-                },
-            );
-        }
-        models.write_instance_buffers(&device, "pine");
-        models.refresh_render_bundle(&device, &camera);
+
+        // World
+        let mut world = world::World::new(&device, &queue, &camera, &mut models);
+        world.update(&device, &camera, &mut models);
 
         Self {
             surface,
@@ -88,6 +71,7 @@ impl State {
             deferred_render,
             camera,
             models,
+            world,
         }
     }
 
@@ -115,9 +99,13 @@ impl State {
             store: true,
         };
 
-        // Main render pass
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
+            // Main render pass
+            let mut bundles = vec![];
+            bundles.push(&self.world.terrain.render_bundle);
+            bundles.push(&self.models.render_bundle);
+
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[
@@ -146,8 +134,9 @@ impl State {
                         stencil_ops: None,
                     }),
                 })
-                .execute_bundles(std::iter::once(&self.models.render_bundle));
+                .execute_bundles(bundles.into_iter());
 
+            // Deferred render pass
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {

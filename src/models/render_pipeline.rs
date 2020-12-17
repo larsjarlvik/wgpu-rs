@@ -1,5 +1,5 @@
-use crate::{camera, models::*};
 use crate::settings;
+use crate::{camera, models::*};
 
 pub struct Primitive {
     pub texture_bind_group: wgpu::BindGroup,
@@ -62,7 +62,11 @@ impl RenderPipeline {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
+            color_states: &[
+                settings::COLOR_TEXTURE_FORMAT.into(),
+                settings::COLOR_TEXTURE_FORMAT.into(),
+                settings::COLOR_TEXTURE_FORMAT.into(),
+            ],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -75,9 +79,8 @@ impl RenderPipeline {
             },
             sample_count: 1,
             sample_mask: !0,
-            alpha_to_coverage_enabled: true,
+            alpha_to_coverage_enabled: false,
         });
-
 
         RenderPipeline {
             render_pipeline,

@@ -6,17 +6,21 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-mod models;
 mod camera;
-mod state;
 mod deferred;
+mod models;
 mod settings;
+mod state;
+mod world;
 pub use state::*;
 
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().with_title("WGPU-RS").build(&event_loop).expect("Failed to create window!");
+    let window = WindowBuilder::new()
+        .with_title("WGPU-RS")
+        .build(&event_loop)
+        .expect("Failed to create window!");
     let mut state = block_on(state::State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {

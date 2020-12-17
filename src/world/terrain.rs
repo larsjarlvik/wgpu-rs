@@ -1,6 +1,9 @@
+use crate::{camera, settings};
+use noise::{
+    utils::{NoiseMap, NoiseMapBuilder, PlaneMapBuilder},
+    OpenSimplex,
+};
 use wgpu::util::DeviceExt;
-use cgmath::SquareMatrix;
-use crate::settings;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -29,35 +32,23 @@ impl Vertex {
         }
     }
 }
-
 pub struct Quad {
-    render_bundle: wgpu::RenderBundle,
+    vertex_buffer: wgpu::Buffer,
+    num_elements: u32,
 }
 
 pub struct Terrain {
-    pub uniforms: UniformBuffer,
-    pub render_pipeline: wgpu::RenderPipeline,
-    pub quads: Vec<Quad>,
+    pub render_bundle: wgpu::RenderBundle,
+    render_pipeline: wgpu::RenderPipeline,
+    noise: NoiseMap,
+    quads: Vec<Quad>,
 }
 
 impl Terrain {
-    pub fn new(device: &wgpu::Device) -> Terrain {
-        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("uniform_bind_group_layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-
+    pub fn new(device: &wgpu::Device, camera: &camera::Camera) -> Terrain {
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_pipeline_layout"),
-            bind_group_layouts: &[&uniform_bind_group_layout],
+            bind_group_layouts: &[&camera.uniforms.bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -76,11 +67,15 @@ impl Terrain {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: wgpu::CullMode::None,
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
+            color_states: &[
+                settings::COLOR_TEXTURE_FORMAT.into(),
+                settings::COLOR_TEXTURE_FORMAT.into(),
+                settings::COLOR_TEXTURE_FORMAT.into(),
+            ],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -93,36 +88,33 @@ impl Terrain {
             },
             sample_count: 1,
             sample_mask: !0,
-            alpha_to_coverage_enabled: true,
+            alpha_to_coverage_enabled: false,
         });
 
-        let uniforms = UniformBuffer::new(
-            &device,
-            &uniform_bind_group_layout,
-            Uniforms {
-                view_proj: cgmath::Matrix4::identity().into(),
-            },
-        );
+        let render_bundle = build_render_bundle(&device, &render_pipeline, &camera, &Vec::new());
+        let open_simplex = OpenSimplex::new();
+        let noise = PlaneMapBuilder::new(&open_simplex).build();
 
         Terrain {
             render_pipeline,
-            uniforms,
+            render_bundle,
+            noise,
             quads: Vec::new(),
         }
     }
 
-    pub fn add_quad(&mut self, device: &wgpu::Device, tx: f32, ty: f32) {
+    pub fn add_quad(&mut self, device: &wgpu::Device, camera: &camera::Camera, tx: f32, ty: f32) {
         let mut vertices = vec![];
         let size = 50;
 
-        for y in (-size..size - 1).map(|i| (i as f32)) {
-            for x in (-size..size - 1).map(|i| (i as f32)) {
-                vertices.push(gen_vertex(tx + x, ty + y + 1.0));
-                vertices.push(gen_vertex(tx + x, ty + y));
-                vertices.push(gen_vertex(tx + x + 1.0, ty + y));
-                vertices.push(gen_vertex(tx + x + 1.0, ty + y + 1.0));
-                vertices.push(gen_vertex(tx + x, ty + y + 1.0));
-                vertices.push(gen_vertex(tx + x, ty + y));
+        for y in (-size..size).map(|i| (i as f32)) {
+            for x in (-size..size).map(|i| (i as f32)) {
+                vertices.push(gen_vertex(&self.noise, tx + x, ty + y + 1.0));
+                vertices.push(gen_vertex(&self.noise, tx + x, ty + y));
+                vertices.push(gen_vertex(&self.noise, tx + x + 1.0, ty + y));
+                vertices.push(gen_vertex(&self.noise, tx + x + 1.0, ty + y + 1.0));
+                vertices.push(gen_vertex(&self.noise, tx + x, ty + y + 1.0));
+                vertices.push(gen_vertex(&self.noise, tx + x + 1.0, ty + y));
             }
         }
 
@@ -133,37 +125,53 @@ impl Terrain {
         });
         let num_elements = vertices.len() as u32;
 
-        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-            label: None,
-            color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
-            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-            sample_count: 1,
-        });
-        encoder.set_pipeline(&self.render_pipeline);
-        encoder.set_bind_group(0, &self.uniforms.bind_group, &[]);
-        encoder.set_vertex_buffer(0, vertex_buffer.slice(..));
-        encoder.draw(0..num_elements, 0..1);
-        let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor {
-            label: Some("terrain"),
+        &self.quads.push(Quad {
+            vertex_buffer,
+            num_elements,
         });
 
-        &self.quads.push(Quad {
-            render_bundle,
-        });
+        self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &camera, &self.quads);
     }
 
-    pub fn get_render_bundles(&self) -> Vec<&wgpu::RenderBundle> {
-        let mut ret = Vec::new();
-        for i in &self.quads{
-            ret.push(&i.render_bundle);
-        }
-        ret
+    pub fn get_elevation(&self, x: f32, z: f32) -> f32 {
+        get_elevation(&self.noise, x, z)
     }
 }
 
-fn gen_vertex(x: f32, z: f32) -> Vertex {
+fn build_render_bundle(
+    device: &wgpu::Device,
+    render_pipeline: &wgpu::RenderPipeline,
+    camera: &camera::Camera,
+    quads: &Vec<Quad>,
+) -> wgpu::RenderBundle {
+    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+        label: None,
+        color_formats: &[
+            settings::COLOR_TEXTURE_FORMAT,
+            settings::COLOR_TEXTURE_FORMAT,
+            settings::COLOR_TEXTURE_FORMAT,
+        ],
+        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+        sample_count: 1,
+    });
+    encoder.set_pipeline(&render_pipeline);
+    encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
+
+    for quad in quads {
+        encoder.set_vertex_buffer(0, quad.vertex_buffer.slice(..));
+        encoder.draw(0..quad.num_elements, 0..1);
+    }
+
+    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })
+}
+
+fn get_elevation(noise: &NoiseMap, x: f32, z: f32) -> f32 {
+    noise.get_value(x as usize, z as usize) as f32 * 60.0
+}
+
+fn gen_vertex(noise: &NoiseMap, x: f32, z: f32) -> Vertex {
     Vertex {
-        position: [x, 0.0, z],
+        position: [x, get_elevation(&noise, x, z), z],
         normals: [0.0, 1.0, 0.0],
     }
 }

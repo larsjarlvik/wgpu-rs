@@ -87,8 +87,8 @@ impl State {
         self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
     }
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera.process_events(event)
+    pub fn input(&mut self, event: &WindowEvent) {
+        self.camera.process_events(event);
     }
 
     pub fn update(&mut self) {

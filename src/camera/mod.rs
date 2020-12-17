@@ -16,7 +16,7 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 pub struct Camera {
     controller: controller::CameraController,
     pub uniforms: uniforms::UniformBuffer,
-    pub eye: cgmath::Point3<f32>,
+    pub zoom: f32,
     pub target: cgmath::Point3<f32>,
     pub up: cgmath::Vector3<f32>,
     pub aspect: f32,
@@ -27,7 +27,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(device: &wgpu::Device, aspect: f32) -> Self {
-        let controller = controller::CameraController::new(60.0);
+        let controller = controller::CameraController::new();
         let uniforms = uniforms::UniformBuffer::new(
             &device,
             uniforms::Uniforms {
@@ -38,8 +38,8 @@ impl Camera {
         Camera {
             controller,
             uniforms,
-            eye: (0.0, 50.0, 50.0).into(),
             target: (0.0, 0.0, 0.0).into(),
+            zoom: 50.0,
             up: cgmath::Vector3::unit_y(),
             aspect: aspect,
             fovy: 45.0,
@@ -49,17 +49,21 @@ impl Camera {
     }
 
     pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration) {
-        self.eye = self.controller.update_camera(&self, frame_time);
+        let move_factor = self.controller.update_camera(frame_time);
+        self.target -= cgmath::Vector3::new(move_factor.x, 0.0, move_factor.z);
+        self.zoom += move_factor.y;
 
-        let view = cgmath::Matrix4::look_at(self.eye, self.target, self.up);
+        let eye = cgmath::Point3::new(self.target.x, self.target.y + self.zoom, self.target.z - self.zoom);
+
+        let view = cgmath::Matrix4::look_at(eye, self.target, self.up);
         let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
-        self.uniforms.data.eye_pos = self.eye.into();
+        self.uniforms.data.eye_pos = eye.into();
         self.uniforms.data.view_proj = (OPENGL_TO_WGPU_MATRIX * proj * view).into();
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 
-    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
-        self.controller.process_events(&event)
+    pub fn process_events(&mut self, event: &WindowEvent) {
+        self.controller.process_events(&event);
     }
 }

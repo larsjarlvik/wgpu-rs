@@ -1,29 +1,35 @@
-use std::time::Duration;
-
-use crate::camera;
 use crate::KeyboardInput;
+use std::time::Duration;
 use winit::event::*;
 
 pub struct CameraController {
-    speed: f32,
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
+    is_zoom_in_pressed: bool,
+    is_zoom_out_pressed: bool,
+    forward_speed: f32,
+    strafe_speed: f32,
+    zoom_speed: f32,
 }
 
 impl CameraController {
-    pub fn new(speed: f32) -> Self {
+    pub fn new() -> Self {
         Self {
-            speed,
             is_forward_pressed: false,
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_zoom_in_pressed: false,
+            is_zoom_out_pressed: false,
+            forward_speed: 0.0,
+            strafe_speed: 0.0,
+            zoom_speed: 0.0,
         }
     }
 
-    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
+    pub fn process_events(&mut self, event: &WindowEvent) {
         match event {
             WindowEvent::KeyboardInput {
                 input:
@@ -36,55 +42,66 @@ impl CameraController {
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
+                    VirtualKeyCode::W => {
                         self.is_forward_pressed = is_pressed;
-                        true
                     }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
+                    VirtualKeyCode::A => {
                         self.is_left_pressed = is_pressed;
-                        true
                     }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
+                    VirtualKeyCode::S => {
                         self.is_backward_pressed = is_pressed;
-                        true
                     }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
+                    VirtualKeyCode::D => {
                         self.is_right_pressed = is_pressed;
-                        true
                     }
-                    _ => false,
+                    VirtualKeyCode::Up => {
+                        self.is_zoom_in_pressed = is_pressed;
+                    }
+                    VirtualKeyCode::Down => {
+                        self.is_zoom_out_pressed = is_pressed;
+                    }
+                    _ => {}
                 }
             }
-            _ => false,
+            _ => {}
         }
     }
 
-    pub fn update_camera(&self, camera: &camera::Camera, frame_time: &Duration) -> cgmath::Point3<f32> {
-        use cgmath::InnerSpace;
-        let forward = camera.target - camera.eye;
-        let forward_norm = forward.normalize();
-        let forward_mag = forward.magnitude() as f32;
-        let mut eye = camera.eye;
-        let speed = self.speed * frame_time.as_millis() as f32 * 0.001;
+    pub fn update_camera(&mut self, frame_time: &Duration) -> cgmath::Vector3<f32> {
+        let max_speed = 0.5;
+        let mut acceleration = 0.2 * frame_time.as_millis() as f32;
 
-        if self.is_forward_pressed && forward_mag > speed {
-            eye += forward_norm * speed;
-        }
-        if self.is_backward_pressed {
-            eye -= forward_norm * speed;
-        }
+        if acceleration > max_speed {
+            acceleration = max_speed
+        };
+        if acceleration < -max_speed {
+            acceleration = -max_speed
+        };
 
-        let right = forward_norm.cross(camera.up);
-        let forward = camera.target - camera.eye;
-        let forward_mag = forward.magnitude() as f32;
-
-        if self.is_right_pressed {
-            eye = camera.target - (forward + right * speed).normalize() * forward_mag;
+        if self.is_forward_pressed {
+            self.forward_speed -= acceleration;
         }
         if self.is_left_pressed {
-            eye = camera.target - (forward - right * speed).normalize() * forward_mag;
+            self.strafe_speed -= acceleration;
+        }
+        if self.is_backward_pressed {
+            self.forward_speed += acceleration;
+        }
+        if self.is_right_pressed {
+            self.strafe_speed += acceleration;
         }
 
-        eye
+        if self.is_zoom_in_pressed {
+            self.zoom_speed -= acceleration;
+        }
+        if self.is_zoom_out_pressed {
+            self.zoom_speed += acceleration;
+        }
+
+        self.forward_speed *= 0.9;
+        self.strafe_speed *= 0.9;
+        self.zoom_speed *= 0.8;
+
+        cgmath::Vector3::new(self.strafe_speed, self.zoom_speed, self.forward_speed)
     }
 }

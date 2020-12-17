@@ -66,7 +66,7 @@ impl Terrain {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
+                cull_mode: wgpu::CullMode::Back,
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
@@ -106,11 +106,11 @@ impl Terrain {
         for y in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
             for x in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
                 to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
                 to_generate.push(cgmath::Point2::new(tx + x, ty + y));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
                 to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y + 1.0));
-                to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
                 to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
+                to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
             }
         }
 

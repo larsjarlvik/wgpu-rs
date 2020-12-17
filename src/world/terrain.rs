@@ -1,4 +1,5 @@
 use crate::{camera, settings};
+use cgmath::{InnerSpace, Vector3};
 use noise::{
     utils::{NoiseMap, NoiseMapBuilder, PlaneMapBuilder},
     OpenSimplex,
@@ -170,8 +171,15 @@ fn get_elevation(noise: &NoiseMap, x: f32, z: f32) -> f32 {
 }
 
 fn gen_vertex(noise: &NoiseMap, x: f32, z: f32) -> Vertex {
+    let h_l = get_elevation(&noise, x - 1.0, z);
+    let h_r = get_elevation(&noise, x + 1.0, z);
+    let h_d = get_elevation(&noise, x, x - 1.0);
+    let h_u = get_elevation(&noise, x, x + 1.0);
+
+    let normals = Vector3::new(h_l - h_r, 2.0, h_d - h_u);
+
     Vertex {
         position: [x, get_elevation(&noise, x, z), z],
-        normals: [0.0, 1.0, 0.0],
+        normals: normals.normalize().into(),
     }
 }

@@ -89,7 +89,7 @@ impl State {
         self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
     }
 
-    pub fn input(&mut self, event: &WindowEvent) {
+    pub fn input(&mut self, event: &DeviceEvent) {
         &self.input.process_events(event);
     }
 
@@ -97,6 +97,7 @@ impl State {
         let frame_time = self.last_frame.elapsed();
         self.last_frame = Instant::now();
         self.camera.update_camera(&self.queue, &frame_time, &self.input);
+        self.input.after_update();
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

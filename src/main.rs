@@ -23,6 +23,9 @@ fn main() {
     let mut state = block_on(state::State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {
+        Event::DeviceEvent { ref event, .. } => {
+            state.input(event);
+        }
         Event::RedrawRequested(_) => {
             state.update();
             match state.render() {
@@ -43,9 +46,7 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::Escape),
                     ..
                 } => *control_flow = ControlFlow::Exit,
-                _ => {
-                    state.input(event);
-                }
+                _ => {}
             },
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);

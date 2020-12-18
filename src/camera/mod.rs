@@ -17,9 +17,9 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 pub struct Camera {
     controller: controller::CameraController,
     pub uniforms: uniforms::UniformBuffer,
-    pub zoom: f32,
     pub target: cgmath::Point3<f32>,
-    pub up: cgmath::Vector3<f32>,
+    pub rotation: cgmath::Point2<f32>,
+    pub distance: f32,
     pub aspect: f32,
     pub fovy: f32,
     pub znear: f32,
@@ -40,8 +40,8 @@ impl Camera {
             controller,
             uniforms,
             target: (0.0, 0.0, 0.0).into(),
-            zoom: 50.0,
-            up: cgmath::Vector3::unit_y(),
+            rotation: ((45.0 as f32).to_radians(), 0.0).into(),
+            distance: 100.0,
             aspect: aspect,
             fovy: 45.0,
             znear: 0.1,
@@ -50,16 +50,22 @@ impl Camera {
     }
 
     pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration, input: &input::Input) {
-        self.controller.process_events(input);
+        self.controller.process_events(input, frame_time);
 
-        let move_factor = self.controller.update_camera(frame_time);
-        self.target += cgmath::Vector3::new(move_factor.x, 0.0, move_factor.z);
-        self.zoom += move_factor.y;
+        let move_velocity = self.controller.velocity;
+        self.target += cgmath::Vector3::new(move_velocity.x, 0.0, move_velocity.z);
+        self.distance += move_velocity.y;
+        self.rotation += self.controller.rotation;
 
-        let eye = cgmath::Point3::new(self.target.x, self.target.y + self.zoom, self.target.z - self.zoom);
+        let eye = cgmath::Point3::new(
+            self.target.x - (self.rotation.x.sin() * self.rotation.y.cos() * self.distance),
+            self.rotation.x.cos() * self.distance,
+            self.target.z - (self.rotation.x.sin() * self.rotation.y.sin() * self.distance),
+        );
 
-        let view = cgmath::Matrix4::look_at(eye, self.target, self.up);
+        let view = cgmath::Matrix4::look_at(eye, self.target, cgmath::Vector3::unit_y());
         let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
+
         self.uniforms.data.eye_pos = eye.into();
         self.uniforms.data.view_proj = (OPENGL_TO_WGPU_MATRIX * proj * view).into();
 

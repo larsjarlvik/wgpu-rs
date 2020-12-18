@@ -1,6 +1,7 @@
 use cgmath::SquareMatrix;
 use std::time::Duration;
-use winit::event::WindowEvent;
+
+use crate::input;
 
 mod controller;
 mod uniforms;
@@ -48,9 +49,11 @@ impl Camera {
         }
     }
 
-    pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration) {
+    pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration, input: &input::Input) {
+        self.controller.process_events(input);
+
         let move_factor = self.controller.update_camera(frame_time);
-        self.target -= cgmath::Vector3::new(move_factor.x, 0.0, move_factor.z);
+        self.target += cgmath::Vector3::new(move_factor.x, 0.0, move_factor.z);
         self.zoom += move_factor.y;
 
         let eye = cgmath::Point3::new(self.target.x, self.target.y + self.zoom, self.target.z - self.zoom);
@@ -61,9 +64,5 @@ impl Camera {
         self.uniforms.data.view_proj = (OPENGL_TO_WGPU_MATRIX * proj * view).into();
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
-    }
-
-    pub fn process_events(&mut self, event: &WindowEvent) {
-        self.controller.process_events(&event);
     }
 }

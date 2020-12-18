@@ -6,6 +6,7 @@ use winit::{
 };
 mod camera;
 mod deferred;
+mod input;
 mod models;
 mod settings;
 mod state;

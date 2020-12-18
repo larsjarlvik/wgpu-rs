@@ -6,3 +6,5 @@ pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     b: 0.1,
     a: 1.0,
 };
+pub const CAMERA_ACCELERATION: f32 = 1.0;
+pub const CAMERA_FRICTION: f32 = 4.0;

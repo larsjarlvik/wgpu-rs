@@ -1,4 +1,4 @@
-use crate::{camera, deferred, models, settings, world};
+use crate::{camera, deferred, input::Input, models, settings, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -13,6 +13,7 @@ pub struct State {
     world: world::World,
     deferred_render: deferred::DeferredRender,
     last_frame: Instant,
+    input: Input,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
@@ -74,6 +75,7 @@ impl State {
             camera,
             models,
             world,
+            input: Input::new(),
             last_frame: Instant::now(),
         }
     }
@@ -88,13 +90,13 @@ impl State {
     }
 
     pub fn input(&mut self, event: &WindowEvent) {
-        self.camera.process_events(event);
+        &self.input.process_events(event);
     }
 
     pub fn update(&mut self) {
         let frame_time = self.last_frame.elapsed();
         self.last_frame = Instant::now();
-        self.camera.update_camera(&self.queue, &frame_time);
+        self.camera.update_camera(&self.queue, &frame_time, &self.input);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

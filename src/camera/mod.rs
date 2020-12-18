@@ -52,7 +52,6 @@ impl Camera {
     pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration, input: &input::Input) {
         self.controller.process_events(input, frame_time);
 
-
         self.distance += self.controller.velocity.y;
         self.rotation += self.controller.rotation;
         self.target.x += self.controller.velocity.z * self.rotation.y.cos();

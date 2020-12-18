@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use futures::executor::block_on;
 use winit::{
     event::*,
@@ -21,6 +23,8 @@ fn main() {
         .build(&event_loop)
         .expect("Failed to create window!");
     let mut state = block_on(state::State::new(&window));
+    let mut fps = 0;
+    let mut last_update = Instant::now();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
@@ -33,6 +37,12 @@ fn main() {
                 Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
                 Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("{:?}", e),
+            }
+            fps += 1;
+            if last_update.elapsed().as_millis() > 1000 {
+                window.set_title(format!("WGPU-RS: {} FPS", fps).as_str());
+                last_update = Instant::now();
+                fps = 0;
             }
         }
         Event::MainEventsCleared => {

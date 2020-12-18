@@ -40,7 +40,7 @@ impl Camera {
             controller,
             uniforms,
             target: (0.0, 0.0, 0.0).into(),
-            rotation: ((45.0 as f32).to_radians(), 0.0).into(),
+            rotation: ((45.0 as f32).to_radians(), (90.0 as f32).to_radians()).into(),
             distance: 100.0,
             aspect: aspect,
             fovy: 45.0,
@@ -52,10 +52,13 @@ impl Camera {
     pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration, input: &input::Input) {
         self.controller.process_events(input, frame_time);
 
-        let move_velocity = self.controller.velocity;
-        self.target += cgmath::Vector3::new(move_velocity.x, 0.0, move_velocity.z);
-        self.distance += move_velocity.y;
+
+        self.distance += self.controller.velocity.y;
         self.rotation += self.controller.rotation;
+        self.target.x += self.controller.velocity.z * self.rotation.y.cos();
+        self.target.x += self.controller.velocity.x * (self.rotation.y - std::f32::consts::PI / 2.0).cos();
+        self.target.z += self.controller.velocity.z * self.rotation.y.sin();
+        self.target.z += self.controller.velocity.x * (self.rotation.y - std::f32::consts::PI / 2.0).sin();
 
         let eye = cgmath::Point3::new(
             self.target.x - (self.rotation.x.sin() * self.rotation.y.cos() * self.distance),

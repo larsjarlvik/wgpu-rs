@@ -63,6 +63,6 @@ impl CameraController {
 
     fn update_rotation(&mut self, mouse_delta: (f32, f32)) {
         let (x, y) = mouse_delta;
-        self.rotation = Vector2::new(-y.to_radians(), x.to_radians());
+        self.rotation = Vector2::new(y.to_radians(), x.to_radians());
     }
 }

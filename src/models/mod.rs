@@ -52,7 +52,7 @@ impl Models {
             }
         }
 
-        let instances = data::InstanceBuffer::new(&device, HashMap::<String, data::Instance>::new());
+        let instances = data::InstanceBuffer::new(&device, HashMap::new());
         self.models.insert(name.to_string(), Model { primitives, instances });
     }
 
@@ -67,7 +67,7 @@ impl Models {
     }
 
     pub fn write_instance_buffers(&mut self, device: &wgpu::Device, name: &str) {
-        let model = self.models.get_mut(name).expect("Model not found!");
+        let mut model = self.models.get_mut(name).expect("Model not found!");
         model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("instance_buffer"),
             contents: bytemuck::cast_slice(&model.instances.data.values().cloned().collect::<Vec<data::Instance>>()),
@@ -100,13 +100,13 @@ pub fn create_bundle(
     encoder.set_pipeline(&render_pipeline.render_pipeline);
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
-    for model in models.values() {
-        for mesh in &model.primitives {
+    for model in models.into_iter() {
+        for mesh in &model.1.primitives {
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
+            encoder.set_vertex_buffer(1, model.1.instances.buffer.slice(..));
             encoder.set_index_buffer(mesh.index_buffer.slice(..));
-            encoder.draw_indexed(0..mesh.num_elements, 0, 0..model.instances.data.len() as _);
+            encoder.draw_indexed(0..mesh.num_elements, 0, 0..model.1.instances.data.len() as _);
         }
     }
 

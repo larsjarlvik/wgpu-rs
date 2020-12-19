@@ -39,7 +39,6 @@ pub struct TerrainTile {
 pub struct Terrain {
     pub render_bundle: wgpu::RenderBundle,
     render_pipeline: wgpu::RenderPipeline,
-    seed: i32,
 }
 
 impl Terrain {
@@ -93,16 +92,15 @@ impl Terrain {
         Terrain {
             render_pipeline,
             render_bundle,
-            seed: 100,
         }
     }
 
-    pub fn build_tile(&mut self, device: &wgpu::Device, x: i32, y: i32, tile_size: f32) -> TerrainTile {
+    pub fn create_tile(&mut self, device: &wgpu::Device, noise: &noise::Fbm, x: i32, z: i32, tile_size: f32) -> TerrainTile {
         let mut to_generate = Vec::new();
         let half_tile_size = (tile_size / 2.0) as i32;
 
         let tx = x as f32 * tile_size;
-        let tz = y as f32 * tile_size;
+        let tz = z as f32 * tile_size;
 
         for z in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
             for x in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
@@ -117,7 +115,7 @@ impl Terrain {
 
         let vertices = to_generate
             .par_iter()
-            .map(|point| gen_vertex(self.seed, point.x, point.y))
+            .map(|point| gen_vertex(noise, point.x, point.y))
             .collect::<Vec<Vertex>>();
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -136,9 +134,18 @@ impl Terrain {
     pub fn build(&mut self, device: &wgpu::Device, camera: &camera::Camera, tiles: Vec<&TerrainTile>) {
         self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &camera, &tiles);
     }
+}
 
-    pub fn get_elevation(&self, x: f32, z: f32) -> f32 {
-        get_elevation(self.seed, x, z)
+fn gen_vertex(noise: &noise::Fbm, x: f32, z: f32) -> Vertex {
+    let normals = Vector3::new(
+        elevation::get(noise, x - 1.0, z) - elevation::get(noise, x + 1.0, z),
+        2.0,
+        elevation::get(noise, x, x - 1.0) - elevation::get(noise, x, x + 1.0),
+    );
+
+    Vertex {
+        position: [x, elevation::get(noise, x, z), z],
+        normals: normals.normalize().into(),
     }
 }
 
@@ -167,22 +174,4 @@ fn build_render_bundle(
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })
-}
-
-fn get_elevation(seed: i32, x: f32, z: f32) -> f32 {
-    elevation::perlin(x * 0.02, 0.0, z * 0.02, 4, 0.5, seed) * 30.0
-}
-
-fn gen_vertex(seed: i32, x: f32, z: f32) -> Vertex {
-    let h_l = get_elevation(seed, x - 1.0, z);
-    let h_r = get_elevation(seed, x + 1.0, z);
-    let h_d = get_elevation(seed, x, x - 1.0);
-    let h_u = get_elevation(seed, x, x + 1.0);
-
-    let normals = Vector3::new(h_l - h_r, 2.0, h_d - h_u);
-
-    Vertex {
-        position: [x, get_elevation(seed, x, z), z],
-        normals: normals.normalize().into(),
-    }
 }

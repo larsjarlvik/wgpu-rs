@@ -1,11 +1,10 @@
-use std::fs;
 use glob::glob;
+use std::fs;
 use std::process::Command;
 
 fn main() {
     let output_dir = "src\\shaders-compiled";
-    let shader_paths = glob("./src/shaders/**/*")
-        .expect("Failed to list shaders!");
+    let shader_paths = glob("./src/shaders/**/*").expect("Failed to list shaders!");
 
     fs::create_dir_all(output_dir).expect("Failed to create output directory!");
 

@@ -1,4 +1,4 @@
-use crate::{camera, deferred, input::Input, models, settings, world};
+use crate::{camera, deferred, fxaa, input::Input, models, settings, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -12,6 +12,7 @@ pub struct State {
     models: models::Models,
     world: world::World,
     deferred_render: deferred::DeferredRender,
+    fxaa: fxaa::Fxaa,
     last_frame: Instant,
     input: Input,
     pub size: winit::dpi::PhysicalSize<u32>,
@@ -59,6 +60,7 @@ impl State {
         // Drawing
         let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
         let mut models = models::Models::new(&device, &camera);
+        let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
 
         // World
         let world = world::World::new(&device, &queue, &camera, &mut models);
@@ -71,6 +73,7 @@ impl State {
             swap_chain_desc,
             size,
             deferred_render,
+            fxaa,
             camera,
             models,
             world,
@@ -86,6 +89,7 @@ impl State {
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
         self.camera.aspect = self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32;
         self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
+        self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -148,13 +152,25 @@ impl State {
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &frame.view,
+                        attachment: &self.fxaa.texture_view,
                         resolve_target: None,
                         ops,
                     }],
                     depth_stencil_attachment: None,
                 })
                 .execute_bundles(std::iter::once(&self.deferred_render.render_bundle));
+
+            // FXAA render pass
+            encoder
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &frame.view,
+                        resolve_target: None,
+                        ops,
+                    }],
+                    depth_stencil_attachment: None,
+                })
+                .execute_bundles(std::iter::once(&self.fxaa.render_bundle));
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

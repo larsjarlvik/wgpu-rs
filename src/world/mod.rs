@@ -35,7 +35,7 @@ impl World {
             tiles,
             noise,
             tile_size: 12,
-            tile_range: 10,
+            tile_range: 14,
         }
     }
 

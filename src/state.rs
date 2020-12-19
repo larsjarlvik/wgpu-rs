@@ -61,8 +61,7 @@ impl State {
         let mut models = models::Models::new(&device, &camera);
 
         // World
-        let mut world = world::World::new(&device, &queue, &camera, &mut models);
-        world.update(&device, &camera, &mut models);
+        let world = world::World::new(&device, &queue, &camera, &mut models);
 
         Self {
             surface,
@@ -97,6 +96,7 @@ impl State {
         let frame_time = self.last_frame.elapsed();
         self.last_frame = Instant::now();
         self.camera.update_camera(&self.queue, &frame_time, &self.input);
+        self.world.update(&self.device, &self.camera, &mut self.models);
         self.input.after_update();
     }
 

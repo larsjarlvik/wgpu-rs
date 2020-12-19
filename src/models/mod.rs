@@ -1,6 +1,6 @@
+use crate::{camera, settings};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-use crate::{camera, settings};
 pub mod data;
 mod mesh;
 mod render_pipeline;
@@ -52,20 +52,25 @@ impl Models {
             }
         }
 
-        let instances = data::InstanceBuffer::new(&device, Vec::<data::Instance>::new());
+        let instances = data::InstanceBuffer::new(&device, HashMap::<String, data::Instance>::new());
         self.models.insert(name.to_string(), Model { primitives, instances });
     }
 
-    pub fn add_instance(&mut self, name: &str, instance: data::Instance) {
-        let model = self.models.get_mut(&name.to_string()).expect("Model not found!");
-        &model.instances.data.push(instance);
+    pub fn add_instance(&mut self, model_name: &str, instance_name: String, instance: data::Instance) {
+        let model = self.models.get_mut(&model_name.to_string()).expect("Model not found!");
+        &model.instances.data.insert(instance_name, instance);
+    }
+
+    pub fn remove_instance(&mut self, model_name: &str, instance_name: &String) {
+        let model = self.models.get_mut(&model_name.to_string()).expect("Model not found!");
+        &model.instances.data.remove(instance_name);
     }
 
     pub fn write_instance_buffers(&mut self, device: &wgpu::Device, name: &str) {
         let model = self.models.get_mut(name).expect("Model not found!");
         model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("instance_buffer"),
-            contents: bytemuck::cast_slice(&model.instances.data),
+            contents: bytemuck::cast_slice(&model.instances.data.values().cloned().collect::<Vec<data::Instance>>()),
             usage: wgpu::BufferUsage::VERTEX,
         });
     }
@@ -75,10 +80,19 @@ impl Models {
     }
 }
 
-pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::RenderPipeline, camera: &camera::Camera, models: &HashMap<String, Model>) -> wgpu::RenderBundle {
+pub fn create_bundle(
+    device: &wgpu::Device,
+    render_pipeline: &render_pipeline::RenderPipeline,
+    camera: &camera::Camera,
+    models: &HashMap<String, Model>,
+) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        color_formats: &[
+            settings::COLOR_TEXTURE_FORMAT,
+            settings::COLOR_TEXTURE_FORMAT,
+            settings::COLOR_TEXTURE_FORMAT,
+        ],
         depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
         sample_count: 1,
     });
@@ -96,7 +110,5 @@ pub fn create_bundle(device: &wgpu::Device, render_pipeline: &render_pipeline::R
         }
     }
 
-    encoder.finish(&wgpu::RenderBundleDescriptor {
-        label: Some("models"),
-    })
+    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
 }

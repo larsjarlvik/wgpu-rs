@@ -31,7 +31,7 @@ impl Vertex {
         }
     }
 }
-pub struct Tile {
+pub struct TerrainTile {
     vertex_buffer: wgpu::Buffer,
     num_elements: u32,
 }
@@ -40,7 +40,6 @@ pub struct Terrain {
     pub render_bundle: wgpu::RenderBundle,
     render_pipeline: wgpu::RenderPipeline,
     seed: i32,
-    tiles: Vec<Tile>,
 }
 
 impl Terrain {
@@ -95,22 +94,24 @@ impl Terrain {
             render_pipeline,
             render_bundle,
             seed: 100,
-            tiles: Vec::new(),
         }
     }
 
-    pub fn add_tile(&mut self, device: &wgpu::Device, tx: f32, ty: f32, tile_size: f32) {
+    pub fn build_tile(&mut self, device: &wgpu::Device, x: i32, y: i32, tile_size: f32) -> TerrainTile {
         let mut to_generate = Vec::new();
         let half_tile_size = (tile_size / 2.0) as i32;
 
-        for y in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
+        let tx = x as f32 * tile_size;
+        let tz = y as f32 * tile_size;
+
+        for z in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
             for x in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
-                to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
-                to_generate.push(cgmath::Point2::new(tx + x, ty + y));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y + 1.0));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, ty + y));
-                to_generate.push(cgmath::Point2::new(tx + x, ty + y + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x, tz + z + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, tz + z));
+                to_generate.push(cgmath::Point2::new(tx + x, tz + z));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, tz + z + 1.0));
+                to_generate.push(cgmath::Point2::new(tx + x + 1.0, tz + z));
+                to_generate.push(cgmath::Point2::new(tx + x, tz + z + 1.0));
             }
         }
 
@@ -126,14 +127,14 @@ impl Terrain {
         });
         let num_elements = vertices.len() as u32;
 
-        &self.tiles.push(Tile {
+        TerrainTile {
             vertex_buffer,
             num_elements,
-        });
+        }
     }
 
-    pub fn build(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
-        self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &camera, &self.tiles);
+    pub fn build(&mut self, device: &wgpu::Device, camera: &camera::Camera, tiles: Vec<&TerrainTile>) {
+        self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &camera, &tiles);
     }
 
     pub fn get_elevation(&self, x: f32, z: f32) -> f32 {
@@ -145,7 +146,7 @@ fn build_render_bundle(
     device: &wgpu::Device,
     render_pipeline: &wgpu::RenderPipeline,
     camera: &camera::Camera,
-    tiles: &Vec<Tile>,
+    tiles: &Vec<&TerrainTile>,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,

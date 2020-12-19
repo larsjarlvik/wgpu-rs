@@ -20,19 +20,24 @@ impl CameraController {
     }
 
     pub fn process_events(&mut self, input: &input::Input, frame_time: &Duration) {
+        let time_step = frame_time.as_micros() as f32 * 0.00001;
         self.acceleration = Vector3::new(0.0, 0.0, 0.0);
+
+        // Movement
         if input.keys.contains(&VirtualKeyCode::W) {
-            self.acceleration.z += settings::CAMERA_ACCELERATION;
+            self.acceleration.z += settings::CAMERA_ACCELERATION * time_step;
         }
         if input.keys.contains(&VirtualKeyCode::A) {
-            self.acceleration.x += settings::CAMERA_ACCELERATION;
+            self.acceleration.x += settings::CAMERA_ACCELERATION * time_step;
         }
         if input.keys.contains(&VirtualKeyCode::S) {
-            self.acceleration.z -= settings::CAMERA_ACCELERATION;
+            self.acceleration.z -= settings::CAMERA_ACCELERATION * time_step;
         }
         if input.keys.contains(&VirtualKeyCode::D) {
-            self.acceleration.x -= settings::CAMERA_ACCELERATION;
+            self.acceleration.x -= settings::CAMERA_ACCELERATION * time_step;
         }
+
+        // Zoom
         if input.mouse_scroll_delta < 0.0 {
             self.acceleration.y -= settings::CAMERA_ACCELERATION;
         }
@@ -40,29 +45,30 @@ impl CameraController {
             self.acceleration.y += settings::CAMERA_ACCELERATION;
         }
 
+        // Rotation
         if input.mouse_buttons.contains(&3) {
-            self.update_rotation(input.mouse_delta);
+            self.update_rotation(input.mouse_delta, time_step);
         } else {
-            self.update_rotation((0.0, 0.0));
+            self.update_rotation((0.0, 0.0), time_step);
         }
 
-        self.update_position(frame_time);
+        self.update_position(time_step);
     }
 
-    fn update_position(&mut self, frame_time: &Duration) {
-        let time_step = frame_time.as_millis() as f32 * 0.01;
-
-        let temp_accel = Vector3::new(
-            self.acceleration.x - settings::CAMERA_FRICTION * self.velocity.x * time_step,
-            self.acceleration.y - settings::CAMERA_FRICTION * self.velocity.y * time_step,
-            self.acceleration.z - settings::CAMERA_FRICTION * self.velocity.z * time_step,
-        );
-
-        self.velocity += temp_accel * time_step;
+    fn update_position(&mut self, time_step: f32) {
+        self.velocity += Vector3::new(
+            self.acceleration.x - settings::CAMERA_FRICTION * self.velocity.x,
+            self.acceleration.y - settings::CAMERA_FRICTION * self.velocity.y,
+            self.acceleration.z - settings::CAMERA_FRICTION * self.velocity.z,
+        ) * time_step;
     }
 
-    fn update_rotation(&mut self, mouse_delta: (f32, f32)) {
+    fn update_rotation(&mut self, mouse_delta: (f32, f32), time_step: f32) {
         let (x, y) = mouse_delta;
-        self.rotation = Vector2::new(y.to_radians(), x.to_radians());
+
+        self.rotation = Vector2::new(
+            y.to_radians() * time_step * settings::CAMERA_SENSITIVITY,
+            -x.to_radians() * time_step * settings::CAMERA_SENSITIVITY,
+        );
     }
 }

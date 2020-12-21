@@ -12,6 +12,7 @@ layout(set=1, binding=0) uniform Uniforms {
     vec3 u_light_dir;
     float u_ambient_strength;
     vec3 u_light_color;
+    float u_light_intensity;
 };
 
 layout(set=2, binding=0) uniform Camera {
@@ -32,7 +33,7 @@ vec3 calculate_light(vec3 position, vec3 normal) {
     float specular_strength = pow(max(dot(normal, half_dir), 0.0), 16);
     vec3 specular_color = specular_strength * u_light_color;
 
-    return ambient_color + diffuse_color + specular_color;
+    return ambient_color + (diffuse_color + specular_color) * u_light_intensity;
 }
 
 void main() {

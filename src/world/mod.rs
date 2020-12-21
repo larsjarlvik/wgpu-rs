@@ -1,3 +1,5 @@
+use cgmath::num_traits::Pow;
+
 use crate::{camera, models};
 extern crate nanoid;
 use std::{collections::HashMap, time::Instant};
@@ -14,27 +16,24 @@ pub struct World {
     pub tiles: HashMap<(i32, i32), Tile>,
     pub terrain: terrain::Terrain,
     pub assets: assets::Assets,
-    pub noise: noise::Fbm,
+    pub noise: noise::OpenSimplex,
     pub tile_size: usize,
     pub tile_range: u32,
 }
 
 impl World {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, models: &mut models::Models) -> World {
-        let terrain = terrain::Terrain::new(&device, &camera);
+        let terrain = terrain::Terrain::new(&device, &queue, &camera);
         let assets = assets::Assets::new(&device, &queue, &camera, models);
-        let mut noise = noise::Fbm::new();
+        let noise = noise::OpenSimplex::new();
         let tiles = HashMap::new();
-
-        noise.octaves = 3;
-        noise.persistence = 0.6;
 
         World {
             terrain,
             assets,
             tiles,
             noise,
-            tile_size: 12,
+            tile_size: 14,
             tile_range: 14,
         }
     }
@@ -56,9 +55,10 @@ impl World {
 
     fn add_tiles(&mut self, device: &wgpu::Device, models: &mut models::Models, cx: i32, cz: i32) -> bool {
         let mut dirty = false;
-        for z in (cz - self.tile_range as i32)..(cz + self.tile_range as i32) {
-            for x in (cx - self.tile_range as i32)..(cx + self.tile_range as i32) {
-                if !self.tiles.contains_key(&(x, z)) {
+        for z in (cz - self.tile_range as i32 - 1)..(cz + self.tile_range as i32 + 1) {
+            for x in (cx - self.tile_range as i32 - 1)..(cx + self.tile_range as i32 + 1) {
+                let distance = ((x as f32 - cx as f32).pow(2.0) + (z as f32 - cz as f32).powf(2.0)).sqrt().abs();
+                if !self.tiles.contains_key(&(x, z)) && distance <= self.tile_range as f32 {
                     self.build_tile(&device, models, x, z);
                     dirty = true;
                 }
@@ -74,7 +74,8 @@ impl World {
 
         self.tiles.retain(|key, value| {
             let (x, z) = key;
-            let keep = (cx - *x).abs() <= tile_range && (cz - *z).abs() <= tile_range;
+            let distance = ((*x as f32 - cx as f32).pow(2.0) + (*z as f32 - cz as f32).powf(2.0)).sqrt().abs();
+            let keep = distance <= tile_range as f32 * 1.2;
             if !keep {
                 ass.delete_tile(models, &value.assets);
             }

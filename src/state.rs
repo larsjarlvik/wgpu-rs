@@ -35,7 +35,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
+                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY,
                     limits: wgpu::Limits::default(),
                     shader_validation: true,
                 },

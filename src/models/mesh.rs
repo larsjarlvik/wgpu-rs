@@ -1,14 +1,8 @@
-use crate::models::*;
+use crate::{models::*, texture};
 use wgpu::util::DeviceExt;
-use wgpu_mipmap::*;
-
-struct Texture {
-    pub texture: wgpu::Texture,
-    pub view: wgpu::TextureView,
-}
 
 struct Material {
-    base_color_texture: Texture,
+    base_color_texture: texture::Texture,
 }
 
 pub struct Mesh {
@@ -46,10 +40,9 @@ impl Mesh {
                 });
             }
 
-            let base_color_texture = load_texture(&device, &queue, images.iter().nth(0).unwrap());
-            let material = Material {
-                base_color_texture,
-            };
+            let image = images.iter().nth(0).unwrap();
+            let base_color_texture = texture::Texture::new(&device, &queue, &image.pixels, image.width, image.height);
+            let material = Material { base_color_texture };
 
             meshes.push(Mesh {
                 name,
@@ -102,53 +95,4 @@ impl Mesh {
             num_elements,
         }
     }
-}
-
-fn load_texture(device: &wgpu::Device, queue: &wgpu::Queue, image: &gltf::image::Data) -> Texture {
-    let size = wgpu::Extent3d {
-        width: image.width,
-        height: image.height,
-        depth: 1,
-    };
-
-    let generator = RecommendedMipmapGenerator::new(&device);
-    let texture_descriptor = wgpu::TextureDescriptor {
-        size,
-        mip_level_count: 9,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
-        label: None,
-    };
-
-    let texture = device.create_texture(&texture_descriptor);
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-    let mut encoder = device.create_command_encoder(&Default::default());
-    encoder.copy_buffer_to_texture(
-        wgpu::BufferCopyView {
-            buffer: &device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Temporary Buffer"),
-                contents: image.pixels.as_slice(),
-                usage: wgpu::BufferUsage::COPY_SRC,
-            }),
-            layout: wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: 4 * image.width,
-                rows_per_image: image.height,
-            },
-        },
-        wgpu::TextureCopyView {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-        },
-        size,
-    );
-
-    generator.generate(&device, &mut encoder, &texture, &texture_descriptor).unwrap();
-    queue.submit(std::iter::once(encoder.finish()));
-
-    Texture { texture, view }
 }

@@ -5,7 +5,8 @@ use wgpu::util::DeviceExt;
 pub struct Uniforms {
     pub light_dir: [f32; 3],
     pub ambient_strength: f32,
-    pub light_color: [f32; 4],
+    pub light_color: [f32; 3],
+    pub light_intensity: f32,
 }
 
 pub struct UniformBuffer {

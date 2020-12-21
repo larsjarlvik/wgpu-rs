@@ -13,6 +13,7 @@ mod input;
 mod models;
 mod settings;
 mod state;
+mod texture;
 mod world;
 pub use state::*;
 

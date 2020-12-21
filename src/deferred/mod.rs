@@ -85,7 +85,11 @@ impl DeferredRender {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("deferred_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &camera.uniforms.bind_group_layout],
+            bind_group_layouts: &[
+                &texture_bind_group_layout,
+                &uniform_bind_group_layout,
+                &camera.uniforms.bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -124,8 +128,9 @@ impl DeferredRender {
             &uniform_bind_group_layout,
             data::Uniforms {
                 light_dir: [1.0, -1.0, 0.0],
-                light_color: [0.75, 0.75, 0.67, 0.0],
+                light_color: [1.0, 1.0, 0.87],
                 ambient_strength: 0.3,
+                light_intensity: 2.0,
             },
         );
 
@@ -142,7 +147,11 @@ impl DeferredRender {
     }
 }
 
-fn create_texture_view(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, format: wgpu::TextureFormat) -> wgpu::TextureView {
+fn create_texture_view(
+    device: &wgpu::Device,
+    swap_chain_desc: &wgpu::SwapChainDescriptor,
+    format: wgpu::TextureFormat,
+) -> wgpu::TextureView {
     let texture_extent = wgpu::Extent3d {
         width: swap_chain_desc.width,
         height: swap_chain_desc.height,
@@ -161,7 +170,7 @@ fn create_texture_view(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainD
     texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-fn create_bind_group_layout(binding: u32, component_type: wgpu::TextureComponentType) -> wgpu::BindGroupLayoutEntry  {
+fn create_bind_group_layout(binding: u32, component_type: wgpu::TextureComponentType) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStage::FRAGMENT,

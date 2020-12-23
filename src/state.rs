@@ -35,7 +35,7 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY,
+                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS,
                     limits: wgpu::Limits::default(),
                     shader_validation: true,
                 },
@@ -100,7 +100,7 @@ impl State {
         let frame_time = self.last_frame.elapsed();
         self.last_frame = Instant::now();
         self.camera.update_camera(&self.queue, &frame_time, &self.input);
-        self.world.update(&self.device, &self.camera, &mut self.models);
+        self.world.update(&self.device, &self.queue, &self.camera, &mut self.models);
         self.input.after_update();
     }
 

@@ -3,8 +3,6 @@ use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
-use super::elevation;
-
 struct Asset {
     name: String,
     density: f32,
@@ -38,10 +36,10 @@ impl Assets {
         Assets { assets }
     }
 
-    pub fn create_tile(&mut self, noise: &noise::OpenSimplex, models: &mut models::Models, x: i32, z: i32, tile_size: f32) -> AssetsTile {
+    pub fn create_tile(&mut self, models: &mut models::Models, x: i32, z: i32, tile_size: f32) -> AssetsTile {
         let mut instance_ids = HashMap::new();
         for asset in &self.assets {
-            let a = add_asset(noise, models, asset, x, z, tile_size);
+            let a = add_asset(models, asset, x, z, tile_size);
             instance_ids.insert(asset.name.clone(), a);
         }
 
@@ -66,7 +64,7 @@ impl Assets {
     }
 }
 
-fn add_asset(noise: &noise::OpenSimplex, models: &mut models::Models, asset: &Asset, x: i32, z: i32, tile_size: f32) -> Vec<String> {
+fn add_asset(models: &mut models::Models, asset: &Asset, x: i32, z: i32, tile_size: f32) -> Vec<String> {
     let count = (tile_size * asset.density) as u32;
     let tile_size = tile_size;
     let instances = (0..count)
@@ -75,7 +73,7 @@ fn add_asset(noise: &noise::OpenSimplex, models: &mut models::Models, asset: &As
             let mut rng = rand::thread_rng();
             let mx = (x as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
             let mz = (z as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
-            let my = elevation::get(noise, mx, mz) - 0.1;
+            let my = 0.0;
             models::data::Instance {
                 transform: {
                     cgmath::Matrix4::from_translation(cgmath::Vector3 { x: mx, y: my, z: mz })

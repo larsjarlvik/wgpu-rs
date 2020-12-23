@@ -42,10 +42,10 @@ impl Camera {
             target: (0.0, 0.0, 0.0).into(),
             rotation: ((45.0 as f32).to_radians(), (90.0 as f32).to_radians()).into(),
             distance: 100.0,
-            aspect: aspect,
+            aspect,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 500.0,
+            zfar: 800.0,
         }
     }
 

@@ -1,63 +1,19 @@
-use super::elevation;
+use super::terrain_tile;
 use crate::{camera, settings, texture};
-use cgmath::{InnerSpace, Vector3};
 use image::GenericImageView;
-use rayon::prelude::*;
 use std::num::NonZeroU32;
-use wgpu::util::DeviceExt;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub tangent: [f32; 3],
-    pub bitangent: [f32; 3],
-    pub normal: [f32; 3],
-}
-
-impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: std::mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: std::mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
-                    shader_location: 3,
-                    format: wgpu::VertexFormat::Float3,
-                },
-            ],
-        }
-    }
-}
-pub struct TerrainTile {
-    vertex_buffer: wgpu::Buffer,
-    num_elements: u32,
-}
 
 pub struct Terrain {
     pub render_bundle: wgpu::RenderBundle,
     render_pipeline: wgpu::RenderPipeline,
     texture_bind_group: wgpu::BindGroup,
+    compute: terrain_tile::Compute,
 }
 
 impl Terrain {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera) -> Terrain {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, tile_size: u32) -> Terrain {
+        let compute = terrain_tile::Compute::new(device, tile_size as f32);
+
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
@@ -118,7 +74,7 @@ impl Terrain {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[Vertex::desc()],
+                vertex_buffers: &[terrain_tile::Vertex::desc()],
             },
             sample_count: 1,
             sample_mask: !0,
@@ -126,70 +82,35 @@ impl Terrain {
         });
 
         let texture_bind_group = build_textures(device, queue, &texture_bind_group_layout);
-        let render_bundle = build_render_bundle(&device, &render_pipeline, &texture_bind_group, &camera, &Vec::new());
+        let render_bundle = build_render_bundle(
+            &device,
+            &render_pipeline,
+            &texture_bind_group,
+            &camera,
+            &Vec::new(),
+            compute.num_elements,
+        );
         Terrain {
             texture_bind_group,
             render_pipeline,
             render_bundle,
+            compute,
         }
     }
 
-    pub fn create_tile(&mut self, device: &wgpu::Device, noise: &noise::OpenSimplex, x: i32, z: i32, tile_size: f32) -> TerrainTile {
-        let mut to_generate = Vec::new();
-        let half_tile_size = (tile_size / 2.0) as i32;
-
-        let tx = x as f32 * tile_size;
-        let tz = z as f32 * tile_size;
-
-        for z in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
-            for x in (-half_tile_size..half_tile_size).map(|i| (i as f32)) {
-                to_generate.push(cgmath::Point2::new(tx + x, tz + z + 1.0));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, tz + z));
-                to_generate.push(cgmath::Point2::new(tx + x, tz + z));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, tz + z + 1.0));
-                to_generate.push(cgmath::Point2::new(tx + x + 1.0, tz + z));
-                to_generate.push(cgmath::Point2::new(tx + x, tz + z + 1.0));
-            }
-        }
-
-        let vertices = to_generate
-            .par_iter()
-            .map(|point| gen_vertex(noise, point.x, point.y))
-            .collect::<Vec<Vertex>>();
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&vertices.as_slice()),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
-        let num_elements = vertices.len() as u32;
-
-        TerrainTile {
-            vertex_buffer,
-            num_elements,
-        }
+    pub fn create_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, x: i32, z: i32) -> terrain_tile::TerrainTile {
+        self.compute.compute(device, queue, x as f32, z as f32)
     }
 
-    pub fn build(&mut self, device: &wgpu::Device, camera: &camera::Camera, tiles: Vec<&TerrainTile>) {
-        self.render_bundle = build_render_bundle(&device, &self.render_pipeline, &self.texture_bind_group, &camera, &tiles);
-    }
-}
-
-fn gen_vertex(noise: &noise::OpenSimplex, x: f32, z: f32) -> Vertex {
-    let normal = Vector3::new(
-        elevation::get(noise, x - 1.0, z) - elevation::get(noise, x + 1.0, z),
-        2.0,
-        elevation::get(noise, x, x - 1.0) - elevation::get(noise, x, x + 1.0),
-    )
-    .normalize();
-    let bitangent = Vector3::cross(Vector3::new(0.0, 0.0, 1.0), normal).normalize();
-    let tangent = Vector3::cross(normal, bitangent).normalize();
-
-    Vertex {
-        position: [x, elevation::get(noise, x, z), z],
-        tangent: tangent.into(),
-        bitangent: bitangent.into(),
-        normal: normal.into(),
+    pub fn refresh(&mut self, device: &wgpu::Device, camera: &camera::Camera, tiles: Vec<&terrain_tile::TerrainTile>) {
+        self.render_bundle = build_render_bundle(
+            &device,
+            &self.render_pipeline,
+            &self.texture_bind_group,
+            &camera,
+            &tiles,
+            self.compute.num_elements,
+        );
     }
 }
 
@@ -198,7 +119,8 @@ fn build_render_bundle(
     render_pipeline: &wgpu::RenderPipeline,
     texture_bind_group: &wgpu::BindGroup,
     camera: &camera::Camera,
-    tiles: &Vec<&TerrainTile>,
+    tiles: &Vec<&terrain_tile::TerrainTile>,
+    num_elements: u32,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -215,8 +137,8 @@ fn build_render_bundle(
     encoder.set_bind_group(1, &texture_bind_group, &[]);
 
     for tile in tiles {
-        encoder.set_vertex_buffer(0, tile.vertex_buffer.slice(..));
-        encoder.draw(0..tile.num_elements, 0..1);
+        encoder.set_vertex_buffer(0, tile.buffer.slice(..));
+        encoder.draw(0..num_elements, 0..1);
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })

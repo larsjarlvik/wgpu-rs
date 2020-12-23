@@ -14,6 +14,7 @@ pub struct State {
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
     last_frame: Instant,
+    frame_time: Vec<f32>,
     input: Input,
     pub size: winit::dpi::PhysicalSize<u32>,
 }
@@ -79,6 +80,7 @@ impl State {
             world,
             input: Input::new(),
             last_frame: Instant::now(),
+            frame_time: Vec::new(),
         }
     }
 
@@ -96,10 +98,20 @@ impl State {
         &self.input.process_events(event);
     }
 
-    pub fn update(&mut self) {
-        let frame_time = self.last_frame.elapsed();
+    fn frame_time(&mut self) -> f32 {
+        let avg_count = 30;
+        self.frame_time.push(self.last_frame.elapsed().as_micros() as f32 / 1000.0);
         self.last_frame = Instant::now();
-        self.camera.update_camera(&self.queue, &frame_time, &self.input);
+
+        if self.frame_time.len() > avg_count {
+            self.frame_time.drain((self.frame_time.len() - avg_count)..);
+        }
+        self.frame_time.iter().sum::<f32>() / self.frame_time.len() as f32
+    }
+
+    pub fn update(&mut self) {
+        let avg = self.frame_time();
+        self.camera.update_camera(&self.queue, avg, &self.input);
         self.world.update(&self.device, &self.queue, &self.camera, &mut self.models);
         self.input.after_update();
     }

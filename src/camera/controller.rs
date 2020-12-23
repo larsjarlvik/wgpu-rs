@@ -1,5 +1,4 @@
 use cgmath::{Vector2, Vector3};
-use std::time::Duration;
 use winit::event::*;
 
 use crate::{input, settings};
@@ -19,8 +18,8 @@ impl CameraController {
         }
     }
 
-    pub fn process_events(&mut self, input: &input::Input, frame_time: &Duration) {
-        let time_step = frame_time.as_micros() as f32 * 0.00001;
+    pub fn process_events(&mut self, input: &input::Input, frame_time: f32) {
+        let time_step = frame_time * 0.01;
         self.acceleration = Vector3::new(0.0, 0.0, 0.0);
 
         // Movement

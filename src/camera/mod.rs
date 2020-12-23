@@ -1,7 +1,5 @@
-use cgmath::SquareMatrix;
-use std::time::Duration;
-
 use crate::input;
+use cgmath::SquareMatrix;
 
 mod controller;
 mod uniforms;
@@ -49,7 +47,7 @@ impl Camera {
         }
     }
 
-    pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: &Duration, input: &input::Input) {
+    pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: f32, input: &input::Input) {
         self.controller.process_events(input, frame_time);
 
         self.distance += self.controller.velocity.y;

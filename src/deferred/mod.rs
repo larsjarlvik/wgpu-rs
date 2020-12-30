@@ -127,8 +127,8 @@ impl DeferredRender {
             &device,
             &uniform_bind_group_layout,
             data::Uniforms {
-                light_dir: [1.0, -1.0, 0.0],
-                light_color: [1.0, 1.0, 0.87],
+                light_dir: [0.5, -1.0, 0.0],
+                light_color: [1.0, 0.9, 0.3],
                 ambient_strength: 0.3,
                 light_intensity: 2.0,
             },
@@ -163,7 +163,7 @@ fn create_texture_view(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: format,
+        format,
         usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
     };
     let texture = device.create_texture(frame_descriptor);

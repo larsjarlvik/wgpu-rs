@@ -11,6 +11,10 @@ layout(location=1) out mat3 v_tbn;
 layout(set=0, binding=0) uniform Camera {
     mat4 u_view_proj;
     vec3 u_eye_pos;
+    float z_near;
+    vec3 u_look_at;
+    float z_far;
+    vec2 u_viewport_size;
 };
 
 void main() {

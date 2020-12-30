@@ -5,6 +5,10 @@ use wgpu::util::DeviceExt;
 pub struct Uniforms {
     pub view_proj: [[f32; 4]; 4],
     pub eye_pos: [f32; 3],
+    pub z_near: f32,
+    pub look_at: [f32; 3],
+    pub z_far: f32,
+    pub viewport_size: [f32; 2],
 }
 pub struct UniformBuffer {
     pub data: Uniforms,
@@ -40,6 +44,11 @@ impl UniformBuffer {
                 resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
             }],
         });
-        Self { data, buffer, bind_group, bind_group_layout }
+        Self {
+            data,
+            buffer,
+            bind_group,
+            bind_group_layout,
+        }
     }
 }

@@ -42,16 +42,16 @@ impl Vertex {
 }
 
 pub struct TerrainTile {
-    pub buffer: wgpu::Buffer,
+    pub render_buffer: wgpu::Buffer,
 }
 
 pub struct Compute {
     pub num_elements: u32,
+    vertices: Vec<Vertex>,
     compute_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     src_vertex_buffer: wgpu::Buffer,
-    vertices: Vec<Vertex>,
     tile_size: f32,
 }
 
@@ -132,11 +132,12 @@ impl Compute {
         }
     }
 
-    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> TerrainTile {
+    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> wgpu::Buffer {
+        let contents: &[u8] = bytemuck::cast_slice(&self.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("output_vertex_buffer"),
-            contents: bytemuck::cast_slice(&self.vertices),
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE,
+            contents,
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ,
         });
 
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -179,8 +180,7 @@ impl Compute {
             pass.dispatch(self.num_elements, 1, 1);
         }
         queue.submit(std::iter::once(encoder.finish()));
-
-        TerrainTile { buffer: dst_vertex_buffer }
+        dst_vertex_buffer
     }
 }
 

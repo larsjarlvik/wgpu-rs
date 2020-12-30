@@ -11,6 +11,10 @@ fn main() {
     for entry in shader_paths {
         match entry {
             Ok(path) => {
+                if path.display().to_string().contains("include") {
+                    continue;
+                }
+
                 println!("cargo:rerun-if-changed={}", path.display().to_string().as_str());
 
                 let result = Command::new("./tools/glslangValidator")

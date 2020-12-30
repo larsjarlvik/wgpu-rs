@@ -7,7 +7,7 @@ mod terrain_pipeline;
 mod terrain_tile;
 
 pub struct Tile {
-    terrain: terrain_tile::TerrainTile,
+    pub terrain: terrain_tile::TerrainTile,
     assets: assets::AssetsTile,
 }
 
@@ -55,7 +55,7 @@ impl World {
             for x in (cx - self.tile_range as i32 - 1)..(cx + self.tile_range as i32 + 1) {
                 let distance = ((x as f32 - cx as f32).pow(2.0) + (z as f32 - cz as f32).powf(2.0)).sqrt().abs();
                 if !self.tiles.contains_key(&(x, z)) && distance <= self.tile_range as f32 {
-                    self.build_tile(&device, &queue, models, x, z);
+                    self.build_tile(device, queue, models, x, z);
                     dirty = true;
                 }
             }
@@ -89,7 +89,7 @@ impl World {
 
     fn build_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, models: &mut models::Models, x: i32, z: i32) {
         let tile_size = self.tile_size as f32;
-        let terrain_tile = self.terrain.create_tile(&device, &queue, x, z);
+        let terrain_tile = self.terrain.create_tile(device, queue, x, z);
         let assets_tile = self.assets.create_tile(models, x, z, tile_size);
 
         self.tiles.insert(

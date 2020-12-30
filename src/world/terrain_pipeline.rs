@@ -5,9 +5,9 @@ use std::num::NonZeroU32;
 
 pub struct Terrain {
     pub render_bundle: wgpu::RenderBundle,
+    pub compute: terrain_tile::Compute,
     render_pipeline: wgpu::RenderPipeline,
     texture_bind_group: wgpu::BindGroup,
-    compute: terrain_tile::Compute,
 }
 
 impl Terrain {
@@ -99,7 +99,8 @@ impl Terrain {
     }
 
     pub fn create_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, x: i32, z: i32) -> terrain_tile::TerrainTile {
-        self.compute.compute(device, queue, x as f32, z as f32)
+        let render_buffer = self.compute.compute(device, queue, x as f32, z as f32);
+        terrain_tile::TerrainTile { render_buffer }
     }
 
     pub fn refresh(&mut self, device: &wgpu::Device, camera: &camera::Camera, tiles: Vec<&terrain_tile::TerrainTile>) {
@@ -137,7 +138,7 @@ fn build_render_bundle(
     encoder.set_bind_group(1, &texture_bind_group, &[]);
 
     for tile in tiles {
-        encoder.set_vertex_buffer(0, tile.buffer.slice(..));
+        encoder.set_vertex_buffer(0, tile.render_buffer.slice(..));
         encoder.draw(0..num_elements, 0..1);
     }
 

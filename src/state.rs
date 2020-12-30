@@ -56,7 +56,7 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
         // Camera
-        let camera = camera::Camera::new(&device, swap_chain_desc.width as f32 / swap_chain_desc.height as f32);
+        let camera = camera::Camera::new(&device, &swap_chain_desc);
 
         // Drawing
         let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
@@ -89,7 +89,7 @@ impl State {
         self.swap_chain_desc.width = new_size.width;
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.camera.aspect = self.swap_chain_desc.width as f32 / self.swap_chain_desc.height as f32;
+        self.camera.resize(&self.swap_chain_desc);
         self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
         self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
     }

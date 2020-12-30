@@ -22,7 +22,7 @@ layout(location=2) out vec2 v_tex_coords;
 
 void main() {
     v_position = model_matrix * vec4(a_position, 1.0);
-    v_position.y += get_elevation(vec2(model_matrix[3][0], model_matrix[3][2]));
+    v_position.y += get_elevation(vec2(model_matrix[3][0], model_matrix[3][2])) - 0.25;
 
     v_normals = mat3(transpose(inverse(model_matrix))) * a_normals;
     v_tex_coords = a_tex_coords;

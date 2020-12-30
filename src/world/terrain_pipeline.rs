@@ -1,6 +1,7 @@
 use super::terrain_tile;
 use crate::{camera, settings, texture};
 use image::GenericImageView;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::num::NonZeroU32;
 
 pub struct Terrain {
@@ -25,7 +26,7 @@ impl Terrain {
                         dimension: wgpu::TextureViewDimension::D2Array,
                         component_type: wgpu::TextureComponentType::Uint,
                     },
-                    count: Some(NonZeroU32::new(2).unwrap()),
+                    count: Some(NonZeroU32::new(5).unwrap()),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
@@ -147,7 +148,7 @@ fn build_render_bundle(
 
 fn load_textures(device: &wgpu::Device, queue: &wgpu::Queue, textures: Vec<&str>) -> Vec<wgpu::TextureView> {
     textures
-        .iter()
+        .par_iter()
         .map(|t| {
             let i1 = image::open(format!("res/textures/{}.png", t)).unwrap();
             texture::Texture::new(
@@ -173,7 +174,11 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
         ..Default::default()
     });
 
-    let textures = load_textures(device, queue, vec!["grass-basecolor", "grass-normal"]);
+    let textures = load_textures(
+        device,
+        queue,
+        vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"],
+    );
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("terrain_textures"),
         layout: &texture_bind_group_layout,

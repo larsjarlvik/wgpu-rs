@@ -6,6 +6,8 @@ use std::collections::HashMap;
 struct Asset {
     name: String,
     density: f32,
+    min_size: f32,
+    max_size: f32,
 }
 
 pub struct AssetsTile {
@@ -20,12 +22,28 @@ impl Assets {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, models: &mut models::Models) -> Assets {
         let mut assets = Vec::new();
         assets.push(Asset {
-            name: "pine".to_string(),
-            density: 0.25,
+            name: "pine-1".to_string(),
+            density: 0.075,
+            min_size: 1.5,
+            max_size: 2.5,
         });
         assets.push(Asset {
             name: "pine-2".to_string(),
-            density: 0.25,
+            density: 0.075,
+            min_size: 1.5,
+            max_size: 2.5,
+        });
+        assets.push(Asset {
+            name: "pine-3".to_string(),
+            density: 0.075,
+            min_size: 1.5,
+            max_size: 2.5,
+        });
+        assets.push(Asset {
+            name: "rock-1".to_string(),
+            density: 0.075,
+            min_size: 1.5,
+            max_size: 4.5,
         });
 
         for asset in &assets {
@@ -74,11 +92,12 @@ fn add_asset(models: &mut models::Models, asset: &Asset, x: i32, z: i32, tile_si
             let mx = (x as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
             let mz = (z as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
             let my = 0.0;
+
             models::data::Instance {
                 transform: {
                     cgmath::Matrix4::from_translation(cgmath::Vector3 { x: mx, y: my, z: mz })
                         * cgmath::Matrix4::from_angle_y(cgmath::Deg(&rng.gen::<f32>() * 360.0))
-                        * cgmath::Matrix4::from_scale(&rng.gen::<f32>() * 2.0 + 0.5)
+                        * cgmath::Matrix4::from_scale(rng.gen_range(asset.min_size, asset.max_size))
                 }
                 .into(),
             }

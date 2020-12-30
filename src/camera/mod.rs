@@ -45,7 +45,7 @@ impl Camera {
         Camera {
             controller,
             uniforms,
-            target: (0.0, 50.0, 0.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
             rotation: ((45.0 as f32).to_radians(), (90.0 as f32).to_radians()).into(),
             distance: 100.0,
             width: swap_chain_desc.width as f32,

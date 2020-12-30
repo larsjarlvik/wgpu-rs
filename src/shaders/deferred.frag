@@ -59,7 +59,7 @@ void main() {
     float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
 
     vec4 position = texelFetch(sampler2D(t_position, t_sampler), fragCoord, 0);
-    vec4 normal = texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0);
+    vec4 normal = normalize(texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0));
     vec4 base_color = texelFetch(sampler2D(t_base_color, t_sampler), fragCoord, 0);
 
 

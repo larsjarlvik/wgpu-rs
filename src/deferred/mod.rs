@@ -128,7 +128,7 @@ impl DeferredRender {
             &uniform_bind_group_layout,
             data::Uniforms {
                 light_dir: [0.5, -1.0, 0.0],
-                light_color: [1.0, 0.9, 0.3],
+                light_color: [1.0, 0.9, 0.5],
                 ambient_strength: 0.3,
                 light_intensity: 2.0,
             },

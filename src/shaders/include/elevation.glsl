@@ -1,5 +1,5 @@
 #define SCALE 0.005
-#define NUM_OCTAVES 5
+#define NUM_OCTAVES 6
 
 float random(in vec2 _st) {
     return fract(sin(dot(_st.xy, vec2(12.9898,78.233))) * 43758.5453123);
@@ -23,14 +23,14 @@ float noise(vec2 _st) {
 }
 
 
-float fbm(vec2 _st) {
+float fbm(vec2 st) {
     float v = 0.0;
     float a = 0.5;
     vec2 shift = vec2(100.0);
     mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
     for (int i = 0; i < NUM_OCTAVES; ++i) {
-        v += a * noise(_st);
-        _st = rot * _st * 2.0 + shift;
+        v += a * noise(st);
+        st = rot * st * 2.0 + shift;
         a *= 0.5;
     }
     return v;
@@ -46,6 +46,6 @@ float get_elevation(vec2 p) {
     r.x = fbm(xz + 1.0 * q + vec2(1.7, 9.2) + 0.15);
     r.y = fbm(xz + 1.0 * q + vec2(8.3, 2.8) + 0.126);
 
-    return fbm(xz + r) / SCALE / 2.0;
+    return (fbm(xz + r) - 0.3) / SCALE / 2.0;
 }
 

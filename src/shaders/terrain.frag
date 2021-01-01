@@ -1,6 +1,4 @@
 #version 450
-#extension GL_GOOGLE_include_directive : require
-#include "include/elevation.glsl"
 
 layout(location=0) in vec4 v_position;
 layout(location=1) in mat3 v_tbn;
@@ -37,7 +35,7 @@ Texture get_texture() {
    vec3 sand = getTriPlanarTexture(4);
    vec3 cliffs = getTriPlanarTexture(2);
 
-   vec3 ground = mix(sand, grass, clamp(v_position.y + (fbm(v_position.xz) * 2.0), 0.0, 1.0));
+   vec3 ground = grass; // mix(sand, grass, clamp(v_position.y + (fbm(v_position.xz) * 2.0), 0.0, 1.0));
 
    vec3 grass_sand_normal = getTriPlanarTexture(1);
    vec3 cliff_normal = getTriPlanarTexture(3);

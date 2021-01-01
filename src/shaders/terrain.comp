@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "include/elevation.glsl"
+#include "include/noise.glsl"
+#define SCALE 0.005
 
 layout(local_size_x = 1) in;
 
@@ -20,6 +21,18 @@ layout(std430, set=0, binding=1) buffer Dst {
 layout(set=1, binding=0) uniform ComputeData {
     vec2 u_position;
 };
+
+float get_elevation(vec2 p) {
+    vec2 xz = p * SCALE;
+    vec2 q = vec2(fbm(xz), fbm(xz + vec2(1.0)));
+
+    vec2 r = vec2(
+        fbm(xz + vec2(1.0) * q + vec2(1.7 + 0.15, 9.2 + 0.15)),
+        fbm(xz + vec2(1.0) * q + vec2(8.3 + 0.126, 2.8 + 0.126))
+    );
+
+    return (fbm(xz + r) - 0.3) / SCALE / 2.0;
+}
 
 void main() {
     uint i = gl_GlobalInvocationID.x;

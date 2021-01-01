@@ -1,6 +1,5 @@
 use crate::input;
 use cgmath::SquareMatrix;
-
 mod controller;
 mod uniforms;
 

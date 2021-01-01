@@ -1,4 +1,5 @@
-use crate::{camera, models};
+use crate::{camera, models, noise, settings};
+use cgmath::*;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
@@ -54,10 +55,10 @@ impl Assets {
         Assets { assets }
     }
 
-    pub fn create_tile(&mut self, models: &mut models::Models, x: i32, z: i32, tile_size: f32) -> AssetsTile {
+    pub fn create_tile(&mut self, noise: &noise::Noise, models: &mut models::Models, x: i32, z: i32, tile_size: f32) -> AssetsTile {
         let mut instance_ids = HashMap::new();
         for asset in &self.assets {
-            let a = add_asset(models, asset, x, z, tile_size);
+            let a = add_asset(models, asset, noise, x, z, tile_size);
             instance_ids.insert(asset.name.clone(), a);
         }
 
@@ -82,7 +83,22 @@ impl Assets {
     }
 }
 
-fn add_asset(models: &mut models::Models, asset: &Asset, x: i32, z: i32, tile_size: f32) -> Vec<String> {
+fn get_elevation(p: Vector2<f32>, noise: &noise::Noise) -> f32 {
+    let xz = p * settings::TERRAIN_SCALE;
+    let q = vec2(
+        noise.fbm(cgmath::Vector2::new(xz.x, xz.y)),
+        noise.fbm(cgmath::Vector2::new(xz.x + 1.0, xz.y + 1.0)),
+    );
+
+    let a = xz + q + vec2(1.7 + 0.15, 9.2 + 0.15);
+    let b = xz + q + vec2(8.3 + 0.126, 2.8 + 0.126);
+
+    let r = vec2(noise.fbm(cgmath::Vector2::new(a.x, a.y)), noise.fbm(cgmath::Vector2::new(b.x, b.y)));
+
+    (noise.fbm(cgmath::Vector2::new(xz.x + r.x, xz.y + r.y)) - 0.3) / settings::TERRAIN_SCALE / 2.0
+}
+
+fn add_asset(models: &mut models::Models, asset: &Asset, noise: &noise::Noise, x: i32, z: i32, tile_size: f32) -> Vec<String> {
     let count = (tile_size * asset.density) as u32;
     let tile_size = tile_size;
     let instances = (0..count)
@@ -91,7 +107,7 @@ fn add_asset(models: &mut models::Models, asset: &Asset, x: i32, z: i32, tile_si
             let mut rng = rand::thread_rng();
             let mx = (x as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
             let mz = (z as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
-            let my = 0.0;
+            let my = get_elevation(vec2(mx, mz), noise);
 
             models::data::Instance {
                 transform: {

@@ -11,6 +11,7 @@ mod deferred;
 mod fxaa;
 mod input;
 mod models;
+mod noise;
 mod settings;
 mod state;
 mod texture;

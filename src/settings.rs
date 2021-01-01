@@ -9,3 +9,4 @@ pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 pub const CAMERA_ACCELERATION: f32 = 10.0;
 pub const CAMERA_FRICTION: f32 = 1.0;
 pub const CAMERA_SENSITIVITY: f32 = 10.0;
+pub const TERRAIN_SCALE: f32 = 0.005;

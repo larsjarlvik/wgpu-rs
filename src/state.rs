@@ -1,4 +1,4 @@
-use crate::{camera, deferred, fxaa, input::Input, models, settings, world};
+use crate::{camera, deferred, fxaa, input::Input, models, noise, settings, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -64,7 +64,8 @@ impl State {
         let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
 
         // World
-        let world = world::World::new(&device, &queue, &camera, &mut models);
+        let noise = noise::Noise::new(&device, &queue).await;
+        let world = world::World::new(&device, &queue, &camera, noise, &mut models);
 
         Self {
             surface,

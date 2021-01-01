@@ -1,4 +1,4 @@
-use super::terrain_tile;
+use super::{noise, terrain_tile};
 use crate::{camera, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -91,6 +91,7 @@ impl Terrain {
             &Vec::new(),
             compute.num_elements,
         );
+
         Terrain {
             texture_bind_group,
             render_pipeline,
@@ -99,8 +100,15 @@ impl Terrain {
         }
     }
 
-    pub fn create_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, x: i32, z: i32) -> terrain_tile::TerrainTile {
-        let render_buffer = self.compute.compute(device, queue, x as f32, z as f32);
+    pub fn create_tile(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        noise: &noise::Noise,
+        x: i32,
+        z: i32,
+    ) -> terrain_tile::TerrainTile {
+        let render_buffer = self.compute.compute(device, queue, x as f32, z as f32, noise);
         terrain_tile::TerrainTile { render_buffer }
     }
 

@@ -1,4 +1,4 @@
-use crate::{camera, models};
+use crate::{camera, models, noise};
 use cgmath::num_traits::Pow;
 extern crate nanoid;
 use std::{collections::HashMap, time::Instant};
@@ -17,13 +17,20 @@ pub struct World {
     pub assets: assets::Assets,
     pub tile_size: u32,
     pub tile_range: u32,
+    noise: noise::Noise,
 }
 
 impl World {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, models: &mut models::Models) -> World {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        camera: &camera::Camera,
+        noise: noise::Noise,
+        models: &mut models::Models,
+    ) -> World {
         let tile_size = 40;
-        let terrain = terrain_pipeline::Terrain::new(&device, &queue, &camera, tile_size);
-        let assets = assets::Assets::new(&device, &queue, &camera, models);
+        let terrain = terrain_pipeline::Terrain::new(device, queue, camera, tile_size);
+        let assets = assets::Assets::new(device, queue, camera, models);
         let tiles = HashMap::new();
 
         World {
@@ -32,6 +39,7 @@ impl World {
             tiles,
             tile_size,
             tile_range: 8,
+            noise,
         }
     }
 
@@ -89,8 +97,8 @@ impl World {
 
     fn build_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, models: &mut models::Models, x: i32, z: i32) {
         let tile_size = self.tile_size as f32;
-        let terrain_tile = self.terrain.create_tile(device, queue, x, z);
-        let assets_tile = self.assets.create_tile(models, x, z, tile_size);
+        let terrain_tile = self.terrain.create_tile(device, queue, &self.noise, x, z);
+        let assets_tile = self.assets.create_tile(&self.noise, models, x, z, tile_size);
 
         self.tiles.insert(
             (x, z),

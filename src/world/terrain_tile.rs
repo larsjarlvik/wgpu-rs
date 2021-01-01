@@ -1,3 +1,4 @@
+use super::noise;
 use std::mem;
 use wgpu::util::DeviceExt;
 
@@ -51,6 +52,7 @@ pub struct Compute {
     compute_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
+    noise_texture_bind_group_layout: wgpu::BindGroupLayout,
     src_vertex_buffer: wgpu::Buffer,
     tile_size: f32,
 }
@@ -99,9 +101,35 @@ impl Compute {
             }],
         });
 
+        let noise_texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("noise_texture_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::COMPUTE,
+                    ty: wgpu::BindingType::SampledTexture {
+                        multisampled: false,
+                        dimension: wgpu::TextureViewDimension::D2,
+                        component_type: wgpu::TextureComponentType::Float,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStage::COMPUTE,
+                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    count: None,
+                },
+            ],
+        });
+
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_compute_layout"),
-            bind_group_layouts: &[&vertex_bind_group_layout, &uniform_bind_group_layout],
+            bind_group_layouts: &[
+                &vertex_bind_group_layout,
+                &uniform_bind_group_layout,
+                &noise_texture_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -126,13 +154,14 @@ impl Compute {
             num_elements,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
+            noise_texture_bind_group_layout,
             src_vertex_buffer,
             vertices,
             tile_size,
         }
     }
 
-    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> wgpu::Buffer {
+    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32, noise: &noise::Noise) -> wgpu::Buffer {
         let contents: &[u8] = bytemuck::cast_slice(&self.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("output_vertex_buffer"),
@@ -169,6 +198,21 @@ impl Compute {
             }],
         });
 
+        let noise_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("noise_texture"),
+            layout: &self.noise_texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&noise.texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&noise.sampler),
+                },
+            ],
+        });
+
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("heightmap_calc"),
         });
@@ -177,6 +221,7 @@ impl Compute {
             pass.set_pipeline(&self.compute_pipeline);
             pass.set_bind_group(0, &vertex_bind_group, &[]);
             pass.set_bind_group(1, &uniform_bind_group, &[]);
+            pass.set_bind_group(2, &noise_texture_bind_group, &[]);
             pass.dispatch(self.num_elements, 1, 1);
         }
         queue.submit(std::iter::once(encoder.finish()));

@@ -1,4 +1,6 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "include/noise.glsl"
 
 layout(location=0) in vec4 v_position;
 layout(location=1) in mat3 v_tbn;
@@ -31,20 +33,21 @@ vec3 getTriPlanarTexture(int textureId) {
 }
 
 Texture get_texture() {
-   vec3 grass = getTriPlanarTexture(0);
-   vec3 sand = getTriPlanarTexture(4);
-   vec3 cliffs = getTriPlanarTexture(2);
+    vec3 grass = getTriPlanarTexture(0);
+    vec3 sand = getTriPlanarTexture(4);
+    vec3 cliffs = getTriPlanarTexture(2);
 
-   vec3 ground = grass; // mix(sand, grass, clamp(v_position.y + (fbm(v_position.xz) * 2.0), 0.0, 1.0));
+    // TODO: Improve look and performance
+    vec3 ground = mix(sand, grass, clamp(v_position.y + (fbm(v_position.xz * 2.5, 2)) * 4.0, 0.0, 1.0));
 
-   vec3 grass_sand_normal = getTriPlanarTexture(1);
-   vec3 cliff_normal = getTriPlanarTexture(3);
+    vec3 grass_sand_normal = getTriPlanarTexture(1);
+    vec3 cliff_normal = getTriPlanarTexture(3);
 
-   float theta = clamp(0.0, 1.0, pow(1.0 - max(dot(v_normal, vec3(0, 1, 0)), 0.0), 1.2) * 6.0);
-   Texture t;
-   t.diffuse = mix(ground, cliffs, theta);
-   t.normal = mix(grass_sand_normal, cliff_normal, theta);
-   return t;
+    float theta = clamp(0.0, 1.0, pow(1.0 - max(dot(v_normal, vec3(0, 1, 0)), 0.0), 1.2) * 6.0);
+    Texture t;
+    t.diffuse = mix(ground, cliffs, theta);
+    t.normal = mix(grass_sand_normal, cliff_normal, theta);
+    return t;
 }
 
 void main() {

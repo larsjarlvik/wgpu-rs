@@ -86,16 +86,16 @@ impl Assets {
 fn get_elevation(p: Vector2<f32>, noise: &noise::Noise) -> f32 {
     let xz = p * settings::TERRAIN_SCALE;
     let q = vec2(
-        noise.fbm(cgmath::Vector2::new(xz.x, xz.y)),
-        noise.fbm(cgmath::Vector2::new(xz.x + 1.0, xz.y + 1.0)),
+        noise.fbm(xz, settings::TERRAIN_OCTAVES),
+        noise.fbm(xz + vec2(1.0, 1.0), settings::TERRAIN_OCTAVES),
     );
 
-    let a = xz + q + vec2(1.7 + 0.15, 9.2 + 0.15);
-    let b = xz + q + vec2(8.3 + 0.126, 2.8 + 0.126);
+    let r = vec2(
+        noise.fbm(xz + q + vec2(1.7 + 0.15, 9.2 + 0.15), settings::TERRAIN_OCTAVES),
+        noise.fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), settings::TERRAIN_OCTAVES),
+    );
 
-    let r = vec2(noise.fbm(cgmath::Vector2::new(a.x, a.y)), noise.fbm(cgmath::Vector2::new(b.x, b.y)));
-
-    (noise.fbm(cgmath::Vector2::new(xz.x + r.x, xz.y + r.y)) - 0.3) / settings::TERRAIN_SCALE / 2.0
+    (noise.fbm(xz + r, settings::TERRAIN_OCTAVES) - 0.3) / settings::TERRAIN_SCALE / 2.0
 }
 
 fn add_asset(models: &mut models::Models, asset: &Asset, noise: &noise::Noise, x: i32, z: i32, tile_size: f32) -> Vec<String> {
@@ -107,16 +107,17 @@ fn add_asset(models: &mut models::Models, asset: &Asset, noise: &noise::Noise, x
             let mut rng = rand::thread_rng();
             let mx = (x as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
             let mz = (z as f32 + (&rng.gen::<f32>() - 0.5)) * tile_size;
-            let my = get_elevation(vec2(mx, mz), noise);
-
-            models::data::Instance {
-                transform: {
-                    cgmath::Matrix4::from_translation(cgmath::Vector3 { x: mx, y: my, z: mz })
-                        * cgmath::Matrix4::from_angle_y(cgmath::Deg(&rng.gen::<f32>() * 360.0))
-                        * cgmath::Matrix4::from_scale(rng.gen_range(asset.min_size, asset.max_size))
-                }
-                .into(),
+            let my = get_elevation(vec2(mx, mz), noise) - 0.25;
+            (mx, my, mz, rng.gen::<f32>(), rng.gen_range(asset.min_size, asset.max_size))
+        })
+        .filter(|asset| asset.1 > 0.0)
+        .map(|asset| models::data::Instance {
+            transform: {
+                Matrix4::from_translation(vec3(asset.0, asset.1, asset.2))
+                    * Matrix4::from_angle_y(Deg(asset.3 * 360.0))
+                    * Matrix4::from_scale(asset.4)
             }
+            .into(),
         })
         .collect::<Vec<models::data::Instance>>();
 

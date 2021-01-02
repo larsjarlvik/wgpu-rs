@@ -2,6 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "include/noise.glsl"
 #define SCALE 0.005
+#define NUM_OCTAVES 5
 
 layout(local_size_x = 1) in;
 
@@ -22,16 +23,17 @@ layout(set=1, binding=0) uniform ComputeData {
     vec2 u_position;
 };
 
+
 float get_elevation(vec2 p) {
     vec2 xz = p * SCALE;
-    vec2 q = vec2(fbm(xz), fbm(xz + vec2(1.0)));
+    vec2 q = vec2(fbm(xz, NUM_OCTAVES), fbm(xz + vec2(1.0), NUM_OCTAVES));
 
     vec2 r = vec2(
-        fbm(xz + vec2(1.0) * q + vec2(1.7 + 0.15, 9.2 + 0.15)),
-        fbm(xz + vec2(1.0) * q + vec2(8.3 + 0.126, 2.8 + 0.126))
+        fbm(xz + q + vec2(1.7 + 0.15, 9.2 + 0.15), NUM_OCTAVES),
+        fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), NUM_OCTAVES)
     );
 
-    return (fbm(xz + r) - 0.3) / SCALE / 2.0;
+    return (fbm(xz + r, NUM_OCTAVES) - 0.3) / SCALE / 2.0;
 }
 
 void main() {

@@ -29,7 +29,7 @@ impl World {
         models: &mut models::Models,
     ) -> World {
         let tile_size = 40;
-        let terrain = terrain_pipeline::Terrain::new(device, queue, camera, tile_size);
+        let terrain = terrain_pipeline::Terrain::new(device, queue, camera, &noise, tile_size);
         let assets = assets::Assets::new(device, queue, camera, models);
         let tiles = HashMap::new();
 
@@ -97,7 +97,7 @@ impl World {
 
     fn build_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, models: &mut models::Models, x: i32, z: i32) {
         let tile_size = self.tile_size as f32;
-        let terrain_tile = self.terrain.create_tile(device, queue, &self.noise, x, z);
+        let terrain_tile = self.terrain.create_tile(device, queue, x, z);
         let assets_tile = self.assets.create_tile(&self.noise, models, x, z, tile_size);
 
         self.tiles.insert(

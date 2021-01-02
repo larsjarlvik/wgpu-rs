@@ -9,11 +9,6 @@ float random(vec2 st) {
 
 void main() {
     vec2 i = vec2(gl_GlobalInvocationID.xy);
-    vec4 rnd = vec4(
-        random(i),
-        random(i + vec2(1.0, 0.0)),
-        random(i + vec2(0.0, 1.0)),
-        random(i + vec2(1.0, 1.0))
-    );
+    vec4 rnd = vec4(random(i), 0.0, 0.0, 0.0);
     imageStore(noise_texture, ivec2(gl_GlobalInvocationID.xy), rnd);
 }

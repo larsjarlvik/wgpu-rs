@@ -9,11 +9,13 @@ pub struct Terrain {
     pub compute: terrain_tile::Compute,
     render_pipeline: wgpu::RenderPipeline,
     texture_bind_group: wgpu::BindGroup,
+    noise_bindings: noise::NoiseBindings,
 }
 
 impl Terrain {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, tile_size: u32) -> Terrain {
-        let compute = terrain_tile::Compute::new(device, tile_size as f32);
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, noise: &noise::Noise, tile_size: u32) -> Terrain {
+        let compute = terrain_tile::Compute::new(device, noise, tile_size as f32);
+        let noise_bindings = noise.create_bindings(device);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -39,7 +41,11 @@ impl Terrain {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_pipeline_layout"),
-            bind_group_layouts: &[&camera.uniforms.bind_group_layout, &texture_bind_group_layout],
+            bind_group_layouts: &[
+                &camera.uniforms.bind_group_layout,
+                &texture_bind_group_layout,
+                &noise_bindings.bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -88,6 +94,7 @@ impl Terrain {
             &render_pipeline,
             &texture_bind_group,
             &camera,
+            &noise_bindings,
             &Vec::new(),
             compute.num_elements,
         );
@@ -97,18 +104,12 @@ impl Terrain {
             render_pipeline,
             render_bundle,
             compute,
+            noise_bindings,
         }
     }
 
-    pub fn create_tile(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        noise: &noise::Noise,
-        x: i32,
-        z: i32,
-    ) -> terrain_tile::TerrainTile {
-        let render_buffer = self.compute.compute(device, queue, x as f32, z as f32, noise);
+    pub fn create_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, x: i32, z: i32) -> terrain_tile::TerrainTile {
+        let render_buffer = self.compute.compute(device, queue, x as f32, z as f32);
         terrain_tile::TerrainTile { render_buffer }
     }
 
@@ -118,6 +119,7 @@ impl Terrain {
             &self.render_pipeline,
             &self.texture_bind_group,
             &camera,
+            &self.noise_bindings,
             &tiles,
             self.compute.num_elements,
         );
@@ -129,6 +131,7 @@ fn build_render_bundle(
     render_pipeline: &wgpu::RenderPipeline,
     texture_bind_group: &wgpu::BindGroup,
     camera: &camera::Camera,
+    noise_bindings: &noise::NoiseBindings,
     tiles: &Vec<&terrain_tile::TerrainTile>,
     num_elements: u32,
 ) -> wgpu::RenderBundle {
@@ -145,6 +148,7 @@ fn build_render_bundle(
     encoder.set_pipeline(&render_pipeline);
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
     encoder.set_bind_group(1, &texture_bind_group, &[]);
+    encoder.set_bind_group(2, &noise_bindings.bind_group, &[]);
 
     for tile in tiles {
         encoder.set_vertex_buffer(0, tile.render_buffer.slice(..));

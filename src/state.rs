@@ -112,7 +112,7 @@ impl State {
 
     pub fn update(&mut self) {
         let avg = self.frame_time();
-        self.camera.update_camera(&self.queue, avg, &self.input);
+        self.camera.update_camera(&self.queue, &self.input, avg);
         self.world.update(&self.device, &self.queue, &self.camera, &mut self.models);
         self.input.after_update();
     }

@@ -2,6 +2,7 @@ use crate::{input, settings};
 use cgmath::*;
 use SquareMatrix;
 mod controller;
+pub mod frustum;
 mod uniforms;
 
 pub struct Camera {
@@ -16,6 +17,7 @@ pub struct Camera {
     pub z_near: f32,
     pub z_far: f32,
     pub proj: Matrix4<f32>,
+    pub frustum: frustum::FrustumCuller,
 }
 
 impl Camera {
@@ -26,6 +28,7 @@ impl Camera {
         let height = swap_chain_desc.height as f32;
         let fov_y = 45.0;
         let controller = controller::CameraController::new();
+        let frustum = frustum::FrustumCuller::new();
 
         let uniforms = uniforms::UniformBuffer::new(
             &device,
@@ -38,6 +41,7 @@ impl Camera {
                 viewport_size: [width, height],
             },
         );
+
         Camera {
             controller,
             uniforms,
@@ -50,6 +54,7 @@ impl Camera {
             z_near,
             z_far,
             proj: perspective(Deg(fov_y), width / height, z_near, z_far),
+            frustum,
         }
     }
 
@@ -60,7 +65,7 @@ impl Camera {
         self.proj = perspective(Deg(self.fov_y), self.width / self.height, self.z_near, self.z_far);
     }
 
-    pub fn update_camera(&mut self, queue: &wgpu::Queue, frame_time: f32, input: &input::Input) {
+    pub fn update_camera(&mut self, queue: &wgpu::Queue, input: &input::Input, frame_time: f32) {
         self.controller.process_events(input, frame_time);
 
         self.distance += self.controller.velocity.y;
@@ -77,10 +82,13 @@ impl Camera {
         );
 
         let view = Matrix4::look_at(eye, self.target, Vector3::unit_y());
+
+        let world_matrix = self.proj * view;
+        self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
+
         self.uniforms.data.look_at = self.target.into();
         self.uniforms.data.eye_pos = eye.into();
-        self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * self.proj * view).into();
-
+        self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * world_matrix).into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 }

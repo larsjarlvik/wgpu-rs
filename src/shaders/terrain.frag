@@ -18,15 +18,15 @@ struct Texture {
    vec3 normal;
 };
 
+
 vec3 getTriPlanarTexture(int textureId) {
     vec3 coords = v_position.xyz * 0.25;
-    vec3 blending = abs(normalize(v_normal));
+    vec3 blending = abs(v_normal);
     blending = normalize(max(blending, 0.00001));
-    float b = (blending.x + blending.y + blending.z);
-    blending /= vec3(b, b, b);
+    blending /= vec3(blending.x + blending.y + blending.z);
 
-    vec3 yaxis = texture(sampler2D(t_textures[textureId], s_texture), coords.xz).rgb;
     vec3 xaxis = texture(sampler2D(t_textures[textureId], s_texture), coords.yz).rgb;
+    vec3 yaxis = texture(sampler2D(t_textures[textureId], s_texture), coords.xz).rgb;
     vec3 zaxis = texture(sampler2D(t_textures[textureId], s_texture), coords.xy).rgb;
 
     return xaxis * blending.x + yaxis * blending.y + zaxis * blending.z;

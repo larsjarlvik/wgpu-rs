@@ -107,7 +107,7 @@ impl Noise {
         );
 
         queue.submit(std::iter::once(encoder.finish()));
-        let noise = read_buffer(device, &buffer).await;
+        let noise = read_buffer(device, &buffer, size.width as usize).await;
 
         println!("Noise: {} ms", now.elapsed().as_millis());
         Self { noise, size, texture_view }
@@ -206,7 +206,7 @@ fn mix(x: f32, y: f32, a: f32) -> f32 {
     x * (yi - a) + y * a
 }
 
-async fn read_buffer(device: &wgpu::Device, buffer: &wgpu::Buffer) -> Vec<Vec<f32>> {
+async fn read_buffer(device: &wgpu::Device, buffer: &wgpu::Buffer, width: usize) -> Vec<Vec<f32>> {
     let buffer_slice = buffer.slice(..);
     let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
     device.poll(wgpu::Maintain::Wait);
@@ -217,7 +217,7 @@ async fn read_buffer(device: &wgpu::Device, buffer: &wgpu::Buffer) -> Vec<Vec<f3
             let chunks = data.align_to::<f32>();
             let mut grid = vec![];
 
-            let rows: Vec<&[f32]> = chunks.1.chunks_exact(8192).collect();
+            let rows: Vec<&[f32]> = chunks.1.chunks_exact(width).collect();
             for row in rows {
                 grid.push(row.to_vec());
             }

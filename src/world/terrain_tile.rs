@@ -145,7 +145,7 @@ impl Compute {
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("output_vertex_buffer"),
             contents,
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ,
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE,
         });
 
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -178,7 +178,7 @@ impl Compute {
         });
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("heightmap_calc"),
+            label: Some("compute_terrain"),
         });
         {
             let mut pass = encoder.begin_compute_pass();

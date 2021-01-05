@@ -110,6 +110,7 @@ impl State {
         let avg = self.frame_time();
         self.camera.update_camera(&self.queue, &self.input, avg);
         self.input.after_update();
+        self.world.refresh(&self.device, &self.camera);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -122,7 +123,9 @@ impl State {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             // Main render pass
-            let bundles = self.world.get_render_bundles(&self.device, &self.camera);
+            let mut bundles = vec![];
+            bundles.push(&self.world.terrain_bundle);
+            bundles.push(&self.world.models.render_bundle);
 
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -152,7 +155,7 @@ impl State {
                         stencil_ops: None,
                     }),
                 })
-                .execute_bundles(bundles.iter());
+                .execute_bundles(bundles.into_iter());
 
             // Deferred render pass
             encoder

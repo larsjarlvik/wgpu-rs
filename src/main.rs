@@ -39,7 +39,7 @@ fn main() {
                 Ok(_) => {}
                 Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
                 Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                Err(e) => eprintln!("{:?}", e),
+                Err(e) => eprintln!("Render error: {:?}", e),
             }
             fps += 1;
             if last_update.elapsed().as_millis() > 1000 {

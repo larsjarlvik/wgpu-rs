@@ -7,12 +7,9 @@ use cgmath::*;
 use models::data::Instance;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::HashMap;
-use wgpu::util::DeviceExt;
 
 struct Terrain {
     buffer: wgpu::Buffer,
-    instances: HashMap<String, models::InstanceBuffer>,
 }
 
 pub struct Node {
@@ -67,27 +64,13 @@ impl Node {
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut World) {
-        let mut instances = HashMap::new();
         for a in assets::ASSETS {
             let assets = self.create_assets(world, a);
-            let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("instance_buffer"),
-                contents: bytemuck::cast_slice(assets.as_slice()),
-                usage: wgpu::BufferUsage::VERTEX,
-            });
-
-            instances.insert(
-                a.name.to_string(),
-                models::InstanceBuffer {
-                    buffer,
-                    length: assets.len() as u32,
-                },
-            );
+            world.models.add_instances(a.name, assets);
         }
 
         self.terrain = Some(Terrain {
             buffer: world.terrain.compute.compute(device, queue, self.x, self.z),
-            instances,
         });
     }
 
@@ -104,11 +87,9 @@ impl Node {
                 (mx, my, mz, rng.gen::<f32>(), rng.gen_range(asset.min_size, asset.max_size))
             })
             .filter(|asset| asset.1 > 0.0)
-            .map(|asset| models::data::Instance {
+            .map(|(mx, my, mz, rot, scale)| models::data::Instance {
                 transform: {
-                    Matrix4::from_translation(vec3(asset.0, asset.1, asset.2))
-                        * Matrix4::from_angle_y(Deg(asset.3 * 360.0))
-                        * Matrix4::from_scale(asset.4)
+                    Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale)
                 }
                 .into(),
             })
@@ -123,21 +104,6 @@ impl Node {
                     .children
                     .iter()
                     .flat_map(|child| child.get_terrain_buffer_slices(camera))
-                    .collect(),
-            }
-        } else {
-            vec![]
-        }
-    }
-
-    pub fn get_model_bundles(&self, device: &wgpu::Device, camera: &camera::Camera, models: &models::Models) -> Vec<wgpu::RenderBundle> {
-        if self.check_frustum(camera) {
-            match &self.terrain {
-                Some(t) => vec![models.get_render_bundle(device, camera, &t.instances)],
-                None => self
-                    .children
-                    .iter()
-                    .flat_map(|child| child.get_model_bundles(device, camera, models))
                     .collect(),
             }
         } else {

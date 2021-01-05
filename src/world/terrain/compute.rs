@@ -8,8 +8,6 @@ use crate::{noise, settings};
 pub struct Vertex {
     pub position: [f32; 3],
     pub normal: [f32; 3],
-    pub tangent: [f32; 3],
-    pub bitangent: [f32; 3],
 }
 
 impl Vertex {
@@ -28,16 +26,6 @@ impl Vertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float3,
                 },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
-                    shader_location: 3,
-                    format: wgpu::VertexFormat::Float3,
-                },
             ],
         }
     }
@@ -49,7 +37,6 @@ pub struct Compute {
     compute_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
-    src_vertex_buffer: wgpu::Buffer,
     noise_bindings: noise::NoiseBindings,
 }
 
@@ -61,28 +48,16 @@ impl Compute {
 
         let vertex_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("input_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::COMPUTE,
-                    ty: wgpu::BindingType::StorageBuffer {
-                        dynamic: false,
-                        min_binding_size: None,
-                        readonly: true,
-                    },
-                    count: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::StorageBuffer {
+                    dynamic: false,
+                    min_binding_size: None,
+                    readonly: true,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStage::COMPUTE,
-                    ty: wgpu::BindingType::StorageBuffer {
-                        dynamic: false,
-                        min_binding_size: None,
-                        readonly: false,
-                    },
-                    count: None,
-                },
-            ],
+                count: None,
+            }],
         });
 
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -118,18 +93,11 @@ impl Compute {
             },
         });
 
-        let src_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("input_vertex_buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsage::STORAGE,
-        });
-
         Self {
             compute_pipeline,
             num_elements,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
-            src_vertex_buffer,
             vertices,
             noise_bindings,
         }
@@ -146,16 +114,10 @@ impl Compute {
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.vertex_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(self.src_vertex_buffer.slice(..)),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(dst_vertex_buffer.slice(..)),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(dst_vertex_buffer.slice(..)),
+            }],
         });
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -184,6 +146,7 @@ impl Compute {
             pass.dispatch(self.num_elements, 1, 1);
         }
         queue.submit(std::iter::once(encoder.finish()));
+        device.poll(wgpu::Maintain::Wait);
         dst_vertex_buffer
     }
 }
@@ -192,8 +155,6 @@ fn create_vertex(x: f32, z: f32) -> Vertex {
     Vertex {
         position: [x, 0.0, z],
         normal: [0.0, 0.0, 0.0],
-        tangent: [0.0, 0.0, 0.0],
-        bitangent: [0.0, 0.0, 0.0],
     }
 }
 

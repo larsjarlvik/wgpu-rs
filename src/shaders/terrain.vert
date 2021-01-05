@@ -2,8 +2,6 @@
 
 layout(location=0) in vec3 a_position;
 layout(location=1) in vec3 a_normal;
-layout(location=2) in vec3 a_tangent;
-layout(location=3) in vec3 a_bitangent;
 
 layout(location=0) out vec4 v_position;
 layout(location=1) out mat3 v_tbn;
@@ -19,8 +17,11 @@ layout(set=0, binding=0) uniform Camera {
 };
 
 void main() {
+    vec3 bitangent = normalize(cross(vec3(0.0, 0.0, 1.0), a_normal));
+    vec3 tangent = normalize(cross(a_normal, bitangent));
+
     v_position = vec4(a_position, 1.0);
-    v_tbn = mat3(a_tangent, a_bitangent, a_normal);
+    v_tbn = mat3(tangent, bitangent, a_normal);
     v_normal = a_normal;
     gl_Position = u_view_proj * v_position;
 }

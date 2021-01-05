@@ -17,8 +17,8 @@ impl Noise {
         let now = Instant::now();
 
         let size = wgpu::Extent3d {
-            width: 8192,
-            height: 8192,
+            width: 512,
+            height: 512,
             depth: 1,
         };
         let byte_size = std::mem::size_of::<f32>() as u32;

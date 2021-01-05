@@ -1,3 +1,5 @@
+use wgpu::util::DeviceExt;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
@@ -66,5 +68,21 @@ impl Instance {
                 },
             ],
         }
+    }
+}
+
+pub struct InstanceBuffer {
+    pub data: Vec<Instance>,
+    pub buffer: wgpu::Buffer,
+}
+
+impl InstanceBuffer {
+    pub fn new(device: &wgpu::Device, data: Vec<Instance>) -> Self {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("instance_buffer"),
+            contents: bytemuck::cast_slice(&data),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+        Self { data, buffer }
     }
 }

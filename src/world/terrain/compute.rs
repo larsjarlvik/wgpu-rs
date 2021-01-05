@@ -1,6 +1,7 @@
-use super::noise;
 use std::mem;
 use wgpu::util::DeviceExt;
+
+use crate::{noise, settings};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -42,10 +43,6 @@ impl Vertex {
     }
 }
 
-pub struct TerrainTile {
-    pub render_buffer: wgpu::Buffer,
-}
-
 pub struct Compute {
     pub num_elements: u32,
     vertices: Vec<Vertex>,
@@ -53,13 +50,12 @@ pub struct Compute {
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     src_vertex_buffer: wgpu::Buffer,
-    tile_size: f32,
     noise_bindings: noise::NoiseBindings,
 }
 
 impl Compute {
-    pub fn new(device: &wgpu::Device, noise: &noise::Noise, tile_size: f32) -> Self {
-        let vertices = create_vertices(tile_size);
+    pub fn new(device: &wgpu::Device, noise: &noise::Noise) -> Self {
+        let vertices = create_vertices(settings::TILE_SIZE);
         let num_elements = vertices.len() as u32;
         let noise_bindings = noise.create_bindings(device);
 
@@ -112,7 +108,7 @@ impl Compute {
             push_constant_ranges: &[],
         });
 
-        let module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/terrain.comp.spv"));
+        let module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/terrain.comp.spv"));
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("terrain_compute_pipeline"),
             layout: Some(&layout),
@@ -135,7 +131,6 @@ impl Compute {
             uniform_bind_group_layout,
             src_vertex_buffer,
             vertices,
-            tile_size,
             noise_bindings,
         }
     }
@@ -165,7 +160,7 @@ impl Compute {
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform_buffer"),
-            contents: bytemuck::cast_slice(&[x * self.tile_size, z * self.tile_size]),
+            contents: bytemuck::cast_slice(&[x, z]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {

@@ -39,12 +39,6 @@ pub enum Intersection {
     Outside,
 }
 
-impl BoundingBox {
-    pub fn from_params(min: Vector3<f32>, max: Vector3<f32>) -> Self {
-        Self { min, max }
-    }
-}
-
 impl FrustumCuller {
     pub fn new() -> Self {
         Self::from_matrix(Matrix4::identity())

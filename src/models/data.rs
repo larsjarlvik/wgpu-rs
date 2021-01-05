@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use wgpu::util::DeviceExt;
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
@@ -69,21 +66,5 @@ impl Instance {
                 },
             ],
         }
-    }
-}
-
-pub struct InstanceBuffer {
-    pub data: HashMap<String, Instance>,
-    pub buffer: wgpu::Buffer,
-}
-
-impl InstanceBuffer {
-    pub fn new(device: &wgpu::Device, data: HashMap<String, Instance>) -> Self {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("instance_buffer"),
-            contents: bytemuck::cast_slice(&data.values().cloned().collect::<Vec<Instance>>()),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
-        Self { data, buffer }
     }
 }

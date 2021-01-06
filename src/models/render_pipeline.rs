@@ -1,7 +1,7 @@
 use crate::settings;
 use crate::{camera, models::*};
 
-pub struct Primitive {
+pub struct PrimitiveBuffers {
     pub texture_bind_group: wgpu::BindGroup,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -75,7 +75,7 @@ impl RenderPipeline {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[data::Vertex::desc(), data::Instance::desc()],
+                vertex_buffers: &[data::Vertex::desc(), data::InstanceData::desc()],
             },
             sample_count: 1,
             sample_mask: !0,

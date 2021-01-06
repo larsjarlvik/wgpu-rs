@@ -34,7 +34,6 @@ impl World {
         };
 
         world.root_node = Some(node::Node::new(0.0, 0.0, settings::TILE_DEPTH, device, queue, &mut world));
-        device.poll(wgpu::Maintain::Wait);
 
         world.terrain_bundle = get_terrain_bundle(device, camera, &world.terrain, &world.root_node);
         println!("Generate world: {} ms", now.elapsed().as_millis());

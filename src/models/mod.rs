@@ -1,24 +1,17 @@
-use crate::{
-    camera::{self, frustum::*},
-    settings,
-};
+use crate::{camera::frustum, *};
 use cgmath::*;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 pub mod data;
 mod mesh;
+mod model;
 mod render_pipeline;
 
-pub struct Model {
-    primitives: Vec<render_pipeline::Primitive>,
-    instances: data::InstanceBuffer,
-}
-
 pub struct Models {
-    render_pipeline: render_pipeline::RenderPipeline,
-    models: HashMap<String, Model>,
-    sampler: wgpu::Sampler,
+    pub models: HashMap<String, model::Model>,
     pub render_bundle: wgpu::RenderBundle,
+    render_pipeline: render_pipeline::RenderPipeline,
+    sampler: wgpu::Sampler,
 }
 
 impl Models {
@@ -47,24 +40,48 @@ impl Models {
 
     pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, name: &str, path: &str) {
         let (gltf, buffers, images) = gltf::import(format!("./res/models/{}", path)).expect("Failed to import GLTF!");
-        let mut primitives: Vec<render_pipeline::Primitive> = vec![];
+        let mut primitives: Vec<render_pipeline::PrimitiveBuffers> = vec![];
+        let mut bounding_box = frustum::BoundingBox {
+            min: Point3::new(0.0, 0.0, 0.0),
+            max: Point3::new(0.0, 0.0, 0.0),
+        };
 
         for gltf_mesh in gltf.meshes() {
-            let meshes = mesh::Mesh::new(&device, &queue, gltf_mesh, &buffers, &images);
-            for mesh in meshes {
-                &primitives.push(mesh.to_primitive(&device, &self.sampler, &self.render_pipeline));
+            let mesh = mesh::Mesh::new(&device, &queue, gltf_mesh, &buffers, &images);
+
+            for primitive in mesh.primitives {
+                if primitive.bounding_box.min[0] < bounding_box.min.x {
+                    bounding_box.min.x = primitive.bounding_box.min[0];
+                }
+                if primitive.bounding_box.max[0] > bounding_box.max.x {
+                    bounding_box.max.x = primitive.bounding_box.max[0];
+                }
+                if primitive.bounding_box.min[1] < bounding_box.min.y {
+                    bounding_box.min.y = primitive.bounding_box.min[1];
+                }
+                if primitive.bounding_box.max[1] > bounding_box.max.y {
+                    bounding_box.max.y = primitive.bounding_box.max[1];
+                }
+                if primitive.bounding_box.min[2] < bounding_box.min.z {
+                    bounding_box.min.z = primitive.bounding_box.min[2];
+                }
+                if primitive.bounding_box.max[2] > bounding_box.max.z {
+                    bounding_box.max.z = primitive.bounding_box.max[2];
+                }
+
+                &primitives.push(primitive.to_buffers(&device, &self.sampler, &self.render_pipeline));
             }
         }
 
         let instances = data::InstanceBuffer::new(&device, Vec::new());
-        self.models.insert(name.to_string(), Model { primitives, instances });
-    }
-
-    pub fn add_instances(&mut self, model_name: &str, instances: Vec<data::Instance>) {
-        let model = self.models.get_mut(&model_name.to_string()).expect("Model not found!");
-        for instance in instances {
-            &model.instances.data.push(instance);
-        }
+        self.models.insert(
+            name.to_string(),
+            model::Model {
+                primitives,
+                instances,
+                bounding_box,
+            },
+        );
     }
 
     pub fn refresh_render_bundle(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
@@ -76,7 +93,7 @@ pub fn create_bundle(
     device: &wgpu::Device,
     render_pipeline: &render_pipeline::RenderPipeline,
     camera: &camera::Camera,
-    models: &mut HashMap<String, Model>,
+    models: &mut HashMap<String, model::Model>,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -107,20 +124,19 @@ pub fn create_bundle(
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
 }
 
-fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut Model) -> usize {
-    let rad = 8.0; // TODO: Use gltf's bounding box
+fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut model::Model) -> usize {
+    let instances = model
+        .instances
+        .data
+        .clone()
+        .into_iter()
+        .filter(|(_, bounding_box)| match camera.frustum.test_bounding_box(bounding_box) {
+            frustum::Intersection::Inside | frustum::Intersection::Partial => true,
+            frustum::Intersection::Outside => false,
+        })
+        .map(|(transform, _)| transform);
 
-    let instances = model.instances.data.clone().into_iter().filter(|i| {
-        let min = vec3(i.transform[3][0] - rad, i.transform[3][1] - rad, i.transform[3][2] - rad);
-        let max = vec3(i.transform[3][0] + rad, i.transform[3][1] + rad, i.transform[3][2] + rad);
-
-        match camera.frustum.test_bounding_box(BoundingBox { min, max }) {
-            Intersection::Inside | Intersection::Partial => true,
-            Intersection::Outside => false,
-        }
-    });
-
-    let instances = instances.collect::<Vec<data::Instance>>();
+    let instances = instances.collect::<Vec<data::InstanceData>>();
     model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("instance_buffer"),
         contents: bytemuck::cast_slice(&instances),

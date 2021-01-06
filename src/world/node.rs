@@ -4,7 +4,6 @@ use crate::{
     models, settings,
 };
 use cgmath::*;
-use models::data::Instance;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -64,9 +63,11 @@ impl Node {
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut World) {
-        for a in assets::ASSETS {
-            let assets = self.create_assets(world, a);
-            world.models.add_instances(a.name, assets);
+        for asset in assets::ASSETS {
+            let instances = self.create_assets(world, asset);
+
+            let model = world.models.models.get_mut(&asset.name.to_string()).expect("Model not found!");
+            model.add_instances(instances);
         }
 
         self.terrain = Some(Terrain {
@@ -74,9 +75,11 @@ impl Node {
         });
     }
 
-    fn create_assets(&self, world: &mut World, asset: &assets::Asset) -> Vec<Instance> {
+    fn create_assets(&self, world: &mut World, asset: &assets::Asset) -> Vec<models::data::Instance> {
         let node_size = self.get_size();
         let count = (node_size * asset.density) as u32;
+        let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
+
         (0..count)
             .into_par_iter()
             .map(|_| {
@@ -87,11 +90,12 @@ impl Node {
                 (mx, my, mz, rng.gen::<f32>(), rng.gen_range(asset.min_size, asset.max_size))
             })
             .filter(|asset| asset.1 > 0.0)
-            .map(|(mx, my, mz, rot, scale)| models::data::Instance {
-                transform: {
-                    Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale)
-                }
-                .into(),
+            .map(|(mx, my, mz, rot, scale)| {
+                let t = Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale);
+                (
+                    models::data::InstanceData { transform: t.into() },
+                    model.transformed_bounding_box(t),
+                )
             })
             .collect::<Vec<models::data::Instance>>()
     }
@@ -113,10 +117,10 @@ impl Node {
 
     fn check_frustum(&self, camera: &camera::Camera) -> bool {
         let half_size = self.get_size() / 2.0;
-        let min = vec3(self.x - half_size, -100.0, self.z - half_size);
-        let max = vec3(self.x + half_size, 100.0, self.z + half_size);
+        let min = Point3::new(self.x - half_size, -100.0, self.z - half_size);
+        let max = Point3::new(self.x + half_size, 100.0, self.z + half_size);
 
-        match camera.frustum.test_bounding_box(BoundingBox { min, max }) {
+        match camera.frustum.test_bounding_box(&BoundingBox { min, max }) {
             Intersection::Inside | Intersection::Partial => true,
             Intersection::Outside => false,
         }

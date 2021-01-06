@@ -1,3 +1,4 @@
+use crate::camera::frustum;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -36,14 +37,14 @@ impl Vertex {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Instance {
+pub struct InstanceData {
     pub transform: [[f32; 4]; 4],
 }
 
-impl Instance {
+impl InstanceData {
     pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
         wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
+            stride: std::mem::size_of::<InstanceData>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Instance,
             attributes: &[
                 wgpu::VertexAttributeDescriptor {
@@ -71,6 +72,8 @@ impl Instance {
     }
 }
 
+pub type Instance = (InstanceData, frustum::BoundingBox);
+
 pub struct InstanceBuffer {
     pub data: Vec<Instance>,
     pub buffer: wgpu::Buffer,
@@ -80,7 +83,7 @@ impl InstanceBuffer {
     pub fn new(device: &wgpu::Device, data: Vec<Instance>) -> Self {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("instance_buffer"),
-            contents: bytemuck::cast_slice(&data),
+            contents: &[],
             usage: wgpu::BufferUsage::VERTEX,
         });
         Self { data, buffer }

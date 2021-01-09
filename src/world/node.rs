@@ -1,4 +1,4 @@
-use super::{assets, World};
+use super::{assets, WorldData};
 use crate::{
     camera::{self, frustum::*},
     models, settings,
@@ -20,7 +20,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new(x: f32, z: f32, depth: i32, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut World) -> Self {
+    pub fn new(x: f32, z: f32, depth: i32) -> Self {
         let mut node = Self {
             children: vec![],
             depth,
@@ -29,13 +29,26 @@ impl Node {
             terrain: None,
         };
 
-        if node.is_leaf() {
-            node.build_leaf_node(device, queue, world);
-        } else {
-            node.add_children(device, queue, world);
+        if !node.is_leaf() {
+            node.add_children();
         }
 
         node
+    }
+
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
+        match self.terrain {
+            Some(_) => {}
+            None => {
+                if self.is_leaf() {
+                    self.build_leaf_node(device, queue, world, camera);
+                } else {
+                    for child in self.children.iter_mut() {
+                        child.update(device, queue, world, camera);
+                    }
+                }
+            }
+        }
     }
 
     pub fn is_leaf(&self) -> bool {
@@ -46,7 +59,7 @@ impl Node {
         2.0f32.powf(self.depth as f32) * settings::TILE_SIZE
     }
 
-    pub fn add_children(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut World) {
+    pub fn add_children(&mut self) {
         let child_size = self.get_size() / 2.0;
         for cz in -1..1 {
             for cx in -1..1 {
@@ -54,15 +67,16 @@ impl Node {
                     self.x + ((cx as f32 + 0.5) * child_size),
                     self.z + ((cz as f32 + 0.5) * child_size),
                     self.depth - 1,
-                    device,
-                    queue,
-                    world,
                 ));
             }
         }
     }
 
-    fn build_leaf_node(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut World) {
+    fn build_leaf_node(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
+        if vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) > camera.z_far + self.get_size() {
+            return;
+        }
+
         for asset in assets::ASSETS {
             let instances = self.create_assets(world, asset);
 
@@ -75,7 +89,7 @@ impl Node {
         });
     }
 
-    fn create_assets(&self, world: &mut World, asset: &assets::Asset) -> Vec<models::data::Instance> {
+    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> Vec<models::data::Instance> {
         let node_size = self.get_size();
         let count = (node_size * asset.density) as u32;
         let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");

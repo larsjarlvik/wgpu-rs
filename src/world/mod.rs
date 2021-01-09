@@ -1,15 +1,18 @@
 use crate::{camera, models, noise, settings};
 use cgmath::{vec2, Vector2};
-use std::time::Instant;
 mod assets;
 mod node;
 mod terrain;
 
-pub struct World {
-    root_node: Option<node::Node>,
+pub struct WorldData {
     terrain: terrain::Terrain,
     noise: noise::Noise,
     pub models: models::Models,
+}
+
+pub struct World {
+    root_node: node::Node,
+    pub data: WorldData,
     pub terrain_bundle: wgpu::RenderBundle,
 }
 
@@ -21,30 +24,28 @@ impl World {
             models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
-        let now = Instant::now();
+        let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
         let terrain = terrain::Terrain::new(device, queue, camera, &noise);
-        let terrain_bundle = get_terrain_bundle(device, camera, &terrain, &None);
+        let terrain_bundle = get_terrain_bundle(device, camera, &terrain, &root_node);
 
         let mut world = Self {
-            terrain,
+            data: WorldData { terrain, noise, models },
             terrain_bundle,
-            root_node: None,
-            noise,
-            models,
+            root_node,
         };
 
-        world.root_node = Some(node::Node::new(0.0, 0.0, settings::TILE_DEPTH, device, queue, &mut world));
-
-        world.terrain_bundle = get_terrain_bundle(device, camera, &world.terrain, &world.root_node);
-        println!("Generate world: {} ms", now.elapsed().as_millis());
+        world.terrain_bundle = get_terrain_bundle(device, camera, &world.data.terrain, &world.root_node);
         world
     }
 
-    pub fn refresh(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
-        self.models.refresh_render_bundle(device, camera);
-        self.terrain_bundle = get_terrain_bundle(device, camera, &self.terrain, &self.root_node);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera) {
+        self.root_node.update(device, queue, &mut self.data, camera);
+        self.data.models.refresh_render_bundle(device, camera);
+        self.terrain_bundle = get_terrain_bundle(device, camera, &self.data.terrain, &self.root_node);
     }
+}
 
+impl WorldData {
     pub fn get_elevation(&self, p: Vector2<f32>) -> f32 {
         let xz = p * settings::TERRAIN_SCALE;
         let q = vec2(
@@ -65,7 +66,7 @@ fn get_terrain_bundle(
     device: &wgpu::Device,
     camera: &camera::Camera,
     terrain: &terrain::Terrain,
-    root_node: &Option<node::Node>,
+    root_node: &node::Node,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -82,14 +83,9 @@ fn get_terrain_bundle(
     encoder.set_bind_group(1, &terrain.texture_bind_group, &[]);
     encoder.set_bind_group(2, &terrain.noise_bindings.bind_group, &[]);
 
-    match root_node {
-        Some(rn) => {
-            for slice in rn.get_terrain_buffer_slices(camera) {
-                encoder.set_vertex_buffer(0, slice);
-                encoder.draw(0..terrain.compute.num_elements, 0..1);
-            }
-        }
-        None => {}
+    for slice in root_node.get_terrain_buffer_slices(camera) {
+        encoder.set_vertex_buffer(0, slice);
+        encoder.draw(0..terrain.compute.num_elements, 0..1);
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })

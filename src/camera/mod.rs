@@ -9,6 +9,7 @@ pub struct Camera {
     controller: controller::CameraController,
     pub uniforms: uniforms::UniformBuffer,
     pub target: Point3<f32>,
+    pub eye: Point3<f32>,
     pub rotation: Point2<f32>,
     pub distance: f32,
     pub width: f32,
@@ -16,6 +17,7 @@ pub struct Camera {
     pub fov_y: f32,
     pub z_near: f32,
     pub z_far: f32,
+    pub z_far_range: f32,
     pub proj: Matrix4<f32>,
     pub frustum: frustum::FrustumCuller,
 }
@@ -24,6 +26,7 @@ impl Camera {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
         let z_near = 1.0;
         let z_far = 800.0;
+        let z_far_range = num_traits::Float::sqrt(z_far * z_far + z_far * z_far);
         let width = swap_chain_desc.width as f32;
         let height = swap_chain_desc.height as f32;
         let fov_y = 45.0;
@@ -46,6 +49,7 @@ impl Camera {
             controller,
             uniforms,
             target: Point3::new(0.0, 0.0, 0.0),
+            eye: Point3::new(0.0, 0.0, 0.0),
             rotation: Point2::new(45.0f32.to_radians(), 90.0f32.to_radians()),
             distance: 100.0,
             width: swap_chain_desc.width as f32,
@@ -53,6 +57,7 @@ impl Camera {
             fov_y,
             z_near,
             z_far,
+            z_far_range,
             proj: perspective(Deg(fov_y), width / height, z_near, z_far),
             frustum,
         }
@@ -75,19 +80,19 @@ impl Camera {
         self.target.z += self.controller.velocity.z * self.rotation.y.sin();
         self.target.z += self.controller.velocity.x * (self.rotation.y - std::f32::consts::PI / 2.0).sin();
 
-        let eye = Point3::new(
+        self.eye = Point3::new(
             self.target.x - (self.rotation.x.sin() * self.rotation.y.cos() * self.distance),
             self.target.y + self.rotation.x.cos() * self.distance,
             self.target.z - (self.rotation.x.sin() * self.rotation.y.sin() * self.distance),
         );
 
-        let view = Matrix4::look_at(eye, self.target, Vector3::unit_y());
+        let view = Matrix4::look_at(self.eye, self.target, Vector3::unit_y());
 
         let world_matrix = self.proj * view;
         self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
 
         self.uniforms.data.look_at = self.target.into();
-        self.uniforms.data.eye_pos = eye.into();
+        self.uniforms.data.eye_pos = self.eye.into();
         self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * world_matrix).into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }

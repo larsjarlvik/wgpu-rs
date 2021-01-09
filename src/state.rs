@@ -1,4 +1,4 @@
-use crate::{camera, deferred, fxaa, input::Input, models, noise, settings, world};
+use crate::{camera, deferred, fxaa, input::Input, settings, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -9,7 +9,6 @@ pub struct State {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     camera: camera::Camera,
-    models: models::Models,
     world: world::World,
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
@@ -60,12 +59,10 @@ impl State {
 
         // Drawing
         let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
-        let mut models = models::Models::new(&device, &camera);
         let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
 
         // World
-        let noise = noise::Noise::new(&device, &queue).await;
-        let world = world::World::new(&device, &queue, &camera, noise, &mut models);
+        let world = world::World::new(&device, &queue, &camera).await;
 
         Self {
             surface,
@@ -77,7 +74,6 @@ impl State {
             deferred_render,
             fxaa,
             camera,
-            models,
             world,
             input: Input::new(),
             last_frame: Instant::now(),
@@ -113,8 +109,8 @@ impl State {
     pub fn update(&mut self) {
         let avg = self.frame_time();
         self.camera.update_camera(&self.queue, &self.input, avg);
-        self.world.update(&self.device, &self.queue, &self.camera, &mut self.models);
         self.input.after_update();
+        self.world.update(&self.device, &self.queue, &self.camera);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -128,8 +124,8 @@ impl State {
         {
             // Main render pass
             let mut bundles = vec![];
-            bundles.push(&self.world.terrain.render_bundle);
-            bundles.push(&self.models.render_bundle);
+            bundles.push(&self.world.terrain_bundle);
+            bundles.push(&self.world.data.models.render_bundle);
 
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {

@@ -1,20 +1,19 @@
-use super::{noise, terrain_tile};
-use crate::{camera, settings, texture};
+mod compute;
+use crate::{camera, noise, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::num::NonZeroU32;
 
 pub struct Terrain {
-    pub render_bundle: wgpu::RenderBundle,
-    pub compute: terrain_tile::Compute,
-    render_pipeline: wgpu::RenderPipeline,
-    texture_bind_group: wgpu::BindGroup,
-    noise_bindings: noise::NoiseBindings,
+    pub compute: compute::Compute,
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub texture_bind_group: wgpu::BindGroup,
+    pub noise_bindings: noise::NoiseBindings,
 }
 
 impl Terrain {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, noise: &noise::Noise, tile_size: u32) -> Terrain {
-        let compute = terrain_tile::Compute::new(device, noise, tile_size as f32);
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, noise: &noise::Noise) -> Terrain {
+        let compute = compute::Compute::new(device, noise);
         let noise_bindings = noise.create_bindings(device);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -49,8 +48,8 @@ impl Terrain {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/terrain.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/terrain.frag.spv"));
+        let vs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/terrain.vert.spv"));
+        let fs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/terrain.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("terrain_pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -81,7 +80,7 @@ impl Terrain {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[terrain_tile::Vertex::desc()],
+                vertex_buffers: &[compute::Vertex::desc()],
             },
             sample_count: 1,
             sample_mask: !0,
@@ -89,73 +88,13 @@ impl Terrain {
         });
 
         let texture_bind_group = build_textures(device, queue, &texture_bind_group_layout);
-        let render_bundle = build_render_bundle(
-            &device,
-            &render_pipeline,
-            &texture_bind_group,
-            &camera,
-            &noise_bindings,
-            &Vec::new(),
-            compute.num_elements,
-        );
-
         Terrain {
             texture_bind_group,
             render_pipeline,
-            render_bundle,
             compute,
             noise_bindings,
         }
     }
-
-    pub fn create_tile(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, x: i32, z: i32) -> terrain_tile::TerrainTile {
-        let render_buffer = self.compute.compute(device, queue, x as f32, z as f32);
-        terrain_tile::TerrainTile { render_buffer }
-    }
-
-    pub fn refresh(&mut self, device: &wgpu::Device, camera: &camera::Camera, tiles: Vec<&terrain_tile::TerrainTile>) {
-        self.render_bundle = build_render_bundle(
-            &device,
-            &self.render_pipeline,
-            &self.texture_bind_group,
-            &camera,
-            &self.noise_bindings,
-            &tiles,
-            self.compute.num_elements,
-        );
-    }
-}
-
-fn build_render_bundle(
-    device: &wgpu::Device,
-    render_pipeline: &wgpu::RenderPipeline,
-    texture_bind_group: &wgpu::BindGroup,
-    camera: &camera::Camera,
-    noise_bindings: &noise::NoiseBindings,
-    tiles: &Vec<&terrain_tile::TerrainTile>,
-    num_elements: u32,
-) -> wgpu::RenderBundle {
-    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-        label: None,
-        color_formats: &[
-            settings::COLOR_TEXTURE_FORMAT,
-            settings::COLOR_TEXTURE_FORMAT,
-            settings::COLOR_TEXTURE_FORMAT,
-        ],
-        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-        sample_count: 1,
-    });
-    encoder.set_pipeline(&render_pipeline);
-    encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
-    encoder.set_bind_group(1, &texture_bind_group, &[]);
-    encoder.set_bind_group(2, &noise_bindings.bind_group, &[]);
-
-    for tile in tiles {
-        encoder.set_vertex_buffer(0, tile.render_buffer.slice(..));
-        encoder.draw(0..num_elements, 0..1);
-    }
-
-    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })
 }
 
 fn load_textures(device: &wgpu::Device, queue: &wgpu::Queue, textures: Vec<&str>) -> Vec<wgpu::TextureView> {

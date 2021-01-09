@@ -1,20 +1,17 @@
-use crate::{camera, settings};
+use crate::{camera::frustum, *};
+use cgmath::*;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 pub mod data;
 mod mesh;
+mod model;
 mod render_pipeline;
 
-pub struct Model {
-    primitives: Vec<render_pipeline::Primitive>,
-    instances: data::InstanceBuffer,
-}
-
 pub struct Models {
-    render_pipeline: render_pipeline::RenderPipeline,
-    models: HashMap<String, Model>,
-    sampler: wgpu::Sampler,
+    pub models: HashMap<String, model::Model>,
     pub render_bundle: wgpu::RenderBundle,
+    render_pipeline: render_pipeline::RenderPipeline,
+    sampler: wgpu::Sampler,
 }
 
 impl Models {
@@ -30,8 +27,8 @@ impl Models {
             ..Default::default()
         });
 
-        let models = HashMap::new();
-        let render_bundle = create_bundle(&device, &render_pipeline, &camera, &models);
+        let mut models = HashMap::new();
+        let render_bundle = create_bundle(&device, &render_pipeline, &camera, &mut models);
 
         Self {
             sampler,
@@ -43,40 +40,52 @@ impl Models {
 
     pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, name: &str, path: &str) {
         let (gltf, buffers, images) = gltf::import(format!("./res/models/{}", path)).expect("Failed to import GLTF!");
-        let mut primitives: Vec<render_pipeline::Primitive> = vec![];
+        let mut primitives: Vec<render_pipeline::PrimitiveBuffers> = vec![];
+        let mut bounding_box = frustum::BoundingBox {
+            min: Point3::new(0.0, 0.0, 0.0),
+            max: Point3::new(0.0, 0.0, 0.0),
+        };
 
         for gltf_mesh in gltf.meshes() {
-            let meshes = mesh::Mesh::new(&device, &queue, gltf_mesh, &buffers, &images);
-            for mesh in meshes {
-                &primitives.push(mesh.to_primitive(&device, &self.sampler, &self.render_pipeline));
+            let mesh = mesh::Mesh::new(&device, &queue, gltf_mesh, &buffers, &images);
+
+            for primitive in mesh.primitives {
+                if primitive.bounding_box.min[0] < bounding_box.min.x {
+                    bounding_box.min.x = primitive.bounding_box.min[0];
+                }
+                if primitive.bounding_box.max[0] > bounding_box.max.x {
+                    bounding_box.max.x = primitive.bounding_box.max[0];
+                }
+                if primitive.bounding_box.min[1] < bounding_box.min.y {
+                    bounding_box.min.y = primitive.bounding_box.min[1];
+                }
+                if primitive.bounding_box.max[1] > bounding_box.max.y {
+                    bounding_box.max.y = primitive.bounding_box.max[1];
+                }
+                if primitive.bounding_box.min[2] < bounding_box.min.z {
+                    bounding_box.min.z = primitive.bounding_box.min[2];
+                }
+                if primitive.bounding_box.max[2] > bounding_box.max.z {
+                    bounding_box.max.z = primitive.bounding_box.max[2];
+                }
+
+                &primitives.push(primitive.to_buffers(&device, &self.sampler, &self.render_pipeline));
             }
         }
 
         let instances = data::InstanceBuffer::new(&device, HashMap::new());
-        self.models.insert(name.to_string(), Model { primitives, instances });
-    }
-
-    pub fn add_instance(&mut self, model_name: &str, instance_name: String, instance: data::Instance) {
-        let model = self.models.get_mut(&model_name.to_string()).expect("Model not found!");
-        &model.instances.data.insert(instance_name, instance);
-    }
-
-    pub fn remove_instance(&mut self, model_name: &str, instance_name: &String) {
-        let model = self.models.get_mut(&model_name.to_string()).expect("Model not found!");
-        &model.instances.data.remove(instance_name);
-    }
-
-    pub fn write_instance_buffers(&mut self, device: &wgpu::Device, name: &str) {
-        let mut model = self.models.get_mut(name).expect("Model not found!");
-        model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("instance_buffer"),
-            contents: bytemuck::cast_slice(&model.instances.data.values().cloned().collect::<Vec<data::Instance>>()),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
+        self.models.insert(
+            name.to_string(),
+            model::Model {
+                primitives,
+                instances,
+                bounding_box,
+            },
+        );
     }
 
     pub fn refresh_render_bundle(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
-        self.render_bundle = create_bundle(&device, &self.render_pipeline, &camera, &self.models);
+        self.render_bundle = create_bundle(&device, &self.render_pipeline, &camera, &mut self.models);
     }
 }
 
@@ -84,7 +93,7 @@ pub fn create_bundle(
     device: &wgpu::Device,
     render_pipeline: &render_pipeline::RenderPipeline,
     camera: &camera::Camera,
-    models: &HashMap<String, Model>,
+    models: &mut HashMap<String, model::Model>,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -100,15 +109,40 @@ pub fn create_bundle(
     encoder.set_pipeline(&render_pipeline.render_pipeline);
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
-    for model in models.into_iter() {
-        for mesh in &model.1.primitives {
+    for (_, model) in models.iter_mut() {
+        let length = cull_frustum(device, camera, model);
+
+        for mesh in &model.primitives {
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            encoder.set_vertex_buffer(1, model.1.instances.buffer.slice(..));
+            encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
             encoder.set_index_buffer(mesh.index_buffer.slice(..));
-            encoder.draw_indexed(0..mesh.num_elements, 0, 0..model.1.instances.data.len() as _);
+            encoder.draw_indexed(0..mesh.num_elements, 0, 0..length as _);
         }
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
+}
+
+fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut model::Model) -> usize {
+    let instances = model
+        .instances
+        .data
+        .values()
+        .clone()
+        .into_iter()
+        .filter(|(_, bounding_box)| match camera.frustum.test_bounding_box(bounding_box) {
+            frustum::Intersection::Inside | frustum::Intersection::Partial => true,
+            frustum::Intersection::Outside => false,
+        })
+        .map(|(transform, _)| *transform);
+
+    let instances = instances.collect::<Vec<data::InstanceData>>();
+    model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("instance_buffer"),
+        contents: bytemuck::cast_slice(&instances),
+        usage: wgpu::BufferUsage::VERTEX,
+    });
+
+    instances.len()
 }

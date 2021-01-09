@@ -6,10 +6,7 @@ struct Material {
 }
 
 pub struct Mesh {
-    pub name: String,
-    vertices: Vec<data::Vertex>,
-    indices: Vec<u32>,
-    material: Material,
+    pub primitives: Vec<Primitive>,
 }
 
 impl Mesh {
@@ -19,8 +16,8 @@ impl Mesh {
         mesh: gltf::Mesh<'_>,
         buffers: &Vec<gltf::buffer::Data>,
         images: &Vec<gltf::image::Data>,
-    ) -> Vec<Self> {
-        let mut meshes = vec![];
+    ) -> Self {
+        let mut primitives = vec![];
 
         for primitive in mesh.primitives() {
             let name = String::from(mesh.name().unwrap());
@@ -44,23 +41,39 @@ impl Mesh {
             let base_color_texture = texture::Texture::new(&device, &queue, &image.pixels, image.width, image.height);
             let material = Material { base_color_texture };
 
-            meshes.push(Mesh {
+            let bounding_box = frustum::BoundingBox {
+                min: Point3::from(primitive.bounding_box().min),
+                max: Point3::from(primitive.bounding_box().max),
+            };
+
+            primitives.push(Primitive {
                 name,
                 vertices,
                 indices,
                 material,
+                bounding_box,
             });
         }
 
-        meshes
+        Mesh { primitives }
     }
+}
 
-    pub fn to_primitive(
+pub struct Primitive {
+    pub name: String,
+    pub bounding_box: frustum::BoundingBox,
+    vertices: Vec<data::Vertex>,
+    indices: Vec<u32>,
+    material: Material,
+}
+
+impl Primitive {
+    pub fn to_buffers(
         &self,
         device: &wgpu::Device,
         sampler: &wgpu::Sampler,
         render_pipeline: &render_pipeline::RenderPipeline,
-    ) -> render_pipeline::Primitive {
+    ) -> render_pipeline::PrimitiveBuffers {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&self.vertices.as_slice()),
@@ -88,7 +101,7 @@ impl Mesh {
             ],
         });
 
-        render_pipeline::Primitive {
+        render_pipeline::PrimitiveBuffers {
             texture_bind_group,
             vertex_buffer,
             index_buffer,

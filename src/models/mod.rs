@@ -73,7 +73,7 @@ impl Models {
             }
         }
 
-        let instances = data::InstanceBuffer::new(&device, Vec::new());
+        let instances = data::InstanceBuffer::new(&device, HashMap::new());
         self.models.insert(
             name.to_string(),
             model::Model {
@@ -128,13 +128,14 @@ fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut mode
     let instances = model
         .instances
         .data
+        .values()
         .clone()
         .into_iter()
         .filter(|(_, bounding_box)| match camera.frustum.test_bounding_box(bounding_box) {
             frustum::Intersection::Inside | frustum::Intersection::Partial => true,
             frustum::Intersection::Outside => false,
         })
-        .map(|(transform, _)| transform);
+        .map(|(transform, _)| *transform);
 
     let instances = instances.collect::<Vec<data::InstanceData>>();
     model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

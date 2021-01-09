@@ -1,6 +1,7 @@
 use super::{data, render_pipeline};
 use crate::camera::frustum;
 use cgmath::*;
+use std::collections::HashMap;
 
 pub struct Model {
     pub primitives: Vec<render_pipeline::PrimitiveBuffers>,
@@ -27,9 +28,13 @@ impl Model {
         frustum::BoundingBox { min, max }
     }
 
-    pub fn add_instances(&mut self, instances: Vec<data::Instance>) {
+    pub fn add_instances(&mut self, instances: HashMap<String, data::Instance>) {
+        self.instances.data.extend(instances);
+    }
+
+    pub fn remove_instances(&mut self, instances: &Vec<String>) {
         for instance in instances {
-            &self.instances.data.push(instance);
+            self.instances.data.remove(instance);
         }
     }
 }

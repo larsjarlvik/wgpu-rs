@@ -1,4 +1,5 @@
 use crate::camera::frustum;
+use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -75,12 +76,12 @@ impl InstanceData {
 pub type Instance = (InstanceData, frustum::BoundingBox);
 
 pub struct InstanceBuffer {
-    pub data: Vec<Instance>,
+    pub data: HashMap<String, Instance>,
     pub buffer: wgpu::Buffer,
 }
 
 impl InstanceBuffer {
-    pub fn new(device: &wgpu::Device, data: Vec<Instance>) -> Self {
+    pub fn new(device: &wgpu::Device, data: HashMap<String, Instance>) -> Self {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("instance_buffer"),
             contents: &[],

@@ -18,18 +18,22 @@ pub struct Node {
     x: f32,
     z: f32,
     size: f32,
+    radius: f32,
     depth: i32,
     terrain: Option<Terrain>,
 }
 
 impl Node {
     pub fn new(x: f32, z: f32, depth: i32) -> Self {
+        let size = 2.0f32.powf(depth as f32) * settings::TILE_SIZE;
+        let radius = (size * size + size * size).sqrt() / 2.0;
         let mut node = Self {
             children: vec![],
             depth,
             x,
             z,
-            size: 2.0f32.powf(depth as f32) * settings::TILE_SIZE,
+            size,
+            radius,
             terrain: None,
         };
 
@@ -41,22 +45,22 @@ impl Node {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
-        let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.size;
-        match &self.terrain {
-            Some(_) => {
-                if distance > camera.z_far {
-                    self.delete_leaf_node(world);
+        let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.radius;
+        if distance > camera.z_far_range {
+            self.delete_node(world);
+            return;
+        }
+
+        if self.terrain.is_none() {
+            if self.is_leaf() {
+                let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.radius;
+                if distance < camera.z_far_range && self.terrain.is_none() {
+                    self.build_leaf_node(device, queue, world);
                 }
-            }
-            None => {
-                if self.is_leaf() {
-                    if distance < camera.z_far {
-                        self.build_leaf_node(device, queue, world);
-                    }
-                } else {
-                    for child in self.children.iter_mut() {
-                        child.update(device, queue, world, camera);
-                    }
+            } else {
+                self.add_children();
+                for child in self.children.iter_mut() {
+                    child.update(device, queue, world, camera);
                 }
             }
         }
@@ -67,14 +71,16 @@ impl Node {
     }
 
     pub fn add_children(&mut self) {
-        let child_size = self.size / 2.0;
-        for cz in -1..1 {
-            for cx in -1..1 {
-                self.children.push(Node::new(
-                    self.x + ((cx as f32 + 0.5) * child_size),
-                    self.z + ((cz as f32 + 0.5) * child_size),
-                    self.depth - 1,
-                ));
+        if self.children.len() == 0 {
+            let child_size = self.size / 2.0;
+            for cz in -1..1 {
+                for cx in -1..1 {
+                    self.children.push(Node::new(
+                        self.x + ((cx as f32 + 0.5) * child_size),
+                        self.z + ((cz as f32 + 0.5) * child_size),
+                        self.depth - 1,
+                    ));
+                }
             }
         }
     }
@@ -97,16 +103,21 @@ impl Node {
         });
     }
 
-    fn delete_leaf_node(&mut self, world: &mut WorldData) {
+    fn delete_node(&mut self, world: &mut WorldData) {
         match &self.terrain {
             Some(terrain) => {
                 for (key, model) in world.models.models.iter_mut() {
                     model.remove_instances(terrain.instance_keys.get(key).expect("Model not found!"));
                 }
             }
-            None => {}
+            None => {
+                for child in self.children.iter_mut() {
+                    child.delete_node(world);
+                }
+            }
         }
 
+        self.children = Vec::new();
         self.terrain = None;
     }
 
@@ -118,8 +129,8 @@ impl Node {
             .into_par_iter()
             .map(|_| {
                 let mut rng = rand::thread_rng();
-                let mx = self.x + (&rng.gen::<f32>() - 0.5) * self.size;
-                let mz = self.z + (&rng.gen::<f32>() - 0.5) * self.size;
+                let mx = self.x + (rng.gen::<f32>() - 0.5) * self.size;
+                let mz = self.z + (rng.gen::<f32>() - 0.5) * self.size;
                 let my = world.get_elevation(vec2(mx, mz)) - 0.25;
                 (mx, my, mz, rng.gen::<f32>(), rng.gen_range(asset.min_size, asset.max_size))
             })

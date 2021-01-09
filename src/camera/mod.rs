@@ -17,6 +17,7 @@ pub struct Camera {
     pub fov_y: f32,
     pub z_near: f32,
     pub z_far: f32,
+    pub z_far_range: f32,
     pub proj: Matrix4<f32>,
     pub frustum: frustum::FrustumCuller,
 }
@@ -25,6 +26,7 @@ impl Camera {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
         let z_near = 1.0;
         let z_far = 800.0;
+        let z_far_range = num_traits::Float::sqrt(z_far * z_far + z_far * z_far);
         let width = swap_chain_desc.width as f32;
         let height = swap_chain_desc.height as f32;
         let fov_y = 45.0;
@@ -55,6 +57,7 @@ impl Camera {
             fov_y,
             z_near,
             z_far,
+            z_far_range,
             proj: perspective(Deg(fov_y), width / height, z_near, z_far),
             frustum,
         }

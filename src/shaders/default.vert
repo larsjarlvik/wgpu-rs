@@ -8,9 +8,9 @@ layout(location=5) in mat4 model_matrix;
 layout(set=1, binding=0) uniform Camera {
     mat4 u_view_proj;
     vec3 u_eye_pos;
-    float z_near;
+    float u_z_near;
     vec3 u_look_at;
-    float z_far;
+    float u_z_far;
     vec2 u_viewport_size;
 };
 

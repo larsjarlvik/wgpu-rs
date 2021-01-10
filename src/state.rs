@@ -1,4 +1,4 @@
-use crate::{camera, deferred, fxaa, input::Input, settings, world};
+use crate::{camera, deferred, fxaa, input::Input, settings, water, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -9,6 +9,7 @@ pub struct State {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     camera: camera::Camera,
+    water: water::Water,
     world: world::World,
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
@@ -63,6 +64,7 @@ impl State {
 
         // World
         let world = world::World::new(&device, &queue, &camera).await;
+        let water = water::Water::new(&device, &swap_chain_desc, &camera);
 
         Self {
             surface,
@@ -75,6 +77,7 @@ impl State {
             fxaa,
             camera,
             world,
+            water,
             input: Input::new(),
             last_frame: Instant::now(),
             frame_time: Vec::new(),
@@ -89,6 +92,7 @@ impl State {
         self.camera.resize(&self.swap_chain_desc);
         self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
         self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
+        self.water = water::Water::new(&self.device, &self.swap_chain_desc, &self.camera);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -111,6 +115,7 @@ impl State {
         self.camera.update_camera(&self.queue, &self.input, avg);
         self.input.after_update();
         self.world.update(&self.device, &self.queue, &self.camera);
+        self.water.update(&self.queue, &self.camera);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -122,42 +127,11 @@ impl State {
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            // Main render pass
-            let mut bundles = vec![];
-            bundles.push(&self.world.terrain_bundle);
-            bundles.push(&self.world.data.models.render_bundle);
+            // World
+            self.world.render(&mut encoder, ops, &self.water.textures);
+            self.water.render(&mut encoder, &self.deferred_render.textures);
 
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &self.deferred_render.position_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &self.deferred_render.normals_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &self.deferred_render.base_color_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                    ],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                        attachment: &self.deferred_render.depth_texture_view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
-                    }),
-                })
-                .execute_bundles(bundles.into_iter());
-
-            // Deferred render pass
+            // Deferred
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -169,7 +143,7 @@ impl State {
                 })
                 .execute_bundles(std::iter::once(&self.deferred_render.render_bundle));
 
-            // FXAA render pass
+            // FXAA
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {

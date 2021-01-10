@@ -1,4 +1,4 @@
-use crate::{camera, models, noise, settings};
+use crate::{camera, deferred, models, noise, settings};
 use cgmath::{vec2, Vector2};
 mod assets;
 mod node;
@@ -42,6 +42,40 @@ impl World {
         self.root_node.update(device, queue, &mut self.data, camera);
         self.data.models.refresh_render_bundle(device, camera);
         self.terrain_bundle = get_terrain_bundle(device, camera, &self.data.terrain, &self.root_node);
+    }
+
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, ops: wgpu::Operations<wgpu::Color>, target: &deferred::textures::Textures) {
+        let bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
+
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &target.position_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &target.normals_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &target.base_color_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &target.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            })
+            .execute_bundles(bundles.into_iter());
     }
 }
 

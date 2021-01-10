@@ -19,6 +19,7 @@ pub struct Camera {
     pub z_far: f32,
     pub z_far_range: f32,
     pub proj: Matrix4<f32>,
+    pub view: Matrix4<f32>,
     pub frustum: frustum::FrustumCuller,
 }
 
@@ -59,6 +60,7 @@ impl Camera {
             z_far,
             z_far_range,
             proj: perspective(Deg(fov_y), width / height, z_near, z_far),
+            view: Matrix4::identity().into(),
             frustum,
         }
     }
@@ -86,9 +88,9 @@ impl Camera {
             self.target.z - (self.rotation.x.sin() * self.rotation.y.sin() * self.distance),
         );
 
-        let view = Matrix4::look_at(self.eye, self.target, Vector3::unit_y());
+        self.view = Matrix4::look_at(self.eye, self.target, Vector3::unit_y());
 
-        let world_matrix = self.proj * view;
+        let world_matrix = self.proj * self.view;
         self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
 
         self.uniforms.data.look_at = self.target.into();

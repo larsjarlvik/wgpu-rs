@@ -8,26 +8,26 @@ layout(set = 0, binding = 0) uniform texture2D t_depth_texture;
 layout(set = 0, binding = 1) uniform texture2D t_position;
 layout(set = 0, binding = 2) uniform texture2D t_normal;
 layout(set = 0, binding = 3) uniform texture2D t_base_color;
-layout(set = 0, binding = 4) uniform sampler t_sampler;
+layout(set = 1, binding = 0) uniform sampler t_sampler;
 
-layout(set=1, binding=0) uniform Uniforms {
+layout(set=2, binding=0) uniform Uniforms {
     vec3 u_light_dir;
     float u_ambient_strength;
     vec3 u_light_color;
     float u_light_intensity;
 };
 
-layout(set=2, binding=0) uniform Camera {
+layout(set=3, binding=0) uniform Camera {
     mat4 u_view_proj;
     vec3 u_eye_pos;
-    float z_near;
+    float u_z_near;
     vec3 u_look_at;
-    float z_far;
+    float u_z_far;
     vec2 u_viewport_size;
 };
 
 float linearize_depth(float d) {
-    return z_near * z_far / (z_far + d * (z_near - z_far));
+    return u_z_near * u_z_far / (u_z_far + d * (u_z_near - u_z_far));
 }
 
 vec3 sky(vec3 rayDir) {
@@ -71,7 +71,7 @@ void main() {
 
     vec3 color;
     if (depth < 1.0) {
-        float fog = smoothstep(z_far / 4.0, z_far, linearize_depth(depth));
+        float fog = smoothstep(u_z_far / 4.0, u_z_far, linearize_depth(depth));
         color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz));
         color = mix(color, sky_color, fog);
     } else {

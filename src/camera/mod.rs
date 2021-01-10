@@ -1,4 +1,4 @@
-use crate::{input, settings};
+use crate::input;
 use cgmath::*;
 use SquareMatrix;
 mod controller;
@@ -95,7 +95,7 @@ impl Camera {
 
         self.uniforms.data.look_at = self.target.into();
         self.uniforms.data.eye_pos = self.eye.into();
-        self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * world_matrix).into();
+        self.uniforms.data.view_proj = world_matrix.into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 }

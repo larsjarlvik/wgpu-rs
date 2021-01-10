@@ -1,13 +1,14 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
+#include "include/world_position.glsl"
 
 const vec3 sky_color = vec3(0.6, 0.8, 0.9);
 
 layout(location=0) out vec4 f_color;
 
 layout(set = 0, binding = 0) uniform texture2D t_depth_texture;
-layout(set = 0, binding = 1) uniform texture2D t_position;
-layout(set = 0, binding = 2) uniform texture2D t_normal;
-layout(set = 0, binding = 3) uniform texture2D t_base_color;
+layout(set = 0, binding = 1) uniform texture2D t_normal;
+layout(set = 0, binding = 2) uniform texture2D t_base_color;
 layout(set = 1, binding = 0) uniform sampler t_sampler;
 
 layout(set=2, binding=0) uniform Uniforms {
@@ -54,14 +55,14 @@ vec3 calculate_light(vec3 position, vec3 normal) {
     return ambient_color + (diffuse_color + specular_color) * u_light_intensity;
 }
 
+
 void main() {
     ivec2 fragCoord = ivec2(gl_FragCoord.xy);
-    float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
 
-    vec4 position = texelFetch(sampler2D(t_position, t_sampler), fragCoord, 0);
+    float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
+    vec4 position = world_pos_from_depth(depth, gl_FragCoord.xy / u_viewport_size, u_view_proj);
     vec4 normal = normalize(texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0));
     vec4 base_color = texelFetch(sampler2D(t_base_color, t_sampler), fragCoord, 0);
-
 
     vec3 cam_front = normalize(u_eye_pos - u_look_at);
     vec3 cam_right = cross(cam_front, vec3(0, 1, 0));

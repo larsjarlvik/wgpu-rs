@@ -115,7 +115,6 @@ impl State {
         self.camera.update_camera(&self.queue, &self.input, avg);
         self.input.after_update();
         self.world.update(&self.device, &self.queue, &self.camera);
-        self.water.update(&self.queue, &self.camera);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

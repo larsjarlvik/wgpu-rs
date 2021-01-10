@@ -1,7 +1,6 @@
 use crate::settings;
 
 pub struct Textures {
-    pub position_texture_view: wgpu::TextureView,
     pub normals_texture_view: wgpu::TextureView,
     pub base_color_texture_view: wgpu::TextureView,
     pub depth_texture_view: wgpu::TextureView,
@@ -9,13 +8,11 @@ pub struct Textures {
 
 impl Textures {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
-        let position_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
         let normals_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
         let base_color_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
         let depth_texture_view = create_texture_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
 
         Self {
-            position_texture_view,
             normals_texture_view,
             base_color_texture_view,
             depth_texture_view,
@@ -29,7 +26,6 @@ impl Textures {
                 create_bind_group_layout(0, wgpu::TextureComponentType::Float),
                 create_bind_group_layout(1, wgpu::TextureComponentType::Uint),
                 create_bind_group_layout(2, wgpu::TextureComponentType::Uint),
-                create_bind_group_layout(3, wgpu::TextureComponentType::Uint),
             ],
         })
     }
@@ -45,14 +41,10 @@ impl Textures {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&self.position_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(&self.normals_texture_view),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 3,
+                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(&self.base_color_texture_view),
                 },
             ],

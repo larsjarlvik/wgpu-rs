@@ -1,23 +1,12 @@
 use crate::{camera, deferred, settings};
-use cgmath::*;
-mod uniforms;
 
 pub struct Water {
     pub render_bundle: wgpu::RenderBundle,
     pub textures: deferred::textures::Textures,
-    pub uniforms: uniforms::UniformBuffer,
 }
 
 impl Water {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera) -> Self {
-        // Uniforms
-        let uniforms = uniforms::UniformBuffer::new(
-            device,
-            uniforms::Uniforms {
-                inverse_view_proj: Matrix4::identity().into(),
-            },
-        );
-
         // Textures
         let textures = deferred::textures::Textures::new(device, swap_chain_desc);
         let texture_bind_group_layout = textures.create_bind_group_layout(device);
@@ -34,7 +23,6 @@ impl Water {
                 &texture_bind_group_layout,
                 &sampler_bind_group_layout,
                 &camera.uniforms.bind_group_layout,
-                &uniforms.bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -58,11 +46,7 @@ impl Water {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[
-                settings::COLOR_TEXTURE_FORMAT.into(),
-                settings::COLOR_TEXTURE_FORMAT.into(),
-                settings::COLOR_TEXTURE_FORMAT.into(),
-            ],
+            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -80,11 +64,7 @@ impl Water {
 
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
-            color_formats: &[
-                settings::COLOR_TEXTURE_FORMAT,
-                settings::COLOR_TEXTURE_FORMAT,
-                settings::COLOR_TEXTURE_FORMAT,
-            ],
+            color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
             depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
             sample_count: 1,
         });
@@ -93,25 +73,10 @@ impl Water {
         encoder.set_bind_group(0, &texture_bind_group, &[]);
         encoder.set_bind_group(1, &sampler_bind_group, &[]);
         encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
-        encoder.set_bind_group(3, &uniforms.bind_group, &[]);
         encoder.draw(0..6, 0..1);
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("water") });
 
-        Self {
-            render_bundle,
-            textures,
-            uniforms,
-        }
-    }
-
-    pub fn update(&mut self, queue: &wgpu::Queue, camera: &camera::Camera) {
-        match (camera.proj * camera.view).invert() {
-            Some(i) => {
-                self.uniforms.data.inverse_view_proj = (settings::OPENGL_TO_WGPU_MATRIX * i).into();
-                queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
-            }
-            None => {}
-        }
+        Self { render_bundle, textures }
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures) {
@@ -124,11 +89,6 @@ impl Water {
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.position_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
                     wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &target.normals_texture_view,
                         resolve_target: None,

@@ -73,15 +73,7 @@ float random(vec2 st) {
     return fract(sin(dot(st, vec2(12.9898,78.233))) * 43758.5453123);
 }
 
-float fresnel_term(vec3 normal, vec3 eye_vec) {
-    float angle = 1.0 - clamp(dot(normal, eye_vec), 0.0, 1.0);
-    float fresnel = angle * angle;
-    fresnel = fresnel * fresnel;
-    fresnel = fresnel * angle;
-    return clamp(fresnel * (1.0 - 0.5) + 0.5, 0.0, 1.0);
-}
-
-vec3 water(vec3 position, vec3 color, vec3 sky_color) {
+vec3 water(vec3 position, vec3 ground_color, vec3 sky_color) {
     vec3 eye_vec = normalize(u_eye_pos - position);
     float camera_depth = u_eye_pos.y - position.y;
 
@@ -104,15 +96,18 @@ vec3 water(vec3 position, vec3 color, vec3 sky_color) {
     float water_depth = length(position - surface_point);
     float water_depth2 = surface_point.y - position.y;
 
-    if (water_depth < 0.0 || water_depth2 < 0.0) return color;
+    if (water_depth < 0.0 || water_depth2 < 0.0) {
+        return ground_color;
+    }
 
     vec3 depth_n = vec3(water_depth * FADE_SPEED);
     vec3 water_col = vec3(clamp(length(u_light_color) / u_light_intensity, 0.0, 1.0));
 
+    vec3 normal = normalize((texture(sampler2D(t_water_normal, t_water_sampler), tex_coord).xyz * 2.0 - 1.0));
+    vec3 color = texture(sampler2D(t_base_color, t_sampler), (gl_FragCoord.xy / u_viewport_size) + (normal.xz * 0.05)).rgb;
     vec3 refraction = mix(mix(color, DEPTH_COLOR * water_col, clamp(depth_n / VISIBILITY, 0.0, 1.0)),
             BIG_DEPTH_COLOR * water_col, clamp(water_depth2 / EXTINCTION, 0.0, 1.0));
 
-    vec3 normal = normalize(texture(sampler2D(t_water_normal, t_water_sampler), tex_coord).xyz * 2.0 - 1.0);
 
     vec3 out_color = mix(refraction, sky_color, pow(abs(dot(eye_vec, normal)), 5.0));
     out_color = clamp(out_color, 0.0, 1.0);

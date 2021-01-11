@@ -1,4 +1,4 @@
-use crate::{camera, deferred, fxaa, input::Input, settings, water, world};
+use crate::{camera, deferred, fxaa, input::Input, settings, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -9,7 +9,6 @@ pub struct State {
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     camera: camera::Camera,
-    water: water::Water,
     world: world::World,
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
@@ -37,7 +36,10 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS,
-                    limits: wgpu::Limits::default(),
+                    limits: wgpu::Limits {
+                        max_bind_groups: 8,
+                        ..wgpu::Limits::default()
+                    },
                     shader_validation: true,
                 },
                 None,
@@ -59,12 +61,11 @@ impl State {
         let camera = camera::Camera::new(&device, &swap_chain_desc);
 
         // Drawing
-        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
+        let deferred_render = deferred::DeferredRender::new(&device, &queue, &swap_chain_desc, &camera);
         let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
 
         // World
         let world = world::World::new(&device, &queue, &camera).await;
-        let water = water::Water::new(&device, &swap_chain_desc, &camera);
 
         Self {
             surface,
@@ -77,7 +78,6 @@ impl State {
             fxaa,
             camera,
             world,
-            water,
             input: Input::new(),
             last_frame: Instant::now(),
             frame_time: Vec::new(),
@@ -90,9 +90,8 @@ impl State {
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
         self.camera.resize(&self.swap_chain_desc);
-        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
+        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.queue, &self.swap_chain_desc, &self.camera);
         self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
-        self.water = water::Water::new(&self.device, &self.swap_chain_desc, &self.camera);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -115,6 +114,7 @@ impl State {
         self.camera.update_camera(&self.queue, &self.input, avg);
         self.input.after_update();
         self.world.update(&self.device, &self.queue, &self.camera);
+        self.deferred_render.update(&self.queue);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -127,8 +127,7 @@ impl State {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             // World
-            self.world.render(&mut encoder, ops, &self.water.textures);
-            self.water.render(&mut encoder, &self.deferred_render.textures);
+            self.world.render(&mut encoder, ops, &self.deferred_render.textures);
 
             // Deferred
             encoder

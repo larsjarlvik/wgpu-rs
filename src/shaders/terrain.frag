@@ -37,7 +37,7 @@ Texture get_texture() {
     vec3 cliffs = getTriPlanarTexture(2);
 
     // TODO: Improve look and performance
-    vec3 ground = mix(sand, grass, clamp(v_position.y + (fbm(v_position.xz * 2.5, 2)) * 4.0, 0.0, 1.0));
+    vec3 ground = mix(sand, grass, clamp(v_position.y - (fbm(v_position.xz * 2.5, 2)) * 2.0, 0.0, 1.0));
 
     vec3 grass_sand_normal = getTriPlanarTexture(1);
     vec3 cliff_normal = getTriPlanarTexture(3);

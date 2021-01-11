@@ -7,6 +7,7 @@ pub struct Uniforms {
     pub ambient_strength: f32,
     pub light_color: [f32; 3],
     pub light_intensity: f32,
+    pub time: f32,
 }
 
 pub struct UniformBuffer {

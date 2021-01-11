@@ -15,7 +15,6 @@ mod noise;
 mod settings;
 mod state;
 mod texture;
-mod water;
 mod world;
 pub use state::*;
 

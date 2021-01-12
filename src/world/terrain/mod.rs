@@ -66,7 +66,7 @@ impl Terrain {
                 cull_mode: wgpu::CullMode::Back,
                 ..Default::default()
             }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
             color_states: &[
                 settings::COLOR_TEXTURE_FORMAT.into(),
                 settings::COLOR_TEXTURE_FORMAT.into(),

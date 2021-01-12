@@ -13,7 +13,7 @@ pub const CAMERA_FRICTION: f32 = 1.0;
 pub const CAMERA_SENSITIVITY: f32 = 10.0;
 pub const TERRAIN_SCALE: f32 = 0.005;
 pub const TERRAIN_OCTAVES: u32 = 5;
-pub const TILE_SIZE: f32 = 40.0;
+pub const TILE_SIZE: u32 = 40;
 pub const TILE_DEPTH: i32 = 6;
 
 #[rustfmt::skip]

@@ -25,7 +25,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(x: f32, z: f32, depth: i32) -> Self {
-        let size = 2.0f32.powf(depth as f32) * settings::TILE_SIZE;
+        let size = 2.0f32.powf(depth as f32) * settings::TILE_SIZE as f32;
         let radius = (size * size + size * size).sqrt() / 2.0;
         let mut node = Self {
             children: vec![],

@@ -6,7 +6,7 @@ mod water;
 
 pub struct DeferredRender {
     pub render_bundle: wgpu::RenderBundle,
-    pub textures: textures::Textures,
+    pub target: textures::Textures,
     pub uniforms: uniforms::UniformBuffer,
     pub time: time::Instant,
 }
@@ -19,9 +19,9 @@ impl DeferredRender {
         let water_texture_bind_group = water.create_bind_group(device, &water_texture_bind_group_layout);
 
         // Textures
-        let textures = textures::Textures::new(device, swap_chain_desc);
-        let texture_bind_group_layout = textures.create_bind_group_layout(device);
-        let texture_bind_group = textures.create_bind_group(device, &texture_bind_group_layout);
+        let target = textures::Textures::new(device, swap_chain_desc);
+        let texture_bind_group_layout = target.create_bind_group_layout(device);
+        let texture_bind_group = target.create_bind_group(device, &texture_bind_group_layout);
 
         // Uniforms
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -107,7 +107,7 @@ impl DeferredRender {
 
         DeferredRender {
             render_bundle,
-            textures,
+            target,
             uniforms,
             time: time::Instant::now(),
         }

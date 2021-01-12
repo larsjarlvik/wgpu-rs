@@ -43,6 +43,7 @@ impl Camera {
                 z_near,
                 z_far,
                 viewport_size: [width, height],
+                clip_plane: [0.0, 0.0, 0.0, 0.0],
             },
         );
 
@@ -96,6 +97,11 @@ impl Camera {
         self.uniforms.data.look_at = self.target.into();
         self.uniforms.data.eye_pos = self.eye.into();
         self.uniforms.data.view_proj = world_matrix.into();
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
+    }
+
+    pub fn set_clip_plane(&mut self, queue: &wgpu::Queue, clip_plane: Vector4<f32>) {
+        self.uniforms.data.clip_plane = clip_plane.into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 }

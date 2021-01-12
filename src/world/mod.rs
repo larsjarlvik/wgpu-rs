@@ -1,5 +1,5 @@
 use crate::{camera, deferred, models, noise, settings};
-use cgmath::{vec2, Vector2};
+use cgmath::*;
 mod assets;
 mod node;
 mod terrain;
@@ -44,33 +44,57 @@ impl World {
         self.terrain_bundle = get_terrain_bundle(device, camera, &self.data.terrain, &self.root_node);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, ops: wgpu::Operations<wgpu::Color>, target: &deferred::textures::Textures) {
-        let bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
+    pub fn render(&self, device: &wgpu::Device, queue: &wgpu::Queue, camera: &mut camera::Camera, target: &deferred::textures::Textures) {
+        let ops = wgpu::Operations {
+            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+            store: true,
+        };
 
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.normals_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.base_color_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                ],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &target.depth_texture_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
+        let bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
+        camera.set_clip_plane(queue, vec4(0.0, 1.0, 0.0, 0.0));
+        self.render_to_texture_group(device, queue, &target.default_group, ops, bundles);
+
+        let bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
+        camera.set_clip_plane(queue, vec4(0.0, -1.0, 0.0, 1.0));
+        self.render_to_texture_group(device, queue, &target.refraction_group, ops, bundles);
+    }
+
+    fn render_to_texture_group(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        target: &deferred::textures::TextureGroup,
+        ops: wgpu::Operations<wgpu::Color>,
+        bundles: Vec<&wgpu::RenderBundle>,
+    ) {
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        {
+            encoder
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    color_attachments: &[
+                        wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &target.normals_texture_view,
+                            resolve_target: None,
+                            ops,
+                        },
+                        wgpu::RenderPassColorAttachmentDescriptor {
+                            attachment: &target.base_color_texture_view,
+                            resolve_target: None,
+                            ops,
+                        },
+                    ],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                        attachment: &target.depth_texture_view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: true,
+                        }),
+                        stencil_ops: None,
                     }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(bundles.into_iter());
+                })
+                .execute_bundles(bundles.into_iter());
+            queue.submit(std::iter::once(encoder.finish()));
+        }
     }
 }
 

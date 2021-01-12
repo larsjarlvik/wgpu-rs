@@ -13,6 +13,7 @@ layout(set=0, binding=0) uniform Camera {
     float u_z_near;
     vec3 u_look_at;
     float u_z_far;
+    vec4 u_clip_plane;
     vec2 u_viewport_size;
 };
 
@@ -23,5 +24,7 @@ void main() {
     v_position = vec4(a_position, 1.0);
     v_tbn = mat3(tangent, bitangent, a_normal);
     v_normal = a_normal;
+
+    gl_ClipDistance[0] = dot(v_position, u_clip_plane);
     gl_Position = u_view_proj * v_position;
 }

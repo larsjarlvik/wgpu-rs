@@ -1,9 +1,28 @@
 use crate::settings;
 
-pub struct Textures {
+pub struct TextureGroup {
     pub normals_texture_view: wgpu::TextureView,
     pub base_color_texture_view: wgpu::TextureView,
     pub depth_texture_view: wgpu::TextureView,
+}
+
+impl TextureGroup {
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+        let normals_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let base_color_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let depth_texture_view = create_texture_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
+
+        Self {
+            normals_texture_view,
+            base_color_texture_view,
+            depth_texture_view,
+        }
+    }
+}
+
+pub struct Textures {
+    pub default_group: TextureGroup,
+    pub refraction_group: TextureGroup,
     pub sampler: wgpu::Sampler,
 }
 
@@ -19,14 +38,9 @@ impl Textures {
             ..Default::default()
         });
 
-        let normals_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
-        let base_color_texture_view = create_texture_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
-        let depth_texture_view = create_texture_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
-
         Self {
-            normals_texture_view,
-            base_color_texture_view,
-            depth_texture_view,
+            default_group: TextureGroup::new(device, swap_chain_desc),
+            refraction_group: TextureGroup::new(device, swap_chain_desc),
             sampler,
         }
     }
@@ -38,8 +52,11 @@ impl Textures {
                 create_bind_group_layout(0, wgpu::TextureComponentType::Float),
                 create_bind_group_layout(1, wgpu::TextureComponentType::Uint),
                 create_bind_group_layout(2, wgpu::TextureComponentType::Uint),
+                create_bind_group_layout(3, wgpu::TextureComponentType::Float),
+                create_bind_group_layout(4, wgpu::TextureComponentType::Uint),
+                create_bind_group_layout(5, wgpu::TextureComponentType::Uint),
                 wgpu::BindGroupLayoutEntry {
-                    binding: 3,
+                    binding: 6,
                     visibility: wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Sampler { comparison: false },
                     count: None,
@@ -55,18 +72,30 @@ impl Textures {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.depth_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&self.default_group.depth_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&self.normals_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&self.default_group.normals_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&self.base_color_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&self.default_group.base_color_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&self.refraction_group.depth_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&self.refraction_group.normals_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(&self.refraction_group.base_color_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
                     resource: wgpu::BindingResource::Sampler(&self.sampler),
                 },
             ],

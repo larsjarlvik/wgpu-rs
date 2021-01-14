@@ -82,11 +82,16 @@ fn get_terrain_bundle(
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
     encoder.set_bind_group(1, &terrain.texture_bind_group, &[]);
     encoder.set_bind_group(2, &terrain.noise_bindings.bind_group, &[]);
-    encoder.set_index_buffer(terrain.compute.index_buffer.slice(..));
 
-    for slice in root_node.get_terrain_buffer_slices(camera) {
-        encoder.set_vertex_buffer(0, slice);
-        encoder.draw_indexed(0..terrain.compute.length, 0, 0..1);
+
+    for lod in 0..=settings::LODS.len() {
+        let lod_buffer = terrain.compute.lods.get(lod).expect("Could not get LOD!");
+        encoder.set_index_buffer(lod_buffer.buffer.slice(..));
+
+        for slice in root_node.get_terrain_buffer_slices(camera, lod as u32) {
+            encoder.set_vertex_buffer(0, slice);
+            encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+        }
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })

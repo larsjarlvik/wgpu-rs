@@ -1,6 +1,7 @@
 use crate::{input, settings};
 use cgmath::*;
 use SquareMatrix;
+use winit::event::VirtualKeyCode;
 mod controller;
 pub mod frustum;
 mod uniforms;
@@ -67,10 +68,19 @@ impl Camera {
         self.width = swap_chain_desc.width as f32;
         self.height = swap_chain_desc.height as f32;
         self.uniforms.data.viewport_size = [self.width, self.height];
-        self.proj = perspective(Deg(self.fov_y), self.width / self.height, self.z_near, self.z_far);
+        self.update_proj();
     }
 
     pub fn update_camera(&mut self, queue: &wgpu::Queue, input: &input::Input, frame_time: f32) {
+        if input.keys.contains(&VirtualKeyCode::PageUp) {
+            self.z_far += 1.0;
+            self.update_proj();
+        }
+        if input.keys.contains(&VirtualKeyCode::PageDown) {
+            self.z_far -= 1.0;
+            self.update_proj();
+        }
+
         self.controller.process_events(input, frame_time);
 
         self.distance += self.controller.velocity.y;
@@ -95,5 +105,21 @@ impl Camera {
         self.uniforms.data.eye_pos = self.eye.into();
         self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * world_matrix).into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
+    }
+
+    pub fn get_lod(&self, target: Point3<f32>) -> u32 {
+        let distance = self.eye.distance(target) / self.z_far;
+        for i in 0..settings::LODS.len() {
+            let lod = settings::LODS.get(i).expect("Failed to get LOD!");
+            if lod > &distance {
+                return i as u32;
+            }
+        }
+
+        settings::LODS.len() as u32
+    }
+
+    fn update_proj(&mut self) {
+        self.proj = perspective(Deg(self.fov_y), self.width / self.height, self.z_near, self.z_far);
     }
 }

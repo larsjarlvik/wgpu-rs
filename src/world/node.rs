@@ -45,7 +45,7 @@ impl Node {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
-        let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.radius;
+        let distance = vec2(self.x, self.z).distance(vec2(camera.target.x, camera.target.z)) - self.radius;
         if distance > camera.z_far_range {
             self.delete_node(world);
             return;
@@ -148,14 +148,19 @@ impl Node {
             .collect::<HashMap<String, models::data::Instance>>()
     }
 
-    pub fn get_terrain_buffer_slices(&self, camera: &camera::Camera) -> Vec<wgpu::BufferSlice> {
+    pub fn get_terrain_buffer_slices(&self, camera: &camera::Camera, lod: u32) -> Vec<wgpu::BufferSlice> {
         if self.check_frustum(camera) {
             match &self.terrain {
-                Some(t) => vec![t.buffer.slice(..)],
+                Some(t) => {
+                    if camera.get_lod(Point3::new(self.x, 0.0, self.z)) == lod {
+                        return vec![t.buffer.slice(..)];
+                    }
+                    vec![]
+                }
                 None => self
                     .children
                     .iter()
-                    .flat_map(|child| child.get_terrain_buffer_slices(camera))
+                    .flat_map(|child| child.get_terrain_buffer_slices(camera, lod))
                     .collect(),
             }
         } else {

@@ -174,12 +174,12 @@ impl Compute {
 fn create_vertices(tile_size: u32) -> Vec<Vertex> {
     let mut vertices = Vec::new();
     let half_tile_size = tile_size as f32 / 2.0;
-    let mult = tile_size as f32 / tile_size as f32;
+    let tile_size = tile_size + 1;
 
     for z in 0..tile_size {
         for x in 0..tile_size {
             vertices.push(Vertex {
-                position: [(x as f32 * mult) - half_tile_size, 0.0, (z as f32 * mult) - half_tile_size],
+                position: [(x as f32) - half_tile_size, 0.0, (z as f32) - half_tile_size],
                 normal: [0.0, 0.0, 0.0],
             });
         }
@@ -191,8 +191,9 @@ fn create_vertices(tile_size: u32) -> Vec<Vertex> {
 fn create_indices(tile_size: u32, lod: u32) -> Vec<u32> {
     let mut indices = Vec::new();
     let lod = 2u32.pow(lod as u32) / 2;
+    let tile_size = tile_size + 1;
 
-    for z in (0..tile_size - lod).step_by(lod as usize) {
+    for z in (0..(tile_size - lod)).step_by(lod as usize) {
         if z > 0 {
             indices.push(z * tile_size);
         }
@@ -200,11 +201,10 @@ fn create_indices(tile_size: u32, lod: u32) -> Vec<u32> {
             indices.push(z * tile_size + x);
             indices.push((z + lod) * tile_size + x);
         }
-        if z < tile_size - lod - 1 {
+        if z < tile_size - lod {
             indices.push((z + lod) * tile_size + (tile_size - 1));
         }
     }
 
     indices
 }
-

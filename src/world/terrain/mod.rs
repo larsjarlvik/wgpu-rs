@@ -8,6 +8,7 @@ pub struct Terrain {
     pub compute: compute::Compute,
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
+    pub uniform_bind_group_layout: wgpu::BindGroupLayout,
     pub noise_bindings: noise::NoiseBindings,
 }
 
@@ -38,10 +39,24 @@ impl Terrain {
             ],
         });
 
+        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("uniform_bind_group_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_pipeline_layout"),
             bind_group_layouts: &[
                 &camera.uniforms.bind_group_layout,
+                &uniform_bind_group_layout,
                 &texture_bind_group_layout,
                 &noise_bindings.bind_group_layout,
             ],
@@ -90,6 +105,7 @@ impl Terrain {
         let texture_bind_group = build_textures(device, queue, &texture_bind_group_layout);
         Terrain {
             texture_bind_group,
+            uniform_bind_group_layout,
             render_pipeline,
             compute,
             noise_bindings,

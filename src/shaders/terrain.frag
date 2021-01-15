@@ -1,5 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+
+#define NOISE_SET 3
 #include "include/noise.glsl"
 
 layout(location=0) in vec4 v_position;
@@ -10,8 +12,8 @@ layout(location=0) out vec4 f_position;
 layout(location=1) out vec4 f_normal;
 layout(location=2) out vec4 f_base_color;
 
-layout(set = 1, binding = 0) uniform texture2D t_textures[5];
-layout(set = 1, binding = 1) uniform sampler s_texture;
+layout(set = 2, binding = 0) uniform texture2D t_textures[5];
+layout(set = 2, binding = 1) uniform sampler s_texture;
 
 struct Texture {
    vec3 diffuse;

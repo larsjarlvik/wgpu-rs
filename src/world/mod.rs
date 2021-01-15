@@ -24,9 +24,9 @@ impl World {
             models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
-        let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
+        let mut root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
         let terrain = terrain::Terrain::new(device, queue, camera, &noise);
-        let terrain_bundle = get_terrain_bundle(device, camera, &terrain, &root_node);
+        let terrain_bundle = get_terrain_bundle(device, camera, &terrain, &mut root_node);
 
         let mut world = Self {
             data: WorldData { terrain, noise, models },
@@ -34,14 +34,14 @@ impl World {
             root_node,
         };
 
-        world.terrain_bundle = get_terrain_bundle(device, camera, &world.data.terrain, &world.root_node);
+        world.terrain_bundle = get_terrain_bundle(device, camera, &world.data.terrain, &mut world.root_node);
         world
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera) {
         self.root_node.update(device, queue, &mut self.data, camera);
         self.data.models.refresh_render_bundle(device, camera);
-        self.terrain_bundle = get_terrain_bundle(device, camera, &self.data.terrain, &self.root_node);
+        self.terrain_bundle = get_terrain_bundle(device, camera, &self.data.terrain, &mut self.root_node);
     }
 }
 
@@ -66,7 +66,7 @@ fn get_terrain_bundle(
     device: &wgpu::Device,
     camera: &camera::Camera,
     terrain: &terrain::Terrain,
-    root_node: &node::Node,
+    root_node: &mut node::Node,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -80,16 +80,17 @@ fn get_terrain_bundle(
     });
     encoder.set_pipeline(&terrain.render_pipeline);
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
-    encoder.set_bind_group(1, &terrain.texture_bind_group, &[]);
-    encoder.set_bind_group(2, &terrain.noise_bindings.bind_group, &[]);
+    encoder.set_bind_group(2, &terrain.texture_bind_group, &[]);
+    encoder.set_bind_group(3, &terrain.noise_bindings.bind_group, &[]);
 
 
     for lod in 0..=settings::LODS.len() {
         let lod_buffer = terrain.compute.lods.get(lod).expect("Could not get LOD!");
         encoder.set_index_buffer(lod_buffer.buffer.slice(..));
 
-        for slice in root_node.get_terrain_buffer_slices(camera, lod as u32) {
-            encoder.set_vertex_buffer(0, slice);
+        for node in root_node.get_terrain_nodes(camera, lod as u32) {
+            encoder.set_bind_group(1, &node.uniforms.bind_group, &[]);
+            encoder.set_vertex_buffer(0, node.buffer.slice(..));
             encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
         }
     }

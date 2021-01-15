@@ -1,6 +1,9 @@
+#ifndef NODE_SET
+    #define NODE_SET 0
+#endif
 
-layout(set = 2, binding = 0) uniform texture2D t_noise;
-layout(set = 2, binding = 1) uniform sampler t_noise_sampler;
+layout(set = NOISE_SET, binding = 0) uniform texture2D t_noise;
+layout(set = NOISE_SET, binding = 1) uniform sampler t_noise_sampler;
 
 float random(vec2 st) {
     vec2 size = textureSize(sampler2D(t_noise, t_noise_sampler), 0);

@@ -1,4 +1,6 @@
 #version 450
+
+#define NOISE_SET 2
 #extension GL_GOOGLE_include_directive : require
 #include "include/noise.glsl"
 #define SCALE 0.005

@@ -6,11 +6,25 @@ use crate::{
 use cgmath::*;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use wgpu::util::DeviceExt;
 use std::collections::HashMap;
 
-struct Terrain {
-    buffer: wgpu::Buffer,
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Uniforms {
+    pub lod: f32,
+}
+pub struct UniformBuffer {
+    pub data: Uniforms,
+    pub buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+}
+
+pub struct Terrain {
+    pub buffer: wgpu::Buffer,
+    pub uniforms: UniformBuffer,
     instance_keys: HashMap<String, Vec<String>>,
+    lod: u32,
 }
 
 pub struct Node {
@@ -64,6 +78,15 @@ impl Node {
                 }
             }
         }
+
+        match self.terrain.as_mut() {
+            Some(mut t) => {
+                t.lod = camera.get_lod(Point3::new(self.x, 0.0, self.z));
+                t.uniforms.data.lod = t.lod as f32;
+                queue.write_buffer(&t.uniforms.buffer, 0, bytemuck::cast_slice(&[t.uniforms.data]));
+            },
+            None => {},
+        }
     }
 
     pub fn is_leaf(&self) -> bool {
@@ -99,7 +122,9 @@ impl Node {
 
         self.terrain = Some(Terrain {
             buffer: world.terrain.compute.compute(device, queue, self.x, self.z),
+            uniforms: UniformBuffer::new(device, &world.terrain.uniform_bind_group_layout, Uniforms { lod: 0.0 }),
             instance_keys,
+            lod: 0,
         });
     }
 
@@ -148,19 +173,19 @@ impl Node {
             .collect::<HashMap<String, models::data::Instance>>()
     }
 
-    pub fn get_terrain_buffer_slices(&self, camera: &camera::Camera, lod: u32) -> Vec<wgpu::BufferSlice> {
+    pub fn get_terrain_nodes(&self, camera: &camera::Camera, lod: u32) -> Vec<&Terrain> {
         if self.check_frustum(camera) {
             match &self.terrain {
                 Some(t) => {
-                    if camera.get_lod(Point3::new(self.x, 0.0, self.z)) == lod {
-                        return vec![t.buffer.slice(..)];
+                    if t.lod == lod {
+                        return vec![&t];
                     }
                     vec![]
                 }
                 None => self
                     .children
                     .iter()
-                    .flat_map(|child| child.get_terrain_buffer_slices(camera, lod))
+                    .flat_map(|child| child.get_terrain_nodes(camera, lod))
                     .collect(),
             }
         } else {
@@ -176,6 +201,30 @@ impl Node {
         match camera.frustum.test_bounding_box(&BoundingBox { min, max }) {
             Intersection::Inside | Intersection::Partial => true,
             Intersection::Outside => false,
+        }
+    }
+}
+
+impl UniformBuffer {
+    pub fn new(device: &wgpu::Device, bind_group_layout: &wgpu::BindGroupLayout, data: Uniforms) -> Self {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("node_uniform_buffer"),
+            contents: bytemuck::cast_slice(&[data]),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("node_uniform_bind_group"),
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
+            }],
+        });
+
+        Self {
+            data,
+            buffer,
+            bind_group,
         }
     }
 }

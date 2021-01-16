@@ -31,14 +31,13 @@ impl Vertex {
     }
 }
 
-pub struct IndexBuffer {
-    pub buffer: wgpu::Buffer,
+pub struct LodBuffer {
+    pub index_buffer: wgpu::Buffer,
     pub length: u32,
-
 }
 
 pub struct Compute {
-    pub lods: Vec<IndexBuffer>,
+    pub lods: Vec<LodBuffer>,
     vertex_length: u32,
     vertices: Vec<Vertex>,
     compute_pipeline: wgpu::ComputePipeline,
@@ -56,9 +55,10 @@ impl Compute {
 
         for lod in 0..=settings::LODS.len() {
             let indices_lod = create_indices(settings::TILE_SIZE, lod as u32 + 1);
-            lods.push(IndexBuffer{
+
+            lods.push(LodBuffer {
                 length: indices_lod.len() as u32,
-                buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                index_buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Index Buffer"),
                     contents: bytemuck::cast_slice(&indices_lod.as_slice()),
                     usage: wgpu::BufferUsage::INDEX,

@@ -1,7 +1,7 @@
 use crate::{input, settings};
 use cgmath::*;
-use SquareMatrix;
 use winit::event::VirtualKeyCode;
+use SquareMatrix;
 mod controller;
 pub mod frustum;
 mod uniforms;
@@ -76,7 +76,7 @@ impl Camera {
             self.z_far += 1.0;
             self.update_proj();
         }
-        if input.keys.contains(&VirtualKeyCode::PageDown) {
+        if input.keys.contains(&VirtualKeyCode::PageDown) && self.z_far > 400.0 {
             self.z_far -= 1.0;
             self.update_proj();
         }

@@ -123,39 +123,7 @@ impl State {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             // Main render pass
-            let mut bundles = vec![];
-            bundles.push(&self.world.terrain_bundle);
-            bundles.push(&self.world.data.models.render_bundle);
-
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &self.deferred_render.position_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &self.deferred_render.normals_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &self.deferred_render.base_color_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                    ],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                        attachment: &self.deferred_render.depth_texture_view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
-                    }),
-                })
-                .execute_bundles(bundles.into_iter());
+            self.world.render(&self.device, &self.queue, &self.deferred_render.target);
 
             // Deferred render pass
             encoder

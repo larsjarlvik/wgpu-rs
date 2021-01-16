@@ -14,13 +14,11 @@ layout(set=1, binding=0) uniform Camera {
     vec2 u_viewport_size;
 };
 
-layout(location=0) out vec4 v_position;
-layout(location=1) out vec3 v_normals;
-layout(location=2) out vec2 v_tex_coords;
+layout(location=0) out vec3 v_normals;
+layout(location=1) out vec2 v_tex_coords;
 
 void main() {
-    v_position = model_matrix * vec4(a_position, 1.0);
     v_normals = mat3(transpose(inverse(model_matrix))) * a_normals;
     v_tex_coords = a_tex_coords;
-    gl_Position = u_view_proj * v_position;
+    gl_Position = u_view_proj * model_matrix * vec4(a_position, 1.0);
 }

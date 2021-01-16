@@ -16,16 +16,11 @@ layout(set=0, binding=0) uniform Camera {
     vec2 u_viewport_size;
 };
 
-layout(set=1, binding=0) uniform Uniforms {
-    float lod;
-};
-
 void main() {
     vec3 bitangent = normalize(cross(vec3(0.0, 0.0, 1.0), a_normal));
     vec3 tangent = normalize(cross(a_normal, bitangent));
 
     v_position = vec4(a_position, 1.0);
-    v_position.y -= lod * 0.2;
     v_tbn = mat3(tangent, bitangent, a_normal);
     v_normal = a_normal;
     gl_Position = u_view_proj * v_position;

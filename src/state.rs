@@ -123,7 +123,7 @@ impl State {
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             // Main render pass
-            self.world.render(&self.device, &self.queue, &self.deferred_render.target);
+            self.world.render(&mut encoder, &self.deferred_render.target);
 
             // Deferred render pass
             encoder

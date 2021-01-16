@@ -44,52 +44,47 @@ impl World {
         self.terrain_bundle = get_terrain_bundle(device, camera, &mut self.data.terrain, &mut self.root_node);
     }
 
-    pub fn render(&self, device: &wgpu::Device, queue: &wgpu::Queue, target: &deferred::textures::Textures) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures) {
         let ops = wgpu::Operations {
             load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
             store: true,
         };
 
         let render_bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
-        self.render_to_texture_group(device, queue, target, ops, render_bundles);
+        self.render_to_texture_group(encoder, target, ops, render_bundles);
     }
 
     fn render_to_texture_group(
         &self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
         target: &deferred::textures::Textures,
         ops: wgpu::Operations<wgpu::Color>,
         bundles: Vec<&wgpu::RenderBundle>,
     ) {
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        {
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &target.normals_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                        wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &target.base_color_texture_view,
-                            resolve_target: None,
-                            ops,
-                        },
-                    ],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                        attachment: &target.depth_texture_view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &target.normals_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &target.base_color_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &target.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
                     }),
-                })
-                .execute_bundles(bundles.into_iter());
-            queue.submit(std::iter::once(encoder.finish()));
-        }
+                    stencil_ops: None,
+                }),
+            })
+            .execute_bundles(bundles.into_iter());
     }
 }
 

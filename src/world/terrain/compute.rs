@@ -1,4 +1,4 @@
-use std::{mem, usize};
+use std::mem;
 use wgpu::util::DeviceExt;
 
 use crate::{noise, settings};
@@ -54,7 +54,7 @@ impl Compute {
         let mut lods = vec![];
 
         for lod in 0..=settings::LODS.len() {
-            let indices_lod = create_indices(settings::TILE_SIZE, lod as u32 + 1);
+            let indices_lod = create_indices(lod as u32 + 1);
 
             lods.push(LodBuffer {
                 length: indices_lod.len() as u32,
@@ -188,22 +188,46 @@ fn create_vertices(tile_size: u32) -> Vec<Vertex> {
     vertices
 }
 
-fn create_indices(tile_size: u32, lod: u32) -> Vec<u32> {
+fn get_index(x: u32, z: u32) -> u32 {
+    z * (settings::TILE_SIZE + 1) + x
+}
+
+fn create_indices(lod: u32) -> Vec<u32> {
     let mut indices = Vec::new();
     let lod = 2u32.pow(lod as u32) / 2;
-    let tile_size = tile_size + 1;
 
-    for z in (0..(tile_size - lod)).step_by(lod as usize) {
-        if z > 0 {
-            indices.push(z * tile_size);
+    // Bottom
+    for x in 0..settings::TILE_SIZE {
+        indices.push(get_index(x, 0));
+        indices.push(get_index(if x < lod { lod } else { x - (x % lod) }, lod));
+    }
+    // Left
+    for z in 0..settings::TILE_SIZE + 1 {
+        indices.push(get_index(settings::TILE_SIZE, z));
+        indices.push(get_index(settings::TILE_SIZE - lod, if z < lod { lod } else { z - (z % lod) }));
+    }
+    // Top
+    for x in (0..settings::TILE_SIZE).rev() {
+        indices.push(get_index(x, settings::TILE_SIZE));
+        indices.push(get_index(if x < lod { lod } else { x - (x % lod) }, settings::TILE_SIZE - lod));
+    }
+    // Right
+    for z in (0..settings::TILE_SIZE).rev() {
+        indices.push(get_index(0, z));
+        indices.push(get_index(lod, if z < lod { lod } else { z - (z % lod) }));
+    }
+
+    indices.push(get_index(lod, lod));
+
+    for z in (lod..(settings::TILE_SIZE - lod)).step_by(lod as usize) {
+        indices.push(get_index(lod, z));
+
+        for x in (lod..(settings::TILE_SIZE)).step_by(lod as usize) {
+            indices.push(get_index(x, z));
+            indices.push(get_index(x, z + lod));
         }
-        for x in (0..tile_size).step_by(lod as usize) {
-            indices.push(z * tile_size + x);
-            indices.push((z + lod) * tile_size + x);
-        }
-        if z < tile_size - lod {
-            indices.push((z + lod) * tile_size + (tile_size - 1));
-        }
+
+        indices.push(get_index(settings::TILE_SIZE - lod, z + lod));
     }
 
     indices

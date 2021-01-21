@@ -122,7 +122,7 @@ impl Node {
     }
 
     fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> HashMap<String, models::data::Instance> {
-        let count = (self.size * asset.density) as u32;
+        let count = (self.size * self.size * asset.density) as u32;
         let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
 
         (0..count)

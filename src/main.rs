@@ -16,6 +16,7 @@ mod settings;
 mod state;
 mod texture;
 mod world;
+mod plane;
 pub use state::*;
 
 fn main() {

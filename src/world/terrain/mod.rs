@@ -1,5 +1,5 @@
 mod compute;
-use crate::{camera, noise, settings, texture};
+use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::num::NonZeroU32;
@@ -76,7 +76,7 @@ impl Terrain {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[compute::Vertex::desc()],
+                vertex_buffers: &[plane::Vertex::desc()],
             },
             sample_count: 1,
             sample_mask: !0,

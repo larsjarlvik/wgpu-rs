@@ -1,7 +1,9 @@
 use super::{assets, WorldData};
 use crate::{
     camera::{self, frustum::*},
-    models, settings,
+    models,
+    plane::ConnectType,
+    settings,
 };
 use cgmath::*;
 use rand::Rng;
@@ -148,12 +150,12 @@ impl Node {
             .collect::<HashMap<String, models::data::Instance>>()
     }
 
-    pub fn get_terrain_nodes(&self, camera: &camera::Camera, lod: u32) -> Vec<&Terrain> {
+    pub fn get_terrain_nodes(&self, camera: &camera::Camera, lod: u32) -> Vec<(&Terrain, ConnectType)> {
         if self.check_frustum(camera) {
             match &self.terrain {
                 Some(t) => {
                     if camera.get_lod(Point3::new(self.x, 0.0, self.z)) == lod {
-                        return vec![&t];
+                        return vec![(&t, self.get_connect_type(camera, lod))];
                     }
                     vec![]
                 }
@@ -166,6 +168,38 @@ impl Node {
         } else {
             vec![]
         }
+    }
+
+    fn get_connect_type(&self, camera: &camera::Camera, lod: u32) -> ConnectType {
+        let ts = settings::TILE_SIZE as f32;
+
+        if camera.get_lod(Point3::new(self.x + ts, 0.0, self.z)) < lod {
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
+                return ConnectType::XPosZPos;
+            }
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
+                return ConnectType::XPosZNeg;
+            }
+
+            return ConnectType::XPos;
+        }
+        if camera.get_lod(Point3::new(self.x - ts, 0.0, self.z)) < lod {
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
+                return ConnectType::XNegZPos;
+            }
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
+                return ConnectType::XNegZNeg;
+            }
+            return ConnectType::XNeg;
+        }
+        if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
+            return ConnectType::ZPos;
+        }
+        if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
+            return ConnectType::ZNeg;
+        }
+
+        ConnectType::None
     }
 
     fn check_frustum(&self, camera: &camera::Camera) -> bool {

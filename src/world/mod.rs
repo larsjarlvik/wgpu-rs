@@ -1,6 +1,5 @@
-use crate::{camera, deferred, models, noise, plane, settings};
+use crate::{camera, deferred, models, noise, settings};
 use cgmath::{vec2, Vector2};
-use node::Node;
 mod assets;
 mod node;
 mod terrain;
@@ -125,12 +124,11 @@ fn get_terrain_bundle(
 
     for lod in 0..=settings::LODS.len() {
         let terrain_lod = terrain.compute.lods.get(lod).expect("Could not get LOD!");
-        let lod_buffer = terrain_lod.get(&plane::ConnectType::None).unwrap();
 
-        encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
-
-        for node in root_node.get_terrain_nodes(camera, lod as u32) {
-            encoder.set_vertex_buffer(0, node.buffer.slice(..));
+        for (terrain, connect_type) in root_node.get_terrain_nodes(camera, lod as u32) {
+            let lod_buffer = terrain_lod.get(&connect_type).unwrap();
+            encoder.set_vertex_buffer(0, terrain.buffer.slice(..));
+            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
             encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
         }
     }

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, mem};
-use strum_macros::EnumIter;
 use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -38,9 +38,9 @@ pub enum ConnectType {
     XPos,
     ZNeg,
     XNeg,
-    ZPosXPos,
+    XPosZPos,
     XPosZNeg,
-    ZNegXNeg,
+    XNegZNeg,
     XNegZPos,
 }
 
@@ -70,78 +70,81 @@ impl Plane {
         }
 
         let length = vertices.len() as u32;
-        Self {
-            vertices,
-            length,
-            size,
-        }
+        Self { vertices, length, size }
     }
 
     pub fn create_indices(&self, device: &wgpu::Device, lod: u32) -> HashMap<ConnectType, LodBuffer> {
-        let lod = 2u32.pow(lod as u32) / 2;
         let mut lod_buffers: HashMap<ConnectType, LodBuffer> = HashMap::new();
-
         for connect_type in ConnectType::iter() {
             let mut indices = Vec::new();
 
-            match connect_type {
-                ConnectType::ZNeg => {
-                    self.z_neg(&mut indices, lod);
-                    self.fill_tile(&mut indices, lod, &connect_type);
+            if lod > 1 {
+                match connect_type {
+                    ConnectType::ZNeg => {
+                        self.z_neg(&mut indices, lod);
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                    }
+                    ConnectType::XPos => {
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                        self.x_pos(&mut indices, lod);
+                    }
+                    ConnectType::ZPos => {
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                        self.z_pos(&mut indices, lod);
+                    }
+                    ConnectType::XNeg => {
+                        self.x_neg(&mut indices, lod);
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                    }
+                    ConnectType::XNegZPos => {
+                        self.x_neg(&mut indices, lod);
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                        self.z_pos(&mut indices, lod);
+                    }
+                    ConnectType::XPosZNeg => {
+                        self.z_neg(&mut indices, lod);
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                        self.x_pos(&mut indices, lod);
+                    }
+                    ConnectType::XNegZNeg => {
+                        self.x_neg(&mut indices, lod);
+                        self.z_neg(&mut indices, lod);
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                    }
+                    ConnectType::XPosZPos => {
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                        self.z_pos(&mut indices, lod);
+                        indices.push(self.get_index(0, self.size));
+                        indices.push(self.get_index(self.size, self.size));
+                        self.x_pos(&mut indices, lod);
+                    }
+                    ConnectType::None => {
+                        self.fill_tile(&mut indices, lod, &connect_type);
+                    }
                 }
-                ConnectType::XPos => {
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                    self.x_pos(&mut indices, lod);
-                }
-                ConnectType::ZPos => {
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                    self.z_pos(&mut indices, lod);
-                }
-                ConnectType::XNeg => {
-                    self.x_neg(&mut indices, lod);
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                }
-                ConnectType::XNegZPos => {
-                    self.x_neg(&mut indices, lod);
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                    self.z_pos(&mut indices, lod);
-                }
-                ConnectType::XPosZNeg => {
-                    self.z_neg(&mut indices, lod);
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                    self.x_pos(&mut indices, lod);
-                }
-                ConnectType::ZNegXNeg => {
-                    self.x_neg(&mut indices, lod);
-                    self.z_neg(&mut indices, lod);
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                }
-                ConnectType::ZPosXPos => {
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                    self.z_pos(&mut indices, lod);
-                    indices.push(self.get_index(0, self.size));
-                    indices.push(self.get_index(self.size, self.size));
-                    self.x_pos(&mut indices, lod);
-                }
-                ConnectType::None => {
-                    self.fill_tile(&mut indices, lod, &connect_type);
-                }
+            } else {
+                self.fill_tile(&mut indices, lod, &connect_type);
             }
 
-            lod_buffers.insert(connect_type, LodBuffer {
-                length: indices.len() as u32,
-                index_buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Index Buffer"),
-                    contents: bytemuck::cast_slice(&indices.as_slice()),
-                    usage: wgpu::BufferUsage::INDEX,
-                }),
-            });
+            lod_buffers.insert(
+                connect_type,
+                LodBuffer {
+                    length: indices.len() as u32,
+                    index_buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Index Buffer"),
+                        contents: bytemuck::cast_slice(&indices.as_slice()),
+                        usage: wgpu::BufferUsage::INDEX,
+                    }),
+                },
+            );
         }
 
         lod_buffers
     }
 
     fn fill_tile(&self, indices: &mut Vec<u32>, lod: u32, connect_type: &ConnectType) {
+        let lod = 2u32.pow(lod as u32) / 2;
+
         for z in (lod_z_neg(lod, connect_type)..(self.size - lod_z_pos(lod, connect_type))).step_by(lod as usize) {
             if z > 0 {
                 indices.push(self.get_index(lod_x_neg(lod, connect_type), z));
@@ -157,11 +160,18 @@ impl Plane {
     }
 
     fn get_index(&self, x: u32, z: u32) -> u32 {
-        z * (self.size + 1) + x
+        let index = z * (self.size + 1) + x;
+        if index >= self.vertices.len() as u32 {
+            panic!("Index buffer out of range!");
+        }
+        index
     }
 
     fn z_neg(&self, indices: &mut Vec<u32>, lod: u32) {
-        for x in 0..self.size + 1 {
+        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
+        let lod = 2u32.pow(lod as u32) / 2;
+
+        for x in (0..self.size + 1).step_by(n_lod as usize) {
             indices.push(self.get_index(x, 0));
             indices.push(self.get_index(x + (x % lod), lod));
         }
@@ -169,21 +179,30 @@ impl Plane {
     }
 
     fn x_pos(&self, indices: &mut Vec<u32>, lod: u32) {
-        for z in (0..self.size + 1).rev() {
+        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
+        let lod = 2u32.pow(lod as u32) / 2;
+
+        for z in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(self.size, z));
             indices.push(self.get_index(self.size - lod, z - (z % lod)));
         }
     }
 
     fn z_pos(&self, indices: &mut Vec<u32>, lod: u32) {
-        for x in (0..self.size + 1).rev() {
+        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
+        let lod = 2u32.pow(lod as u32) / 2;
+
+        for x in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(x + (x % lod), self.size - lod));
             indices.push(self.get_index(x, self.size));
         }
     }
 
     fn x_neg(&self, indices: &mut Vec<u32>, lod: u32) {
-        for z in (0..self.size + 1).rev() {
+        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
+        let lod = 2u32.pow(lod as u32) / 2;
+
+        for z in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(0, z));
             indices.push(self.get_index(lod, z - (z % lod)));
         }
@@ -192,25 +211,25 @@ impl Plane {
 
 fn lod_x_pos(lod: u32, connect_type: &ConnectType) -> u32 {
     match connect_type {
-        ConnectType::XPos | ConnectType::XPosZNeg | ConnectType::ZPosXPos => lod,
+        ConnectType::XPos | ConnectType::XPosZNeg | ConnectType::XPosZPos => lod,
         _ => 0,
     }
 }
 fn lod_x_neg(lod: u32, connect_type: &ConnectType) -> u32 {
     match connect_type {
-        ConnectType::XNeg | ConnectType::XNegZPos | ConnectType::ZNegXNeg => lod,
+        ConnectType::XNeg | ConnectType::XNegZPos | ConnectType::XNegZNeg => lod,
         _ => 0,
     }
 }
 fn lod_z_neg(lod: u32, connect_type: &ConnectType) -> u32 {
     match connect_type {
-        ConnectType::ZNeg | ConnectType::XPosZNeg | ConnectType::ZNegXNeg => lod,
+        ConnectType::ZNeg | ConnectType::XPosZNeg | ConnectType::XNegZNeg => lod,
         _ => 0,
     }
 }
 fn lod_z_pos(lod: u32, connect_type: &ConnectType) -> u32 {
     match connect_type {
-        ConnectType::ZPos | ConnectType::XNegZPos | ConnectType::ZPosXPos => lod,
+        ConnectType::ZPos | ConnectType::XNegZPos | ConnectType::XPosZPos => lod,
         _ => 0,
     }
 }

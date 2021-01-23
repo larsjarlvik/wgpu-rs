@@ -1,15 +1,17 @@
 use super::{assets, WorldData};
 use crate::{
     camera::{self, frustum::*},
-    models, settings,
+    models,
+    plane::ConnectType,
+    settings,
 };
 use cgmath::*;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
-struct Terrain {
-    buffer: wgpu::Buffer,
+pub struct Terrain {
+    pub buffer: wgpu::Buffer,
     instance_keys: HashMap<String, Vec<String>>,
 }
 
@@ -45,7 +47,7 @@ impl Node {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
-        let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.radius;
+        let distance = vec2(self.x, self.z).distance(vec2(camera.target.x, camera.target.z)) - self.radius;
         if distance > camera.z_far_range {
             self.delete_node(world);
             return;
@@ -122,7 +124,7 @@ impl Node {
     }
 
     fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> HashMap<String, models::data::Instance> {
-        let count = (self.size * asset.density) as u32;
+        let count = (self.size * self.size * asset.density) as u32;
         let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
 
         (0..count)
@@ -148,19 +150,56 @@ impl Node {
             .collect::<HashMap<String, models::data::Instance>>()
     }
 
-    pub fn get_terrain_buffer_slices(&self, camera: &camera::Camera) -> Vec<wgpu::BufferSlice> {
+    pub fn get_terrain_nodes(&self, camera: &camera::Camera, lod: u32) -> Vec<(&Terrain, ConnectType)> {
         if self.check_frustum(camera) {
             match &self.terrain {
-                Some(t) => vec![t.buffer.slice(..)],
+                Some(t) => {
+                    if camera.get_lod(Point3::new(self.x, 0.0, self.z)) == lod {
+                        return vec![(&t, self.get_connect_type(camera, lod))];
+                    }
+                    vec![]
+                }
                 None => self
                     .children
                     .iter()
-                    .flat_map(|child| child.get_terrain_buffer_slices(camera))
+                    .flat_map(|child| child.get_terrain_nodes(camera, lod))
                     .collect(),
             }
         } else {
             vec![]
         }
+    }
+
+    fn get_connect_type(&self, camera: &camera::Camera, lod: u32) -> ConnectType {
+        let ts = settings::TILE_SIZE as f32;
+
+        if camera.get_lod(Point3::new(self.x + ts, 0.0, self.z)) < lod {
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
+                return ConnectType::XPosZPos;
+            }
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
+                return ConnectType::XPosZNeg;
+            }
+
+            return ConnectType::XPos;
+        }
+        if camera.get_lod(Point3::new(self.x - ts, 0.0, self.z)) < lod {
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
+                return ConnectType::XNegZPos;
+            }
+            if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
+                return ConnectType::XNegZNeg;
+            }
+            return ConnectType::XNeg;
+        }
+        if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
+            return ConnectType::ZPos;
+        }
+        if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
+            return ConnectType::ZNeg;
+        }
+
+        ConnectType::None
     }
 
     fn check_frustum(&self, camera: &camera::Camera) -> bool {

@@ -1,41 +1,11 @@
-use std::mem;
+use std::collections::HashMap;
 use wgpu::util::DeviceExt;
+use crate::{noise, plane, settings};
 
-use crate::{noise, settings};
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-}
-
-impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
-                },
-            ],
-        }
-    }
-}
 
 pub struct Compute {
-    pub index_buffer: wgpu::Buffer,
-    pub length: u32,
-    vertex_length: u32,
-    vertices: Vec<Vertex>,
+    pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
+    plane: plane::Plane,
     compute_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
@@ -44,16 +14,14 @@ pub struct Compute {
 
 impl Compute {
     pub fn new(device: &wgpu::Device, noise: &noise::Noise) -> Self {
-        let vertices = create_vertices(settings::TILE_SIZE);
-        let indices = create_indices(settings::TILE_SIZE);
-        let num_elements = vertices.len() as u32;
+        let plane = plane::Plane::new(settings::TILE_SIZE);
         let noise_bindings = noise.create_bindings(device);
+        let mut lods = vec![];
 
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&indices.as_slice()),
-            usage: wgpu::BufferUsage::INDEX,
-        });
+        for lod in 0..=settings::LODS.len() {
+            let indices_lod = plane.create_indices(&device, lod as u32 + 1);
+            lods.push(indices_lod);
+        }
 
         let vertex_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("input_bind_group_layout"),
@@ -103,19 +71,17 @@ impl Compute {
         });
 
         Self {
+            lods,
             compute_pipeline,
-            vertex_length: num_elements,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
-            vertices,
-            index_buffer,
-            length: indices.len() as u32,
             noise_bindings,
+            plane,
         }
     }
 
     pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> wgpu::Buffer {
-        let contents: &[u8] = bytemuck::cast_slice(&self.vertices);
+        let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("output_vertex_buffer"),
             contents,
@@ -154,45 +120,9 @@ impl Compute {
             pass.set_bind_group(0, &vertex_bind_group, &[]);
             pass.set_bind_group(1, &uniform_bind_group, &[]);
             pass.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
-            pass.dispatch(self.vertex_length, 1, 1);
+            pass.dispatch(self.plane.length, 1, 1);
         }
         queue.submit(std::iter::once(encoder.finish()));
         dst_vertex_buffer
     }
-}
-
-fn create_vertices(tile_size: u32) -> Vec<Vertex> {
-    let mut vertices = Vec::new();
-    let half_tile_size = (tile_size as f32 / 2.0) as f32;
-
-    for z in 0..tile_size + 1 {
-        for x in 0..tile_size + 1 {
-            vertices.push(Vertex {
-                position: [x as f32 - half_tile_size, 0.0, z as f32 - half_tile_size],
-                normal: [0.0, 0.0, 0.0],
-            });
-        }
-    }
-
-    vertices
-}
-
-fn create_indices(tile_size: u32) -> Vec<u32> {
-    let mut indices = Vec::new();
-    let tile_size = tile_size + 1;
-
-    for z in 0..(tile_size - 1) {
-        if z > 0 {
-            indices.push(z * tile_size);
-        }
-        for x in 0..(tile_size) {
-            indices.push(z * tile_size + x);
-            indices.push((z + 1) * tile_size + x);
-        }
-        if z < tile_size - 2 {
-            indices.push((z + 1) * tile_size + (tile_size - 1));
-        }
-    }
-
-    indices
 }

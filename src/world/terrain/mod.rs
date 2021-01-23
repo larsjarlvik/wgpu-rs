@@ -1,5 +1,5 @@
 mod compute;
-use crate::{camera, noise, settings, texture};
+use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::num::NonZeroU32;
@@ -13,8 +13,8 @@ pub struct Terrain {
 
 impl Terrain {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, noise: &noise::Noise) -> Terrain {
-        let compute = compute::Compute::new(device, noise);
         let noise_bindings = noise.create_bindings(device);
+        let compute = compute::Compute::new(device, noise);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -67,11 +67,7 @@ impl Terrain {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-            color_states: &[
-                settings::COLOR_TEXTURE_FORMAT.into(),
-                settings::COLOR_TEXTURE_FORMAT.into(),
-                settings::COLOR_TEXTURE_FORMAT.into(),
-            ],
+            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -80,7 +76,7 @@ impl Terrain {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[compute::Vertex::desc()],
+                vertex_buffers: &[plane::Vertex::desc()],
             },
             sample_count: 1,
             sample_mask: !0,
@@ -88,6 +84,7 @@ impl Terrain {
         });
 
         let texture_bind_group = build_textures(device, queue, &texture_bind_group_layout);
+
         Terrain {
             texture_bind_group,
             render_pipeline,

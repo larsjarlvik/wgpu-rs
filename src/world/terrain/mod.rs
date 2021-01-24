@@ -63,7 +63,7 @@ impl Terrain {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: wgpu::CullMode::None,
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,

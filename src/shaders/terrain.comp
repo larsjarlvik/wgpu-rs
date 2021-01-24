@@ -38,7 +38,7 @@ void main() {
     Vertex v = comp_vertices[i];
     v.x = u_position.x + v.x;
     v.z = u_position.y + v.z;
-    v.y = get_elevation(vec2(v.x, v.z));
+    // v.y = get_elevation(vec2(v.x, v.z));
 
     vec3 normal = normalize(vec3(
         get_elevation(vec2((v.x - 1.0), v.z)) - get_elevation(vec2((v.x + 1.0), v.z)),

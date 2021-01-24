@@ -90,14 +90,14 @@ impl Node {
     fn build_leaf_node(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData) {
         let mut instance_keys = HashMap::new();
 
-        for asset in assets::ASSETS {
-            let instances = self.create_assets(world, asset);
-            let keys = instances.keys().cloned().collect::<Vec<String>>();
-            let model = world.models.models.get_mut(&asset.name.to_string()).expect("Model not found!");
+        // for asset in assets::ASSETS {
+        //     let instances = self.create_assets(world, asset);
+        //     let keys = instances.keys().cloned().collect::<Vec<String>>();
+        //     let model = world.models.models.get_mut(&asset.name.to_string()).expect("Model not found!");
 
-            model.add_instances(instances);
-            instance_keys.insert(asset.name.to_string(), keys);
-        }
+        //     model.add_instances(instances);
+        //     instance_keys.insert(asset.name.to_string(), keys);
+        // }
 
         self.terrain = Some(Terrain {
             buffer: world.terrain.compute.compute(device, queue, self.x, self.z),
@@ -106,13 +106,14 @@ impl Node {
     }
 
     fn delete_node(&mut self, world: &mut WorldData) {
-        match &self.terrain {
-            Some(terrain) => {
-                for (key, model) in world.models.models.iter_mut() {
-                    model.remove_instances(terrain.instance_keys.get(key).expect("Model not found!"));
+        if let Some(terrain) = &self.terrain {
+            for (key, model) in world.models.models.iter_mut() {
+                if let Some(instances) = terrain.instance_keys.get(key) {
+                    model.remove_instances(instances);
                 }
             }
-            None => {
+        } else {
+            {
                 for child in self.children.iter_mut() {
                     child.delete_node(world);
                 }

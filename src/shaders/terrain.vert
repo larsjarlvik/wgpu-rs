@@ -8,7 +8,8 @@ layout(location=1) out mat3 v_tbn;
 layout(location=4) out vec3 v_normal;
 
 layout(set=0, binding=0) uniform Camera {
-    mat4 u_view_proj;
+    mat4 u_view;
+    mat4 u_proj;
     vec3 u_eye_pos;
     float z_near;
     vec3 u_look_at;
@@ -23,5 +24,5 @@ void main() {
     v_position = vec4(a_position, 1.0);
     v_tbn = mat3(tangent, bitangent, a_normal);
     v_normal = a_normal;
-    gl_Position = u_view_proj * v_position;
+    gl_Position = u_proj * u_view * v_position;
 }

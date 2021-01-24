@@ -37,7 +37,8 @@ impl Camera {
         let uniforms = uniforms::UniformBuffer::new(
             &device,
             uniforms::Uniforms {
-                view_proj: Matrix4::identity().into(),
+                view: Matrix4::identity().into(),
+                proj: Matrix4::identity().into(),
                 eye_pos: [0.0, 0.0, 0.0],
                 look_at: [0.0, 0.0, 0.0],
                 z_near,
@@ -98,12 +99,12 @@ impl Camera {
 
         let view = Matrix4::look_at(self.eye, self.target, Vector3::unit_y());
 
-        let world_matrix = self.proj * view;
-        self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
+        self.frustum = frustum::FrustumCuller::from_matrix(self.proj * view);
 
         self.uniforms.data.look_at = self.target.into();
         self.uniforms.data.eye_pos = self.eye.into();
-        self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * world_matrix).into();
+        self.uniforms.data.view = view.into();
+        self.uniforms.data.proj = self.proj.into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 

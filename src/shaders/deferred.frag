@@ -30,19 +30,17 @@ float linearize_depth(float d) {
 }
 
 vec4 world_pos_from_depth(float depth, vec2 coords, mat4 view_proj) {
-    vec4 pos;
-    pos.xy = vec2(coords.x, 1.0 - coords.y) * 2.0 - 1.0;
-    pos.z = depth;
-    pos.w = 1.0;
-
-    pos = inverse(view_proj) * pos;
-    pos /= pos.w;
-    return pos;
+    vec4 pos = vec4(vec2(coords.x, 1.0 - coords.y) * 2.0 - 1.0, depth, 1.0);
+    return (inverse(view_proj) * pos) / pos.w;
 }
 
-vec3 sky(vec3 rayDir) {
-    vec3 sun = pow(max(dot(rayDir, normalize(u_light_dir)), 0.0), 12.0) * vec3(1, 0.8, 0.3);
-    float theta = atan(rayDir.y / length(vec2(rayDir.x, rayDir.z)));
+vec3 sky() {
+    mat4 proj = u_view_proj;
+    proj[3][0] = 0.0; proj[3][1] = 0.0; proj[3][2] = 0.0;
+    vec3 ray_dir = normalize(world_pos_from_depth(1.0, gl_FragCoord.xy / u_viewport_size, proj).xyz);
+
+    vec3 sun = pow(max(dot(ray_dir, normalize(-u_light_dir)), 0.0) * 0.993, 100.0) * vec3(1, 0.8, 0.3);
+    float theta = atan(max(ray_dir.y, 0.0) / length(vec2(ray_dir.x, ray_dir.z)));
     float sky_factor = pow(abs(sin(theta)), 0.5);
     vec3 sky = sky_factor * sky_color + (1.0 - sky_factor) * vec3(1.0, 1.0, 0.9);
     return pow(sky + sun, vec3(2.2));
@@ -72,19 +70,13 @@ void main() {
     vec4 normal = normalize(texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0));
     vec4 base_color = texelFetch(sampler2D(t_base_color, t_sampler), fragCoord, 0);
 
-    vec3 cam_front = normalize(u_eye_pos - u_look_at);
-    vec3 cam_right = cross(cam_front, vec3(0, 1, 0));
-    vec3 cam_up = cross(cam_right, cam_front);
-    vec2 uv = (2.0 * gl_FragCoord.xy - u_viewport_size) / u_viewport_size.y;
-    vec3 ray_dir = normalize(cam_front + uv.x * cam_right + uv.y * cam_up);
-
     vec3 color;
     if (depth < 1.0) {
         float fog = smoothstep(z_far / 4.0, z_far, linearize_depth(depth));
         color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz));
         color = mix(color, sky_color, fog);
     } else {
-        color = sky(ray_dir);
+        color = sky();
     }
 
     f_color = vec4(color, 1.0);

@@ -120,6 +120,9 @@ impl Camera {
     }
 
     fn update_proj(&mut self) {
-        self.proj = perspective(Deg(self.fov_y), self.width / self.height, self.z_near, self.z_far);
+        let aspect = self.width / self.height;
+        if aspect > 0.0 {
+            self.proj = perspective(Deg(self.fov_y), self.width / self.height, self.z_near, self.z_far);
+        }
     }
 }

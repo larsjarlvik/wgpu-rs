@@ -5,6 +5,7 @@ use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
+    window::Fullscreen,
 };
 mod camera;
 mod deferred;
@@ -29,10 +30,16 @@ fn main() {
     let mut state = block_on(state::State::new(&window));
     let mut fps = 0;
     let mut last_update = Instant::now();
+    let mut is_focused = true;
+
+    let monitor = event_loop.available_monitors().nth(0);
+    let fullscreen = Some(Fullscreen::Borderless(monitor));
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
-            state.input(event);
+            if is_focused {
+                state.input(event);
+            }
         }
         Event::RedrawRequested(_) => {
             state.update();
@@ -60,8 +67,22 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::Escape),
                     ..
                 } => *control_flow = ControlFlow::Exit,
+                KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::F),
+                    ..
+                } => {
+                    if window.fullscreen().is_some() {
+                        window.set_fullscreen(None);
+                    } else {
+                        window.set_fullscreen(fullscreen.clone());
+                    }
+                 },
                 _ => {}
             },
+            WindowEvent::Focused(focused) => {
+                is_focused = *focused;
+            }
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);
             }

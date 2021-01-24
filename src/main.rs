@@ -32,9 +32,6 @@ fn main() {
     let mut last_update = Instant::now();
     let mut is_focused = true;
 
-    let monitor = event_loop.available_monitors().nth(0);
-    let fullscreen = Some(Fullscreen::Borderless(monitor));
-
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
             if is_focused {
@@ -75,6 +72,7 @@ fn main() {
                     if window.fullscreen().is_some() {
                         window.set_fullscreen(None);
                     } else {
+                        let fullscreen = Some(Fullscreen::Borderless(window.current_monitor()));
                         window.set_fullscreen(fullscreen.clone());
                     }
                  },

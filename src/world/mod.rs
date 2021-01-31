@@ -3,9 +3,11 @@ use cgmath::{vec2, Vector2};
 mod assets;
 mod node;
 mod terrain;
+mod water;
 
 pub struct WorldData {
     terrain: terrain::Terrain,
+    water: water::Water,
     noise: noise::Noise,
     pub models: models::Models,
 }
@@ -14,6 +16,7 @@ pub struct World {
     root_node: node::Node,
     pub data: WorldData,
     pub terrain_bundle: wgpu::RenderBundle,
+    pub water_bundle: wgpu::RenderBundle,
 }
 
 impl World {
@@ -28,9 +31,18 @@ impl World {
         let mut terrain = terrain::Terrain::new(device, queue, camera, &noise);
         let terrain_bundle = get_terrain_bundle(device, camera, &mut terrain, &mut root_node);
 
+        let mut water = water::Water::new(device, camera);
+        let water_bundle = get_water_bundle(device, camera, &mut water, &mut root_node);
+
         let mut world = Self {
-            data: WorldData { terrain, noise, models },
+            data: WorldData {
+                terrain,
+                water,
+                noise,
+                models,
+            },
             terrain_bundle,
+            water_bundle,
             root_node,
         };
 
@@ -42,6 +54,7 @@ impl World {
         self.root_node.update(device, queue, &mut self.data, camera);
         self.data.models.refresh_render_bundle(device, camera);
         self.terrain_bundle = get_terrain_bundle(device, camera, &mut self.data.terrain, &mut self.root_node);
+        self.water_bundle = get_water_bundle(device, camera, &mut self.data.water, &mut self.root_node);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures) {
@@ -50,7 +63,7 @@ impl World {
             store: true,
         };
 
-        let render_bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
+        let render_bundles = vec![&self.terrain_bundle, &self.water_bundle, &self.data.models.render_bundle];
         self.render_to_texture_group(encoder, target, ops, render_bundles);
     }
 
@@ -125,13 +138,42 @@ fn get_terrain_bundle(
     for lod in 0..=settings::LODS.len() {
         let terrain_lod = terrain.compute.lods.get(lod).expect("Could not get LOD!");
 
-        for (terrain, connect_type) in root_node.get_terrain_nodes(camera, lod as u32) {
+        for (terrain, connect_type) in root_node.get_nodes(camera, lod as u32) {
             let lod_buffer = terrain_lod.get(&connect_type).unwrap();
-            encoder.set_vertex_buffer(0, terrain.buffer.slice(..));
+            encoder.set_vertex_buffer(0, terrain.terrain_buffer.slice(..));
             encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
             encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
         }
     }
 
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })
+}
+
+fn get_water_bundle(
+    device: &wgpu::Device,
+    camera: &camera::Camera,
+    water: &mut water::Water,
+    root_node: &mut node::Node,
+) -> wgpu::RenderBundle {
+    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+        label: None,
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+        sample_count: 1,
+    });
+    encoder.set_pipeline(&water.render_pipeline);
+    encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
+
+    for lod in 0..=settings::LODS.len() {
+        let water_lod = water.lods.get(lod).expect("Could not get LOD!");
+
+        for (water, connect_type) in root_node.get_nodes(camera, lod as u32) {
+            let lod_buffer = water_lod.get(&connect_type).unwrap();
+            encoder.set_vertex_buffer(0, water.water_buffer.slice(..));
+            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
+            encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+        }
+    }
+
+    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("water") })
 }

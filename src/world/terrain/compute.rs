@@ -1,7 +1,6 @@
+use crate::{noise, plane, settings};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-use crate::{noise, plane, settings};
-
 
 pub struct Compute {
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
@@ -83,7 +82,7 @@ impl Compute {
     pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> wgpu::Buffer {
         let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("output_vertex_buffer"),
+            label: Some("terrain_vertex_buffer"),
             contents,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE,
         });

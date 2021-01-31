@@ -107,18 +107,6 @@ impl Camera {
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 
-    pub fn get_lod(&self, target: Point3<f32>) -> u32 {
-        let distance = self.eye.distance(target) / self.z_far;
-        for i in 0..settings::LODS.len() {
-            let lod = settings::LODS.get(i).expect("Failed to get LOD!");
-            if lod > &distance {
-                return i as u32;
-            }
-        }
-
-        settings::LODS.len() as u32
-    }
-
     fn update_proj(&mut self) {
         let aspect = self.width / self.height;
         if aspect > 0.0 {

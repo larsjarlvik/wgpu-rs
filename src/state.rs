@@ -12,6 +12,7 @@ pub struct State {
     world: world::World,
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
+    start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
     input: Input,
@@ -76,6 +77,7 @@ impl State {
             camera,
             world,
             input: Input::new(),
+            start_time: Instant::now(),
             last_frame: Instant::now(),
             frame_time: Vec::new(),
         }
@@ -110,7 +112,7 @@ impl State {
         let avg = self.frame_time();
         self.camera.update_camera(&self.queue, &self.input, avg);
         self.input.after_update();
-        self.world.update(&self.device, &self.queue, &self.camera);
+        self.world.update(&self.device, &self.queue, &self.camera, self.start_time);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

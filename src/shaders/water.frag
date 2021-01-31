@@ -9,5 +9,5 @@ layout(location=1) out vec4 f_base_color;
 
 void main() {
     f_normal = vec4(v_normal, 1.0);
-    f_base_color = vec4(0.5, 0.77, 0.87, 1.0);
+    f_base_color = vec4(0.1, 0.27, 0.37, 0.7);
 }

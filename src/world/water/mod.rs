@@ -1,15 +1,20 @@
-use crate::{camera, plane, settings};
-use std::collections::HashMap;
+use crate::{camera, noise, plane, settings};
+use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
+mod uniforms;
 
 pub struct Water {
     pub plane: plane::Plane,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
+    pub uniforms: uniforms::UniformBuffer,
     pub render_pipeline: wgpu::RenderPipeline,
+    pub noise_bindings: noise::NoiseBindings,
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, camera: &camera::Camera) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Camera, noise: &noise::Noise) -> Self {
+        let noise_bindings = noise.create_bindings(device);
+        let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
         let plane = plane::Plane::new(settings::TILE_SIZE);
         let mut lods = vec![];
 
@@ -20,9 +25,28 @@ impl Water {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("water_pipeline_layout"),
-            bind_group_layouts: &[&camera.uniforms.bind_group_layout],
+            bind_group_layouts: &[
+                &camera.uniforms.bind_group_layout,
+                &uniforms.bind_group_layout,
+                &noise_bindings.bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
+
+        let test = wgpu::ColorStateDescriptor {
+            format: settings::COLOR_TEXTURE_FORMAT,
+            color_blend: wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha_blend: wgpu::BlendDescriptor {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Max,
+            },
+            write_mask: wgpu::ColorWrite::ALL,
+        };
 
         let vs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/water.vert.spv"));
         let fs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/water.frag.spv"));
@@ -43,7 +67,7 @@ impl Water {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
+            color_states: &[test.clone(), test.clone()],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -62,7 +86,9 @@ impl Water {
         Self {
             plane,
             lods,
+            uniforms,
             render_pipeline,
+            noise_bindings,
         }
     }
 
@@ -79,5 +105,10 @@ impl Water {
             contents,
             usage: wgpu::BufferUsage::VERTEX,
         })
+    }
+
+    pub fn update(&mut self, queue: &wgpu::Queue, time: Instant) {
+        self.uniforms.data.time = time.elapsed().as_millis() as f32;
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 }

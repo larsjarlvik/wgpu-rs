@@ -1,4 +1,4 @@
-use crate::{input, settings};
+use crate::input;
 use cgmath::*;
 use winit::event::VirtualKeyCode;
 use SquareMatrix;
@@ -43,6 +43,7 @@ impl Camera {
                 z_near,
                 z_far,
                 viewport_size: [width, height],
+                clip: [0.0, 0.0, 0.0, 0.0],
             },
         );
 
@@ -103,7 +104,33 @@ impl Camera {
 
         self.uniforms.data.look_at = self.target.into();
         self.uniforms.data.eye_pos = self.eye.into();
-        self.uniforms.data.view_proj = (settings::OPENGL_TO_WGPU_MATRIX * world_matrix).into();
+        self.uniforms.data.view_proj = (world_matrix).into();
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
+    }
+
+    pub fn set_clip_y(&mut self, queue: &wgpu::Queue, clip_y: f32) {
+        self.uniforms.data.clip = vec4(0.0, clip_y, 0.0, 0.0).into();
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
+    }
+
+    pub fn invert_y(&mut self, queue: &wgpu::Queue) {
+        let inverted = Point3::new(self.eye.x, -self.eye.y, self.eye.z);
+        let view = Matrix4::look_at(inverted, self.target, -Vector3::unit_y());
+        let world_matrix = self.proj * view;
+
+        self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
+        self.uniforms.data.eye_pos = inverted.into();
+        self.uniforms.data.view_proj = (self.proj * view).into();
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
+    }
+
+    pub fn reset_y(&mut self, queue: &wgpu::Queue) {
+        let view = Matrix4::look_at(self.eye, self.target, Vector3::unit_y());
+        let world_matrix = self.proj * view;
+
+        self.uniforms.data.eye_pos = self.eye.into();
+        self.uniforms.data.view_proj = (self.proj * view).into();
+        self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 

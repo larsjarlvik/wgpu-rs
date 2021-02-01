@@ -1,4 +1,4 @@
-use crate::{camera, noise, plane, settings};
+use crate::{camera, noise, plane, settings, texture};
 use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
 mod uniforms;
@@ -9,10 +9,15 @@ pub struct Water {
     pub uniforms: uniforms::UniformBuffer,
     pub render_pipeline: wgpu::RenderPipeline,
     pub noise_bindings: noise::NoiseBindings,
+    pub refraction_texture_view: wgpu::TextureView,
+    pub refraction_depth_texture_view: wgpu::TextureView,
+    pub reflection_texture_view: wgpu::TextureView,
+    pub reflection_depth_texture_view: wgpu::TextureView,
+    pub texture_bind_group: wgpu::BindGroup,
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, camera: &camera::Camera, noise: &noise::Noise) -> Self {
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera, noise: &noise::Noise) -> Self {
         let noise_bindings = noise.create_bindings(device);
         let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
         let plane = plane::Plane::new(settings::TILE_SIZE);
@@ -23,30 +28,52 @@ impl Water {
             lods.push(indices_lod);
         }
 
+        // Textures
+        let sampler =  texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
+        let refraction_texture_view = texture::create_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let refraction_depth_texture_view = texture::create_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
+        let reflection_texture_view = texture::create_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
+        let reflection_depth_texture_view = texture::create_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
+
+        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("water_texture_bind_group_layout"),
+            entries: &[
+                texture::create_bind_group_layout(0, wgpu::TextureComponentType::Float),
+                texture::create_bind_group_layout(1, wgpu::TextureComponentType::Uint),
+                texture::create_bind_group_layout(2, wgpu::TextureComponentType::Uint),
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    count: None,
+                },
+            ],
+        });
+
+        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("deferred_textures"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                texture::create_bind_group_entry(0, &refraction_depth_texture_view),
+                texture::create_bind_group_entry(1, &refraction_texture_view),
+                texture::create_bind_group_entry(2, &reflection_texture_view),
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+        });
+
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("water_pipeline_layout"),
             bind_group_layouts: &[
                 &camera.uniforms.bind_group_layout,
                 &uniforms.bind_group_layout,
                 &noise_bindings.bind_group_layout,
+                &texture_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
-
-        let test = wgpu::ColorStateDescriptor {
-            format: settings::COLOR_TEXTURE_FORMAT,
-            color_blend: wgpu::BlendDescriptor {
-                src_factor: wgpu::BlendFactor::SrcAlpha,
-                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                operation: wgpu::BlendOperation::Add,
-            },
-            alpha_blend: wgpu::BlendDescriptor {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::Max,
-            },
-            write_mask: wgpu::ColorWrite::ALL,
-        };
 
         let vs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/water.vert.spv"));
         let fs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/water.frag.spv"));
@@ -67,7 +94,7 @@ impl Water {
                 ..Default::default()
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-            color_states: &[test.clone(), test.clone()],
+            color_states: &[settings::COLOR_TEXTURE_FORMAT.into()],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
@@ -89,6 +116,11 @@ impl Water {
             uniforms,
             render_pipeline,
             noise_bindings,
+            reflection_texture_view,
+            refraction_texture_view,
+            refraction_depth_texture_view,
+            texture_bind_group,
+            reflection_depth_texture_view,
         }
     }
 

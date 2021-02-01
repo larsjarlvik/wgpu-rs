@@ -56,3 +56,58 @@ impl Texture {
         Texture { texture, view }
     }
 }
+
+pub fn create_bind_group_layout(binding: u32, component_type: wgpu::TextureComponentType) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStage::FRAGMENT,
+        ty: wgpu::BindingType::SampledTexture {
+            multisampled: false,
+            dimension: wgpu::TextureViewDimension::D2,
+            component_type,
+        },
+        count: None,
+    }
+}
+
+pub fn create_view(
+    device: &wgpu::Device,
+    swap_chain_desc: &wgpu::SwapChainDescriptor,
+    format: wgpu::TextureFormat,
+) -> wgpu::TextureView {
+    let texture_extent = wgpu::Extent3d {
+        width: swap_chain_desc.width,
+        height: swap_chain_desc.height,
+        depth: 1,
+    };
+    let frame_descriptor = &wgpu::TextureDescriptor {
+        label: None,
+        size: texture_extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
+    };
+    let texture = device.create_texture(frame_descriptor);
+    texture.create_view(&wgpu::TextureViewDescriptor::default())
+}
+
+pub fn create_sampler(device: &wgpu::Device, address_mode: wgpu::AddressMode, filter_mode: wgpu::FilterMode) -> wgpu::Sampler {
+    device.create_sampler(&wgpu::SamplerDescriptor {
+        address_mode_u: address_mode,
+        address_mode_v: address_mode,
+        address_mode_w: address_mode,
+        mag_filter: filter_mode,
+        min_filter: filter_mode,
+        mipmap_filter: filter_mode,
+        ..Default::default()
+    })
+}
+
+pub fn create_bind_group_entry(binding: u32, texture_view: &wgpu::TextureView) -> wgpu::BindGroupEntry {
+    wgpu::BindGroupEntry {
+        binding,
+        resource: wgpu::BindingResource::TextureView(texture_view),
+    }
+}

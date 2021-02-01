@@ -8,6 +8,7 @@ pub struct Uniforms {
     pub z_near: f32,
     pub look_at: [f32; 3],
     pub z_far: f32,
+    pub clip: [f32; 4],
     pub viewport_size: [f32; 2],
 }
 pub struct UniformBuffer {

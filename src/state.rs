@@ -63,7 +63,7 @@ impl State {
         let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
 
         // World
-        let world = world::World::new(&device, &queue, &camera).await;
+        let world = world::World::new(&device, &swap_chain_desc, &queue, &camera).await;
 
         Self {
             surface,
@@ -91,6 +91,7 @@ impl State {
         self.camera.resize(&self.swap_chain_desc);
         self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
         self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
+        self.world.resize(&self.device, &self.swap_chain_desc, &self.camera);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -117,41 +118,39 @@ impl State {
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-        let ops = wgpu::Operations {
-            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-            store: true,
-        };
 
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        // Water reflection pass
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
+        {
+            self.camera.invert_y(&self.queue);
+            self.world.update_bundle(&self.device, &self.camera);
+            self.world.render(&mut encoder, &self.deferred_render.target);
+            self.deferred_render.render(&mut encoder, &self.world.data.water.reflection_texture_view, &self.world.data.water.reflection_depth_texture_view);
+        }
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        // Water refraction pass
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
+        {
+            self.camera.reset_y(&self.queue);
+            self.world.update_bundle(&self.device, &self.camera);
+            self.camera.set_clip_y(&self.queue, -1.0);
+            self.world.render(&mut encoder, &self.deferred_render.target);
+            self.deferred_render.render(&mut encoder, &self.world.data.water.refraction_texture_view, &self.world.data.water.refraction_depth_texture_view);
+        }
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("main") });
         {
             // Main render pass
+            self.camera.set_clip_y(&self.queue, 1.0);
             self.world.render(&mut encoder, &self.deferred_render.target);
+            self.deferred_render.render(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
+            self.world.render_water(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
 
-            // Deferred render pass
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &self.fxaa.texture_view,
-                        resolve_target: None,
-                        ops,
-                    }],
-                    depth_stencil_attachment: None,
-                })
-                .execute_bundles(std::iter::once(&self.deferred_render.render_bundle));
-
-            // FXAA render pass
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &frame.view,
-                        resolve_target: None,
-                        ops,
-                    }],
-                    depth_stencil_attachment: None,
-                })
-                .execute_bundles(std::iter::once(&self.fxaa.render_bundle));
+            // Post processing
+            self.fxaa.render(&mut encoder, &frame.view);
         }
-
         self.queue.submit(std::iter::once(encoder.finish()));
         Ok(())
     }

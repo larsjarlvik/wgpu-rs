@@ -22,6 +22,7 @@ layout(set=2, binding=0) uniform Camera {
     float z_near;
     vec3 u_look_at;
     float z_far;
+    vec4 u_clip;
     vec2 u_viewport_size;
 };
 
@@ -80,4 +81,5 @@ void main() {
     }
 
     f_color = vec4(color, 1.0);
+    gl_FragDepth = depth;
 }

@@ -17,6 +17,7 @@ layout(set=0, binding=0) uniform Camera {
     float z_near;
     vec3 u_look_at;
     float z_far;
+    vec4 u_clip;
     vec2 u_viewport_size;
 };
 
@@ -29,7 +30,7 @@ float get_wave(vec2 xz) {
     vec2 offset2 = vec2(0.5, 1.0) * u_time * 0.001334;
     float h1 = noise(xz * 0.213 + offset1);
     float h2 = noise(xz * 3.231 + offset2);
-    return (h1 + h2) * 0.5;
+    return -(h1 + h2) * 0.5;
 }
 
 vec3 calc_normal() {

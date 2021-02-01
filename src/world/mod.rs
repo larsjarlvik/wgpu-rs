@@ -9,7 +9,7 @@ mod water;
 
 pub struct WorldData {
     terrain: terrain::Terrain,
-    water: water::Water,
+    pub water: water::Water,
     noise: noise::Noise,
     pub models: models::Models,
 }
@@ -22,7 +22,7 @@ pub struct World {
 }
 
 impl World {
-    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera) -> Self {
+    pub async fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, queue: &wgpu::Queue, camera: &camera::Camera) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
         let mut models = models::Models::new(&device, &camera);
         for asset in assets::ASSETS {
@@ -33,7 +33,7 @@ impl World {
         let mut terrain = terrain::Terrain::new(device, queue, camera, &noise);
         let terrain_bundle = get_terrain_bundle(device, camera, &mut terrain, &mut root_node);
 
-        let mut water = water::Water::new(device, camera, &noise);
+        let mut water = water::Water::new(device, swap_chain_desc, camera, &noise);
         let water_bundle = get_water_bundle(device, camera, &mut water, &mut root_node);
 
         let mut world = Self {
@@ -54,10 +54,17 @@ impl World {
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, time: Instant) {
         self.root_node.update(device, queue, &mut self.data, camera);
-        self.data.models.refresh_render_bundle(device, camera);
         self.data.water.update(queue, time);
-        self.terrain_bundle = get_terrain_bundle(device, camera, &mut self.data.terrain, &mut self.root_node);
         self.water_bundle = get_water_bundle(device, camera, &mut self.data.water, &mut self.root_node);
+    }
+
+    pub fn update_bundle(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
+        self.terrain_bundle = get_terrain_bundle(device, camera, &mut self.data.terrain, &mut self.root_node);
+        self.data.models.refresh_render_bundle(device, camera);
+    }
+
+    pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera,) {
+        self.data.water = water::Water::new(device, swap_chain_desc, camera, &self.data.noise);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures) {
@@ -66,17 +73,7 @@ impl World {
             store: true,
         };
 
-        let render_bundles = vec![&self.terrain_bundle, &self.water_bundle, &self.data.models.render_bundle];
-        self.render_to_texture_group(encoder, target, ops, render_bundles);
-    }
-
-    fn render_to_texture_group(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &deferred::textures::Textures,
-        ops: wgpu::Operations<wgpu::Color>,
-        bundles: Vec<&wgpu::RenderBundle>,
-    ) {
+        let bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[
@@ -101,6 +98,29 @@ impl World {
                 }),
             })
             .execute_bundles(bundles.into_iter());
+    }
+
+    pub fn render_water(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &depth_target,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            })
+            .execute_bundles(std::iter::once(&self.water_bundle));
     }
 }
 
@@ -160,7 +180,7 @@ fn get_water_bundle(
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT],
         depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
         sample_count: 1,
     });
@@ -168,6 +188,7 @@ fn get_water_bundle(
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
     encoder.set_bind_group(1, &water.uniforms.bind_group, &[]);
     encoder.set_bind_group(2, &water.noise_bindings.bind_group, &[]);
+    encoder.set_bind_group(3, &water.texture_bind_group, &[]);
 
     for lod in 0..=settings::LODS.len() {
         let water_lod = water.lods.get(lod).expect("Could not get LOD!");

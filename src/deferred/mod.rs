@@ -59,7 +59,12 @@ impl DeferredRender {
             }),
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[settings::COLOR_TEXTURE_FORMAT.into()],
-            depth_stencil_state: None,
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: settings::DEPTH_TEXTURE_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilStateDescriptor::default(),
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[],
@@ -83,7 +88,7 @@ impl DeferredRender {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],
-            depth_stencil_format: None,
+            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
             sample_count: 1,
         });
 
@@ -99,5 +104,28 @@ impl DeferredRender {
             target,
             uniforms,
         }
+    }
+
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: color_target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: depth_target,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            })
+            .execute_bundles(std::iter::once(&self.render_bundle));
     }
 }

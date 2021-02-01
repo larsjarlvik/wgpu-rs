@@ -1,5 +1,3 @@
-use cgmath::Matrix4;
-
 pub const COLOR_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 pub const DEPTH_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -16,11 +14,3 @@ pub const TERRAIN_OCTAVES: u32 = 5;
 pub const TILE_SIZE: u32 = 40;
 pub const TILE_DEPTH: i32 = 6;
 pub static LODS: [f32; 3] = [0.2, 0.4, 0.6];
-
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: Matrix4<f32> = Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);

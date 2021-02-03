@@ -8,8 +8,7 @@ layout(location=0) in vec3 a_position;
 layout(location=1) in vec3 a_normal;
 
 layout(location=0) out vec4 v_position;
-layout(location=1) out mat3 v_tbn;
-layout(location=4) out vec3 v_normal;
+layout(location=1) out vec3 v_normal;
 
 layout(set=0, binding=0) uniform Camera {
     mat4 u_view_proj;
@@ -47,9 +46,6 @@ void main() {
 
     v_position = vec4(a_position, 1.0);
     v_position.y = get_wave(v_position.xz);
-
-    vec3 normal = calc_normal();
-    v_tbn = mat3(tangent, bitangent, normal);
-    v_normal = normal;
+    v_normal = calc_normal();
     gl_Position = u_view_proj * v_position;
 }

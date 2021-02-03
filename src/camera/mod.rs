@@ -109,7 +109,7 @@ impl Camera {
     }
 
     pub fn set_clip_y(&mut self, queue: &wgpu::Queue, clip_y: f32) {
-        self.uniforms.data.clip = vec4(0.0, clip_y, 0.0, 0.0).into();
+        self.uniforms.data.clip = vec4(0.0, clip_y, 0.0, clip_y.abs()).into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 

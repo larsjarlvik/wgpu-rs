@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 const vec3 sky_color = vec3(0.6, 0.8, 0.9);
 
@@ -26,6 +27,8 @@ layout(set=2, binding=0) uniform Camera {
     vec2 u_viewport_size;
 };
 
+#include "include/light.glsl"
+
 float linearize_depth(float d) {
     return z_near * z_far / (z_far + d * (z_near - z_far));
 }
@@ -47,22 +50,6 @@ vec3 sky() {
     return pow(sky + sun, vec3(2.2));
 }
 
-vec3 calculate_light(vec3 position, vec3 normal) {
-    vec3 ambient_color = u_light_color * u_ambient_strength;
-    vec3 inverse_light_dir = -u_light_dir;
-
-    float diffuse_strength = max(dot(normal, inverse_light_dir), 0.0);
-    vec3 diffuse_color = u_light_color * diffuse_strength;
-
-    vec3 view_dir = normalize(u_eye_pos - position);
-    vec3 half_dir = normalize(view_dir + inverse_light_dir);
-
-    float specular_strength = pow(max(dot(normal, half_dir), 0.0), 16);
-    vec3 specular_color = specular_strength * u_light_color;
-
-    return ambient_color + (diffuse_color + specular_color) * u_light_intensity;
-}
-
 void main() {
     ivec2 fragCoord = ivec2(gl_FragCoord.xy);
     float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
@@ -74,7 +61,7 @@ void main() {
     vec3 color;
     if (depth < 1.0) {
         float fog = smoothstep(z_far / 4.0, z_far, linearize_depth(depth));
-        color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz));
+        color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz), 16.0, 1.0);
         color = mix(color, sky_color, fog);
     } else {
         color = sky();

@@ -124,7 +124,7 @@ impl State {
         {
             self.camera.invert_y(&self.queue);
             self.world.update_bundle(&self.device, &self.camera);
-            self.world.render(&mut encoder, &self.deferred_render.target);
+            self.world.render(&mut encoder, &self.deferred_render.target, true);
             self.deferred_render.render(&mut encoder, &self.world.data.water.reflection_texture_view, &self.world.data.water.reflection_depth_texture_view);
         }
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -135,7 +135,7 @@ impl State {
             self.camera.reset_y(&self.queue);
             self.world.update_bundle(&self.device, &self.camera);
             self.camera.set_clip_y(&self.queue, -1.0);
-            self.world.render(&mut encoder, &self.deferred_render.target);
+            self.world.render(&mut encoder, &self.deferred_render.target, false);
             self.deferred_render.render(&mut encoder, &self.world.data.water.refraction_texture_view, &self.world.data.water.refraction_depth_texture_view);
         }
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -144,7 +144,7 @@ impl State {
         {
             // Main render pass
             self.camera.set_clip_y(&self.queue, 1.0);
-            self.world.render(&mut encoder, &self.deferred_render.target);
+            self.world.render(&mut encoder, &self.deferred_render.target, true);
             self.deferred_render.render(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
             self.world.render_water(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
 

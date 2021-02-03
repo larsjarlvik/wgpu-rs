@@ -67,13 +67,15 @@ impl World {
         self.data.water = water::Water::new(device, swap_chain_desc, camera, &self.data.noise);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures, above_water: bool) {
         let ops = wgpu::Operations {
             load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
             store: true,
         };
 
-        let bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
+        let mut bundles = vec![&self.terrain_bundle];
+        if above_water { bundles.push(&self.data.models.render_bundle); }
+
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[

@@ -8,7 +8,6 @@ layout(location=0) in vec3 a_position;
 layout(location=1) in vec3 a_normal;
 
 layout(location=0) out vec4 v_position;
-layout(location=1) out vec3 v_normal;
 
 layout(set=0, binding=0) uniform Camera {
     mat4 u_view_proj;
@@ -32,20 +31,11 @@ float get_wave(vec2 xz) {
     return -(h1 + h2) * 0.5;
 }
 
-vec3 calc_normal() {
-    return normalize(vec3(
-        get_wave(vec2((v_position.x - 1.0), v_position.z)) - get_wave(vec2((v_position.x + 1.0), v_position.z)),
-        1.0,
-        get_wave(vec2(v_position.x, (v_position.z - 1.0))) - get_wave(vec2(v_position.x, (v_position.z + 1.0)))
-    ));
-}
-
 void main() {
     vec3 bitangent = normalize(cross(vec3(0.0, 0.0, 1.0), a_normal));
     vec3 tangent = normalize(cross(a_normal, bitangent));
 
     v_position = vec4(a_position, 1.0);
     v_position.y = get_wave(v_position.xz);
-    v_normal = calc_normal();
     gl_Position = u_view_proj * v_position;
 }

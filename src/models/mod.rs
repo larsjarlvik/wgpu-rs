@@ -112,7 +112,7 @@ pub fn create_bundle(
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
             encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
-            encoder.set_index_buffer(mesh.index_buffer.slice(..));
+            encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             encoder.draw_indexed(0..mesh.num_elements, 0, 0..length as _);
         }
     }

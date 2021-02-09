@@ -38,13 +38,13 @@ impl Water {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("water_texture_bind_group_layout"),
             entries: &[
-                texture::create_bind_group_layout(0, wgpu::TextureComponentType::Float),
-                texture::create_bind_group_layout(1, wgpu::TextureComponentType::Uint),
-                texture::create_bind_group_layout(2, wgpu::TextureComponentType::Uint),
+                texture::create_bind_group_layout(0, wgpu::TextureSampleType::Depth),
+                texture::create_bind_group_layout(1, wgpu::TextureSampleType::Uint),
+                texture::create_bind_group_layout(2, wgpu::TextureSampleType::Uint),
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
                     count: None,
                 },
             ],
@@ -75,39 +75,36 @@ impl Water {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/water.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/water.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/water.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/water.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("water_pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
                 module: &vs_module,
                 entry_point: "main",
+                buffers: &[plane::Vertex::desc()],
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            fragment: Some(wgpu::FragmentState {
                 module: &fs_module,
                 entry_point: "main",
+                targets: &[settings::COLOR_TEXTURE_FORMAT.into()],
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
                 ..Default::default()
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into()],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilStateDescriptor::default(),
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+                clamp_depth: false,
             }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[plane::Vertex::desc()],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
+            multisample: wgpu::MultisampleState::default(),
         });
 
         Self {

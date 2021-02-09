@@ -23,7 +23,7 @@ impl UniformBuffer {
             layout: &layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
+                resource: buffer.as_entire_binding(),
             }],
         });
         Self { data, buffer, bind_group }

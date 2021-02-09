@@ -29,9 +29,9 @@ impl Noise {
                 binding: 0,
                 visibility: wgpu::ShaderStage::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
-                    dimension: wgpu::TextureViewDimension::D2,
+                    view_dimension: wgpu::TextureViewDimension::D2,
                     format: wgpu::TextureFormat::R32Float,
-                    readonly: false,
+                    access: wgpu::StorageTextureAccess::ReadWrite,
                 },
                 count: None,
             }],
@@ -63,14 +63,12 @@ impl Noise {
             push_constant_ranges: &[],
         });
 
-        let module = device.create_shader_module(wgpu::include_spirv!("./shaders-compiled/noise.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("./shaders-compiled/noise.comp.spv"));
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("terrain_compute_pipeline"),
             layout: Some(&layout),
-            compute_stage: wgpu::ProgrammableStageDescriptor {
-                module: &module,
-                entry_point: "main",
-            },
+            module: &module,
+            entry_point: "main",
         });
 
         // Generate noise
@@ -83,7 +81,9 @@ impl Noise {
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("noise") });
         {
-            let mut pass = encoder.begin_compute_pass();
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: None,
+            });
             pass.set_pipeline(&compute_pipeline);
             pass.set_bind_group(0, &compute_texture_bind_group, &[]);
             pass.dispatch(size.width, size.height, 1);
@@ -164,17 +164,17 @@ impl Noise {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
+                    ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Float,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: true },
                     count: None,
                 },
             ],

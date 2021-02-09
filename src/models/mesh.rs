@@ -2,7 +2,7 @@ use crate::{models::*, texture};
 use wgpu::util::DeviceExt;
 
 struct Material {
-    base_color_texture: texture::Texture,
+    base_color_texture: wgpu::TextureView,
 }
 
 pub struct Mesh {
@@ -38,7 +38,7 @@ impl Mesh {
             }
 
             let image = images.iter().nth(0).unwrap();
-            let base_color_texture = texture::Texture::new(&device, &queue, &image.pixels, image.width, image.height);
+            let base_color_texture = texture::create_mipmapped_view(&device, &queue, &image.pixels, image.width, image.height);
             let material = Material { base_color_texture };
 
             let bounding_box = frustum::BoundingBox {
@@ -92,7 +92,7 @@ impl Primitive {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.material.base_color_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&self.material.base_color_texture),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,

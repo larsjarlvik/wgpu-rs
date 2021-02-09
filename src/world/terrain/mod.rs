@@ -1,7 +1,6 @@
 mod compute;
 use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::num::NonZeroU32;
 
 pub struct Terrain {
@@ -22,17 +21,17 @@ impl Terrain {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
+                    ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2Array,
-                        component_type: wgpu::TextureComponentType::Uint,
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        sample_type: wgpu::TextureSampleType::Uint,
                     },
                     count: Some(NonZeroU32::new(5).unwrap()),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
                     count: None,
                 },
             ],
@@ -48,39 +47,36 @@ impl Terrain {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/terrain.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/terrain.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("terrain_pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
                 module: &vs_module,
                 entry_point: "main",
+                buffers: &[plane::Vertex::desc()],
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            fragment: Some(wgpu::FragmentState {
                 module: &fs_module,
                 entry_point: "main",
+                targets: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
                 ..Default::default()
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleStrip,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
                 format: settings::DEPTH_TEXTURE_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilStateDescriptor::default(),
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+                clamp_depth: false,
             }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[plane::Vertex::desc()],
-            },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
+            multisample: wgpu::MultisampleState::default(),
         });
 
         let texture_bind_group = build_textures(device, queue, &texture_bind_group_layout);
@@ -94,21 +90,15 @@ impl Terrain {
     }
 }
 
-fn load_textures(device: &wgpu::Device, queue: &wgpu::Queue, textures: Vec<&str>) -> Vec<wgpu::TextureView> {
-    textures
-        .par_iter()
-        .map(|t| {
-            let i1 = image::open(format!("res/textures/{}.png", t)).unwrap();
-            texture::Texture::new(
-                device,
-                queue,
-                &i1.as_rgba8().unwrap().to_vec(),
-                i1.dimensions().0,
-                i1.dimensions().1,
-            )
-            .view
-        })
-        .collect::<Vec<wgpu::TextureView>>()
+fn load_texture(device: &wgpu::Device, queue: &wgpu::Queue, path: &str) -> wgpu::TextureView {
+    let i1 = image::open(format!("res/textures/{}.png", path)).unwrap();
+    texture::create_mipmapped_view(
+        device,
+        queue,
+        &i1.as_rgba8().unwrap().to_vec(),
+        i1.dimensions().0,
+        i1.dimensions().1,
+    )
 }
 
 fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group_layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
@@ -122,11 +112,15 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
         ..Default::default()
     });
 
-    let textures = load_textures(
-        device,
-        queue,
-        vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"],
-    );
+    // TODO: Use 3D texture
+    let textures: [&wgpu::TextureView; 5] = [
+        &load_texture(device, queue, "grass"),
+        &load_texture(device, queue, "grass_normals"),
+        &load_texture(device, queue, "cliffwall"),
+        &load_texture(device, queue, "cliffwall_normals"),
+        &load_texture(device, queue, "sand")
+    ];
+
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("terrain_textures"),
         layout: &texture_bind_group_layout,

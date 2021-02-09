@@ -78,6 +78,7 @@ impl World {
 
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
                 color_attachments: &[
                     wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &target.normals_texture_view,
@@ -105,6 +106,7 @@ impl World {
     pub fn render_water(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &target,
                     resolve_target: None,
@@ -166,7 +168,7 @@ fn get_terrain_bundle(
         for (terrain, connect_type) in root_node.get_nodes(camera, lod as u32) {
             let lod_buffer = terrain_lod.get(&connect_type).unwrap();
             encoder.set_vertex_buffer(0, terrain.terrain_buffer.slice(..));
-            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
+            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
         }
     }
@@ -198,7 +200,7 @@ fn get_water_bundle(
         for (water, connect_type) in root_node.get_nodes(camera, lod as u32) {
             let lod_buffer = water_lod.get(&connect_type).unwrap();
             encoder.set_vertex_buffer(0, water.water_buffer.slice(..));
-            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
+            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
         }
     }

@@ -26,13 +26,13 @@ impl Textures {
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("deferred_textures_bind_group_layout"),
             entries: &[
-                texture::create_bind_group_layout(0, wgpu::TextureComponentType::Float),
-                texture::create_bind_group_layout(1, wgpu::TextureComponentType::Uint),
-                texture::create_bind_group_layout(2, wgpu::TextureComponentType::Uint),
+                texture::create_bind_group_layout(0, wgpu::TextureSampleType::Depth),
+                texture::create_bind_group_layout(1, wgpu::TextureSampleType::Uint),
+                texture::create_bind_group_layout(2, wgpu::TextureSampleType::Uint),
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
                     count: None,
                 },
             ],

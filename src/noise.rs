@@ -174,7 +174,7 @@ impl Noise {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: true },
+                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
                     count: None,
                 },
             ],

@@ -1,7 +1,8 @@
 mod compute;
 use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
-use std::num::NonZeroU32;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::{convert::TryInto, num::NonZeroU32};
 
 pub struct Terrain {
     pub compute: compute::Compute,
@@ -113,13 +114,9 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
     });
 
     // TODO: Use 3D texture
-    let textures: [&wgpu::TextureView; 5] = [
-        &load_texture(device, queue, "grass"),
-        &load_texture(device, queue, "grass_normals"),
-        &load_texture(device, queue, "cliffwall"),
-        &load_texture(device, queue, "cliffwall_normals"),
-        &load_texture(device, queue, "sand")
-    ];
+    let paths= vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"];
+    let textures = paths.par_iter().map(|&t| load_texture(device, queue, t)).collect::<Vec<wgpu::TextureView>>();
+    let t: &[&wgpu::TextureView; 5] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
 
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("terrain_textures"),
@@ -127,7 +124,7 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::TextureViewArray(&textures),
+                resource: wgpu::BindingResource::TextureViewArray(t),
             },
             wgpu::BindGroupEntry {
                 binding: 1,

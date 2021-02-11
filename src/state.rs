@@ -8,7 +8,7 @@ pub struct State {
     queue: wgpu::Queue,
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    camera: camera::Camera,
+    cameras: camera::Cameras,
     world: world::World,
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
@@ -56,14 +56,14 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
         // Camera
-        let camera = camera::Camera::new(&device, &swap_chain_desc);
+        let cameras = camera::Cameras::new(&device, &swap_chain_desc);
 
         // Drawing
-        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
+        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &cameras);
         let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
 
         // World
-        let world = world::World::new(&device, &swap_chain_desc, &queue, &camera).await;
+        let world = world::World::new(&device, &swap_chain_desc, &queue, &cameras).await;
 
         Self {
             surface,
@@ -74,7 +74,7 @@ impl State {
             size,
             deferred_render,
             fxaa,
-            camera,
+            cameras,
             world,
             input: Input::new(),
             start_time: Instant::now(),
@@ -88,10 +88,10 @@ impl State {
         self.swap_chain_desc.width = new_size.width;
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.camera.resize(&self.swap_chain_desc);
-        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
+        self.cameras.resize(&self.swap_chain_desc);
+        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.cameras);
         self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
-        self.world.resize(&self.device, &self.swap_chain_desc, &self.camera);
+        self.world.resize(&self.device, &self.swap_chain_desc, &self.cameras);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -111,9 +111,9 @@ impl State {
 
     pub fn update(&mut self) {
         let avg = self.frame_time();
-        self.camera.update_camera(&self.queue, &self.input, avg);
+        self.cameras.update_camera(&self.queue, &self.input, avg);
         self.input.after_update();
-        self.world.update(&self.device, &self.queue, &self.camera, self.start_time);
+        self.world.update(&self.device, &self.queue, &self.cameras, self.start_time);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
@@ -122,30 +122,31 @@ impl State {
         // Water reflection pass
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            self.camera.invert_y(&self.queue);
-            self.world.update_bundle(&self.device, &self.camera);
+            self.world.update_bundle(&self.device, &self.cameras.refraction_cam);
             self.world.render(&mut encoder, &self.deferred_render.target, true);
-            self.deferred_render.render(&mut encoder, &self.world.data.water.reflection_texture_view, &self.world.data.water.reflection_depth_texture_view);
+
+            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
+            self.deferred_render.render(&mut encoder, &self.world.data.water.reflection_texture_view, &self.world.data.water.reflection_depth_texture_view, &deferred_bundle);
         }
         self.queue.submit(std::iter::once(encoder.finish()));
 
         // Water refraction pass
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            self.camera.reset_y(&self.queue);
-            self.world.update_bundle(&self.device, &self.camera);
-            self.camera.set_clip_y(&self.queue, -1.0);
+            self.world.update_bundle(&self.device, &self.cameras.reflection_cam);
             self.world.render(&mut encoder, &self.deferred_render.target, false);
-            self.deferred_render.render(&mut encoder, &self.world.data.water.refraction_texture_view, &self.world.data.water.refraction_depth_texture_view);
+            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
+            self.deferred_render.render(&mut encoder, &self.world.data.water.refraction_texture_view, &self.world.data.water.refraction_depth_texture_view, &deferred_bundle);
         }
         self.queue.submit(std::iter::once(encoder.finish()));
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("main") });
         {
             // Main render pass
-            self.camera.set_clip_y(&self.queue, 1.0);
+            self.world.update_bundle(&self.device, &self.cameras.eye_cam);
             self.world.render(&mut encoder, &self.deferred_render.target, true);
-            self.deferred_render.render(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
+            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
+            self.deferred_render.render(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view, &deferred_bundle);
             self.world.render_water(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
 
             // Post processing

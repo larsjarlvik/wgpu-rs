@@ -48,7 +48,7 @@ impl Node {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
-        let distance = vec2(self.x, self.z).distance(vec2(camera.target.x, camera.target.z)) - self.radius;
+        let distance = vec2(self.x, self.z).distance(vec2(camera.uniforms.data.look_at[0], camera.uniforms.data.look_at[2])) - self.radius;
         if distance > camera.z_far_range {
             self.delete_node(world);
             return;
@@ -56,7 +56,7 @@ impl Node {
 
         if self.data.is_none() {
             if self.is_leaf() {
-                let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.radius;
+                let distance = vec2(self.x, self.z).distance(vec2(camera.uniforms.data.eye_pos[0], camera.uniforms.data.eye_pos[2])) - self.radius;
                 if distance < camera.z_far_range && self.data.is_none() {
                     self.build_leaf_node(device, queue, world);
                 }
@@ -156,8 +156,9 @@ impl Node {
         if self.check_frustum(camera) {
             match &self.data {
                 Some(t) => {
-                    if plane::get_lod(camera.eye.to_vec(), vec3(self.x, 0.0, self.z), camera.z_far) == lod {
-                        let ct = plane::get_connect_type(camera.eye.to_vec(), vec3(self.x, 0.0, self.z), lod, camera.z_far);
+                    let eye = vec3(camera.uniforms.data.eye_pos[0], camera.uniforms.data.eye_pos[1], camera.uniforms.data.eye_pos[2]);
+                    if plane::get_lod(eye, vec3(self.x, 0.0, self.z), camera.uniforms.data.z_far) == lod {
+                        let ct = plane::get_connect_type(eye, vec3(self.x, 0.0, self.z), lod, camera.uniforms.data.z_far);
                         return vec![(&t, ct)];
                     }
                     vec![]

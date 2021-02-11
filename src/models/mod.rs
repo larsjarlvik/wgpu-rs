@@ -9,14 +9,13 @@ mod render_pipeline;
 
 pub struct Models {
     pub models: HashMap<String, model::Model>,
-    pub render_bundle: wgpu::RenderBundle,
     render_pipeline: render_pipeline::RenderPipeline,
     sampler: wgpu::Sampler,
 }
 
 impl Models {
-    pub fn new(device: &wgpu::Device, camera: &camera::Camera) -> Self {
-        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &camera);
+    pub fn new(device: &wgpu::Device, cameras: &camera::Cameras) -> Self {
+        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &cameras);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -27,14 +26,11 @@ impl Models {
             ..Default::default()
         });
 
-        let mut models = HashMap::new();
-        let render_bundle = create_bundle(&device, &render_pipeline, &camera, &mut models);
-
+        let models = HashMap::new();
         Self {
             sampler,
             render_pipeline,
             models,
-            render_bundle,
         }
     }
 
@@ -84,41 +80,37 @@ impl Models {
         );
     }
 
-    pub fn refresh_render_bundle(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
-        self.render_bundle = create_bundle(&device, &self.render_pipeline, &camera, &mut self.models);
-    }
-}
+    pub fn get_render_bundle(
+        &mut self,
+        device: &wgpu::Device,
+        camera: &camera::Camera,
+    ) -> wgpu::RenderBundle {
+        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+            label: None,
+            color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+            sample_count: 1,
+        });
 
-pub fn create_bundle(
-    device: &wgpu::Device,
-    render_pipeline: &render_pipeline::RenderPipeline,
-    camera: &camera::Camera,
-    models: &mut HashMap<String, model::Model>,
-) -> wgpu::RenderBundle {
-    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-        label: None,
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
-        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-        sample_count: 1,
-    });
+        encoder.set_pipeline(&self.render_pipeline.render_pipeline);
+        encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
-    encoder.set_pipeline(&render_pipeline.render_pipeline);
-    encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
+        for (_, model) in &mut self.models.iter_mut() {
+            let length = cull_frustum(device, camera, model);
 
-    for (_, model) in models.iter_mut() {
-        let length = cull_frustum(device, camera, model);
-
-        for mesh in &model.primitives {
-            encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
-            encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
-            encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            encoder.draw_indexed(0..mesh.num_elements, 0, 0..length as _);
+            for mesh in &model.primitives {
+                encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
+                encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+                encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
+                encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                encoder.draw_indexed(0..mesh.num_elements, 0, 0..length as _);
+            }
         }
-    }
 
-    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
+        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
+    }
 }
+
 
 fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut model::Model) -> usize {
     let instances = model

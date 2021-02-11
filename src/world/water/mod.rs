@@ -17,7 +17,7 @@ pub struct Water {
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera, noise: &noise::Noise) -> Self {
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras, noise: &noise::Noise) -> Self {
         let noise_bindings = noise.create_bindings(device);
         let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
         let plane = plane::Plane::new(settings::TILE_SIZE);
@@ -67,7 +67,7 @@ impl Water {
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("water_pipeline_layout"),
             bind_group_layouts: &[
-                &camera.uniforms.bind_group_layout,
+                &cameras.bind_group_layout,
                 &uniforms.bind_group_layout,
                 &noise_bindings.bind_group_layout,
                 &texture_bind_group_layout,

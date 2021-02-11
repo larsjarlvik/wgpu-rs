@@ -1,15 +1,18 @@
+use wgpu::BindGroup;
+
 use crate::{camera, settings};
 pub mod textures;
 mod uniforms;
 
 pub struct DeferredRender {
-    pub render_bundle: wgpu::RenderBundle,
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub texture_bind_group: wgpu::BindGroup,
     pub target: textures::Textures,
     pub uniforms: uniforms::UniformBuffer,
 }
 
 impl DeferredRender {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera) -> Self {
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) -> Self {
         // Textures
         let target = textures::Textures::new(device, swap_chain_desc);
         let texture_bind_group_layout = target.create_bind_group_layout(device);
@@ -35,7 +38,7 @@ impl DeferredRender {
             bind_group_layouts: &[
                 &texture_bind_group_layout,
                 &uniform_bind_group_layout,
-                &camera.uniforms.bind_group_layout,
+                &cameras.bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -83,6 +86,15 @@ impl DeferredRender {
             },
         );
 
+        DeferredRender {
+            render_pipeline,
+            texture_bind_group,
+            target,
+            uniforms,
+        }
+    }
+
+    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Camera) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],
@@ -90,21 +102,15 @@ impl DeferredRender {
             sample_count: 1,
         });
 
-        encoder.set_pipeline(&render_pipeline);
-        encoder.set_bind_group(0, &texture_bind_group, &[]);
-        encoder.set_bind_group(1, &uniforms.bind_group, &[]);
+        encoder.set_pipeline(&self.render_pipeline);
+        encoder.set_bind_group(0, &self.texture_bind_group, &[]);
+        encoder.set_bind_group(1, &self.uniforms.bind_group, &[]);
         encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
         encoder.draw(0..6, 0..1);
-        let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("deferred") });
-
-        DeferredRender {
-            render_bundle,
-            target,
-            uniforms,
-        }
+        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("deferred") })
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView, render_bundle: &wgpu::RenderBundle) {
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
@@ -125,6 +131,6 @@ impl DeferredRender {
                     stencil_ops: None,
                 }),
             })
-            .execute_bundles(std::iter::once(&self.render_bundle));
+            .execute_bundles(std::iter::once(render_bundle));
     }
 }

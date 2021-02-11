@@ -19,22 +19,24 @@ pub struct World {
     pub data: WorldData,
     pub terrain_bundle: wgpu::RenderBundle,
     pub water_bundle: wgpu::RenderBundle,
+    pub models_bundle: wgpu::RenderBundle,
 }
 
 impl World {
-    pub async fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, queue: &wgpu::Queue, camera: &camera::Camera) -> Self {
+    pub async fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, queue: &wgpu::Queue, cameras: &camera::Cameras) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let mut models = models::Models::new(&device, &camera);
+        let mut models = models::Models::new(&device, &cameras);
         for asset in assets::ASSETS {
             models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
         let mut root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
-        let mut terrain = terrain::Terrain::new(device, queue, camera, &noise);
-        let terrain_bundle = get_terrain_bundle(device, camera, &mut terrain, &mut root_node);
+        let mut terrain = terrain::Terrain::new(device, queue, &cameras, &noise);
+        let mut water = water::Water::new(device, swap_chain_desc, &cameras, &noise);
 
-        let mut water = water::Water::new(device, swap_chain_desc, camera, &noise);
-        let water_bundle = get_water_bundle(device, camera, &mut water, &mut root_node);
+        let terrain_bundle = get_terrain_bundle(device, &cameras.eye_cam, &mut terrain, &mut root_node);
+        let water_bundle = get_water_bundle(device, &cameras.eye_cam, &mut water, &mut root_node);
+        let models_bundle = models.get_render_bundle(device, &cameras.eye_cam);
 
         let mut world = Self {
             data: WorldData {
@@ -45,26 +47,27 @@ impl World {
             },
             terrain_bundle,
             water_bundle,
+            models_bundle,
             root_node,
         };
 
-        world.terrain_bundle = get_terrain_bundle(device, camera, &mut world.data.terrain, &mut world.root_node);
+        world.terrain_bundle = get_terrain_bundle(device, &cameras.eye_cam, &mut world.data.terrain, &mut world.root_node);
         world
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera, time: Instant) {
-        self.root_node.update(device, queue, &mut self.data, camera);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cameras: &camera::Cameras, time: Instant) {
+        self.root_node.update(device, queue, &mut self.data, &cameras.eye_cam);
         self.data.water.update(queue, time);
-        self.water_bundle = get_water_bundle(device, camera, &mut self.data.water, &mut self.root_node);
+        self.water_bundle = get_water_bundle(device, &cameras.eye_cam, &mut self.data.water, &mut self.root_node);
     }
 
     pub fn update_bundle(&mut self, device: &wgpu::Device, camera: &camera::Camera) {
         self.terrain_bundle = get_terrain_bundle(device, camera, &mut self.data.terrain, &mut self.root_node);
-        self.data.models.refresh_render_bundle(device, camera);
+        self.data.models.get_render_bundle(device, camera);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, camera: &camera::Camera,) {
-        self.data.water = water::Water::new(device, swap_chain_desc, camera, &self.data.noise);
+    pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) {
+        self.data.water = water::Water::new(device, swap_chain_desc, cameras, &self.data.noise);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures, above_water: bool) {
@@ -74,7 +77,7 @@ impl World {
         };
 
         let mut bundles = vec![&self.terrain_bundle];
-        if above_water { bundles.push(&self.data.models.render_bundle); }
+        if above_water { bundles.push(&self.models_bundle); }
 
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {

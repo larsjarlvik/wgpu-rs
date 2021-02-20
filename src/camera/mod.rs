@@ -1,16 +1,10 @@
 use crate::input;
 use cgmath::*;
 use winit::event::VirtualKeyCode;
-use SquareMatrix;
 mod controller;
 pub mod frustum;
 mod uniforms;
-
-pub struct Camera {
-    pub uniforms: uniforms::UniformBuffer,
-    pub frustum: frustum::FrustumCuller,
-    pub z_far_range: f32,
-}
+pub mod camera;
 
 pub struct Cameras {
     controller: controller::CameraController,
@@ -23,21 +17,19 @@ pub struct Cameras {
     pub fov_y: f32,
     pub z_near: f32,
     pub z_far: f32,
-    pub eye_cam: Camera,
-    pub refraction_cam: Camera,
-    pub reflection_cam: Camera,
+    pub eye_cam: camera::Camera,
+    pub refraction_cam: camera::Camera,
+    pub reflection_cam: camera::Camera,
 }
 
 impl Cameras {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
         let z_near = 1.0;
         let z_far = 800.0;
-        let z_far_range = num_traits::Float::sqrt(z_far * z_far + z_far * z_far);
         let width = swap_chain_desc.width as f32;
         let height = swap_chain_desc.height as f32;
         let fov_y = 45.0;
         let controller = controller::CameraController::new();
-        let frustum = frustum::FrustumCuller::new();
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
@@ -53,57 +45,9 @@ impl Cameras {
             }],
         });
 
-        let eye_cam = Camera {
-            uniforms: uniforms::UniformBuffer::new(
-                &device,
-                &bind_group_layout,
-                uniforms::Uniforms {
-                    view_proj: Matrix4::identity().into(),
-                    eye_pos: [0.0, 0.0, 0.0],
-                    look_at: [0.0, 0.0, 0.0],
-                    z_near,
-                    z_far,
-                    viewport_size: [width, height],
-                    clip: [0.0, 0.0, 0.0, 0.0],
-                },
-            ),
-            frustum,
-            z_far_range,
-        };
-        let refraction_cam = Camera {
-            uniforms: uniforms::UniformBuffer::new(
-                &device,
-                &bind_group_layout,
-                uniforms::Uniforms {
-                    view_proj: Matrix4::identity().into(),
-                    eye_pos: [0.0, 0.0, 0.0],
-                    look_at: [0.0, 0.0, 0.0],
-                    z_near,
-                    z_far,
-                    viewport_size: [width, height],
-                    clip: [0.0, 0.0, 0.0, 0.0],
-                },
-            ),
-            frustum,
-            z_far_range,
-        };
-        let reflection_cam = Camera {
-            uniforms: uniforms::UniformBuffer::new(
-                &device,
-                &bind_group_layout,
-                uniforms::Uniforms {
-                    view_proj: Matrix4::identity().into(),
-                    eye_pos: [0.0, 0.0, 0.0],
-                    look_at: [0.0, 0.0, 0.0],
-                    z_near,
-                    z_far,
-                    viewport_size: [width, height],
-                    clip: [0.0, 0.0, 0.0, 0.0],
-                },
-            ),
-            frustum,
-            z_far_range,
-        };
+        let eye_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0]);
+        let reflection_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0]);
+        let refraction_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, -1.0, 0.0, 1.0]);
 
         Cameras {
             controller,
@@ -157,40 +101,10 @@ impl Cameras {
         let view = Matrix4::look_at(eye, self.target, Vector3::unit_y());
         let world_matrix = proj * view;
 
-        self.eye_cam.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
-        self.eye_cam.uniforms.data.look_at = self.target.into();
-        self.eye_cam.uniforms.data.eye_pos = eye.into();
-        self.eye_cam.uniforms.data.view_proj = (world_matrix).into();
-        self.eye_cam.uniforms.data.clip = vec4(0.0, 1.0, 0.0, 1.0).into();
-        queue.write_buffer(
-            &self.eye_cam.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.eye_cam.uniforms.data]),
-        );
-
-        self.refraction_cam.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
-        self.refraction_cam.uniforms.data.look_at = self.target.into();
-        self.refraction_cam.uniforms.data.eye_pos = eye.into();
-        self.refraction_cam.uniforms.data.view_proj = (world_matrix).into();
-        self.refraction_cam.uniforms.data.clip = vec4(0.0, -1.0, 0.0, 1.0).into();
-        queue.write_buffer(
-            &self.refraction_cam.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.refraction_cam.uniforms.data]),
-        );
+        self.eye_cam.update(queue, self.target, eye, world_matrix);
+        self.refraction_cam.update(queue, self.target, eye, world_matrix);
 
         let view = Matrix4::look_at(Point3::new(eye.x, -eye.y, eye.z), self.target, -Vector3::unit_y());
-        let world_matrix = proj * view;
-
-        self.reflection_cam.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
-        self.reflection_cam.uniforms.data.look_at = self.target.into();
-        self.reflection_cam.uniforms.data.eye_pos = eye.into();
-        self.reflection_cam.uniforms.data.view_proj = (world_matrix).into();
-        self.reflection_cam.uniforms.data.clip = vec4(0.0, 1.0, 0.0, 1.0).into();
-        queue.write_buffer(
-            &self.reflection_cam.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.reflection_cam.uniforms.data]),
-        );
+        self.reflection_cam.update(queue, self.target, eye, proj * view);
     }
 }

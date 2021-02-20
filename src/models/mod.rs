@@ -83,7 +83,7 @@ impl Models {
     pub fn get_render_bundle(
         &mut self,
         device: &wgpu::Device,
-        camera: &camera::Camera,
+        camera: &camera::camera::Camera,
     ) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
@@ -112,7 +112,7 @@ impl Models {
 }
 
 
-fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut model::Model) -> usize {
+fn cull_frustum(device: &wgpu::Device, camera: &camera::camera::Camera, model: &mut model::Model) -> usize {
     let instances = model
         .instances
         .data

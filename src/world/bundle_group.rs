@@ -8,7 +8,7 @@ pub struct BundleGroup {
 }
 
 impl BundleGroup {
-    pub fn new(device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::Camera, root_node: &node::Node) -> Self {
+    pub fn new(device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::camera::Camera, root_node: &node::Node) -> Self {
         let terrain_bundle = get_terrain_bundle(device, &camera, &mut world_data.terrain, &root_node);
         let water_bundle = get_water_bundle(device, &camera, &mut world_data.water, &root_node);
         let models_bundle = world_data.models.get_render_bundle(device, &camera);
@@ -20,7 +20,7 @@ impl BundleGroup {
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::Camera, root_node: &node::Node) {
+    pub fn update(&mut self, device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::camera::Camera, root_node: &node::Node) {
         self.models_bundle = world_data.models.get_render_bundle(device, &camera);
         self.water_bundle = get_water_bundle(device, &camera, &mut world_data.water, &root_node);
         self.terrain_bundle = get_terrain_bundle(device, &camera, &mut world_data.terrain, &root_node);
@@ -29,7 +29,7 @@ impl BundleGroup {
 
 fn get_terrain_bundle(
     device: &wgpu::Device,
-    camera: &camera::Camera,
+    camera: &camera::camera::Camera,
     terrain: &mut terrain::Terrain,
     root_node: &node::Node,
 ) -> wgpu::RenderBundle {
@@ -60,7 +60,7 @@ fn get_terrain_bundle(
 
 fn get_water_bundle(
     device: &wgpu::Device,
-    camera: &camera::Camera,
+    camera: &camera::camera::Camera,
     water: &mut water::Water,
     root_node: &node::Node,
 ) -> wgpu::RenderBundle {

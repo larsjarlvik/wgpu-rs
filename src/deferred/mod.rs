@@ -88,7 +88,7 @@ impl DeferredRender {
         }
     }
 
-    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Camera) -> wgpu::RenderBundle {
+    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::camera::Camera) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],

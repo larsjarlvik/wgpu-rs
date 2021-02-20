@@ -47,7 +47,7 @@ impl Node {
         node
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::camera::Camera) {
         let distance = vec2(self.x, self.z).distance(vec2(camera.uniforms.data.look_at[0], camera.uniforms.data.look_at[2])) - self.radius;
         if distance > camera.z_far_range {
             self.delete_node(world);
@@ -152,7 +152,7 @@ impl Node {
             .collect::<HashMap<String, models::data::Instance>>()
     }
 
-    pub fn get_nodes(&self, camera: &camera::Camera, lod: u32) -> Vec<(&NodeData, ConnectType)> {
+    pub fn get_nodes(&self, camera: &camera::camera::Camera, lod: u32) -> Vec<(&NodeData, ConnectType)> {
         if self.check_frustum(camera) {
             match &self.data {
                 Some(t) => {
@@ -170,7 +170,7 @@ impl Node {
         }
     }
 
-    fn check_frustum(&self, camera: &camera::Camera) -> bool {
+    fn check_frustum(&self, camera: &camera::camera::Camera) -> bool {
         let half_size = self.size / 2.0;
         let min = Point3::new(self.x - half_size, -100.0, self.z - half_size);
         let max = Point3::new(self.x + half_size, 100.0, self.z + half_size);

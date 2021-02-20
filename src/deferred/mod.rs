@@ -1,5 +1,3 @@
-use wgpu::BindGroup;
-
 use crate::{camera, settings};
 pub mod textures;
 mod uniforms;
@@ -35,11 +33,7 @@ impl DeferredRender {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("deferred_pipeline_layout"),
-            bind_group_layouts: &[
-                &texture_bind_group_layout,
-                &uniform_bind_group_layout,
-                &cameras.bind_group_layout,
-            ],
+            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &cameras.bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -110,7 +104,13 @@ impl DeferredRender {
         encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("deferred") })
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView, render_bundle: &wgpu::RenderBundle) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        color_target: &wgpu::TextureView,
+        depth_target: &wgpu::TextureView,
+        render_bundle: &wgpu::RenderBundle,
+    ) {
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,

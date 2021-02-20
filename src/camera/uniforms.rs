@@ -1,4 +1,4 @@
-use wgpu::{BindGroup, util::DeviceExt};
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -34,10 +34,6 @@ impl UniformBuffer {
             }],
         });
 
-        Self {
-            data,
-            buffer,
-            bind_group,
-        }
+        Self { data, buffer, bind_group }
     }
 }

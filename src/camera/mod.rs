@@ -125,6 +125,9 @@ impl Cameras {
     pub fn resize(&mut self, swap_chain_desc: &wgpu::SwapChainDescriptor) {
         self.width = swap_chain_desc.width as f32;
         self.height = swap_chain_desc.height as f32;
+        self.eye_cam.uniforms.data.viewport_size = vec2(self.width, self.height).into();
+        self.refraction_cam.uniforms.data.viewport_size = vec2(self.width, self.height).into();
+        self.reflection_cam.uniforms.data.viewport_size = vec2(self.width, self.height).into();
     }
 
     pub fn update_camera(&mut self, queue: &wgpu::Queue, input: &input::Input, frame_time: f32) {
@@ -159,15 +162,22 @@ impl Cameras {
         self.eye_cam.uniforms.data.eye_pos = eye.into();
         self.eye_cam.uniforms.data.view_proj = (world_matrix).into();
         self.eye_cam.uniforms.data.clip = vec4(0.0, 1.0, 0.0, 1.0).into();
-        queue.write_buffer(&self.eye_cam.uniforms.buffer, 0, bytemuck::cast_slice(&[self.eye_cam.uniforms.data]));
+        queue.write_buffer(
+            &self.eye_cam.uniforms.buffer,
+            0,
+            bytemuck::cast_slice(&[self.eye_cam.uniforms.data]),
+        );
 
         self.refraction_cam.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
         self.refraction_cam.uniforms.data.look_at = self.target.into();
         self.refraction_cam.uniforms.data.eye_pos = eye.into();
         self.refraction_cam.uniforms.data.view_proj = (world_matrix).into();
-        self.refraction_cam.uniforms.data.clip = vec4(0.0, -1.0, 0.0, -1.0).into();
-        queue.write_buffer(&self.eye_cam.uniforms.buffer, 0, bytemuck::cast_slice(&[self.eye_cam.uniforms.data]));
-
+        self.refraction_cam.uniforms.data.clip = vec4(0.0, -1.0, 0.0, 1.0).into();
+        queue.write_buffer(
+            &self.refraction_cam.uniforms.buffer,
+            0,
+            bytemuck::cast_slice(&[self.refraction_cam.uniforms.data]),
+        );
 
         let view = Matrix4::look_at(Point3::new(eye.x, -eye.y, eye.z), self.target, -Vector3::unit_y());
         let world_matrix = proj * view;
@@ -177,6 +187,10 @@ impl Cameras {
         self.reflection_cam.uniforms.data.eye_pos = eye.into();
         self.reflection_cam.uniforms.data.view_proj = (world_matrix).into();
         self.reflection_cam.uniforms.data.clip = vec4(0.0, 1.0, 0.0, 1.0).into();
-        queue.write_buffer(&self.eye_cam.uniforms.buffer, 0, bytemuck::cast_slice(&[self.eye_cam.uniforms.data]));
+        queue.write_buffer(
+            &self.reflection_cam.uniforms.buffer,
+            0,
+            bytemuck::cast_slice(&[self.reflection_cam.uniforms.data]),
+        );
     }
 }

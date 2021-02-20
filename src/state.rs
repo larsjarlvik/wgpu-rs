@@ -37,7 +37,9 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
+                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY
+                        | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     limits: wgpu::Limits::default(),
                 },
                 None,
@@ -119,35 +121,49 @@ impl State {
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
 
-        // Water reflection pass
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            self.world.update_bundle(&self.device, &self.cameras.refraction_cam);
-            self.world.render(&mut encoder, &self.deferred_render.target, true);
+            // Water reflection pass
+            self.world
+                .render(&mut encoder, &self.deferred_render.target, &self.world.reflection_bundle);
 
             let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
-            self.deferred_render.render(&mut encoder, &self.world.data.water.reflection_texture_view, &self.world.data.water.reflection_depth_texture_view, &deferred_bundle);
-        }
-        self.queue.submit(std::iter::once(encoder.finish()));
+            self.deferred_render.render(
+                &mut encoder,
+                &self.world.data.water.reflection_texture_view,
+                &self.world.data.water.reflection_depth_texture_view,
+                &deferred_bundle,
+            );
 
-        // Water refraction pass
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
-        {
-            self.world.update_bundle(&self.device, &self.cameras.reflection_cam);
-            self.world.render(&mut encoder, &self.deferred_render.target, false);
+            // Water refraction pass
+            self.world
+                .render(&mut encoder, &self.deferred_render.target, &self.world.refraction_bundle);
             let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
-            self.deferred_render.render(&mut encoder, &self.world.data.water.refraction_texture_view, &self.world.data.water.refraction_depth_texture_view, &deferred_bundle);
-        }
-        self.queue.submit(std::iter::once(encoder.finish()));
+            self.deferred_render.render(
+                &mut encoder,
+                &self.world.data.water.refraction_texture_view,
+                &self.world.data.water.refraction_depth_texture_view,
+                &deferred_bundle,
+            );
 
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("main") });
-        {
             // Main render pass
-            self.world.update_bundle(&self.device, &self.cameras.eye_cam);
-            self.world.render(&mut encoder, &self.deferred_render.target, true);
+            self.world
+                .render(&mut encoder, &self.deferred_render.target, &self.world.eye_bundle);
             let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
-            self.deferred_render.render(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view, &deferred_bundle);
-            self.world.render_water(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
+            self.deferred_render.render(
+                &mut encoder,
+                &self.fxaa.texture_view,
+                &self.fxaa.depth_texture_view,
+                &deferred_bundle,
+            );
+            self.world.render_water(
+                &mut encoder,
+                &self.fxaa.texture_view,
+                &self.fxaa.depth_texture_view,
+                &self.world.eye_bundle,
+            );
 
             // Post processing
             self.fxaa.render(&mut encoder, &frame.view);

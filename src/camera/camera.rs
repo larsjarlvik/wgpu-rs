@@ -1,5 +1,5 @@
-use cgmath::*;
 use super::{frustum, uniforms};
+use cgmath::*;
 
 pub struct Camera {
     pub uniforms: uniforms::UniformBuffer,
@@ -8,7 +8,15 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(device: &wgpu::Device, bind_group_layout: &wgpu::BindGroupLayout, width: f32, height: f32, z_near: f32, z_far: f32, clip: [f32; 4]) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        bind_group_layout: &wgpu::BindGroupLayout,
+        width: f32,
+        height: f32,
+        z_near: f32,
+        z_far: f32,
+        clip: [f32; 4],
+    ) -> Self {
         let z_far_range = num_traits::Float::sqrt(z_far * z_far + z_far * z_far);
         let frustum = frustum::FrustumCuller::new();
 
@@ -36,11 +44,7 @@ impl Camera {
         self.uniforms.data.look_at = target.into();
         self.uniforms.data.eye_pos = eye.into();
         self.uniforms.data.view_proj = (world_matrix).into();
-        queue.write_buffer(
-            &self.uniforms.buffer,
-            0,
-            bytemuck::cast_slice(&[self.uniforms.data]),
-        );
 
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 }

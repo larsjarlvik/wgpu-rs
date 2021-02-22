@@ -1,10 +1,10 @@
 use crate::input;
 use cgmath::*;
 use winit::event::VirtualKeyCode;
+pub mod camera;
 mod controller;
 pub mod frustum;
 mod uniforms;
-pub mod camera;
 
 pub struct Cameras {
     controller: controller::CameraController,

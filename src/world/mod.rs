@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{camera, deferred, models, noise, settings};
+use crate::{camera, models, noise, settings};
 use cgmath::{vec2, Vector2};
 mod assets;
 mod bundle_group;
@@ -46,9 +46,16 @@ impl World {
             models,
         };
 
-        let eye_bundle = bundle_group::BundleGroup::new(device, &mut data, &cameras.eye_cam, &root_node);
-        let refraction_bundle = bundle_group::BundleGroup::new(device, &mut data, &cameras.refraction_cam, &root_node);
-        let reflection_bundle = bundle_group::BundleGroup::new(device, &mut data, &cameras.reflection_cam, &root_node);
+        let eye_bundle = bundle_group::BundleGroup::new()
+            .with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node)
+            .with_water_bundle(device, &mut data, &cameras.eye_cam, &root_node)
+            .with_models_bundle(device, &mut data, &cameras.eye_cam);
+
+        let refraction_bundle = bundle_group::BundleGroup::new().with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node);
+
+        let reflection_bundle = bundle_group::BundleGroup::new()
+            .with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node)
+            .with_models_bundle(device, &mut data, &cameras.eye_cam);
 
         Self {
             data,
@@ -71,70 +78,6 @@ impl World {
 
     pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) {
         self.data.water = water::Water::new(device, swap_chain_desc, cameras, &self.data.noise);
-    }
-
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures, bundles: &bundle_group::BundleGroup) {
-        let ops = wgpu::Operations {
-            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-            store: true,
-        };
-
-        let bundles = vec![&bundles.terrain_bundle, &bundles.models_bundle];
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.normals_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.base_color_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                ],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &target.depth_texture_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(bundles.into_iter());
-    }
-
-    pub fn render_water(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::TextureView,
-        depth_target: &wgpu::TextureView,
-        bundles: &bundle_group::BundleGroup,
-    ) {
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &target,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &depth_target,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(std::iter::once(&bundles.water_bundle));
     }
 }
 

@@ -125,11 +125,10 @@ impl State {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            // Water reflection pass
-            self.world
-                .render(&mut encoder, &self.deferred_render.target, &self.world.reflection_bundle);
+            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.eye_cam);
 
-            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
+            // Water reflection pass
+            self.world.reflection_bundle.render(&mut encoder, &self.deferred_render.target);
             self.deferred_render.render(
                 &mut encoder,
                 &self.world.data.water.reflection_texture_view,
@@ -138,9 +137,7 @@ impl State {
             );
 
             // Water refraction pass
-            self.world
-                .render(&mut encoder, &self.deferred_render.target, &self.world.refraction_bundle);
-            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
+            self.world.refraction_bundle.render(&mut encoder, &self.deferred_render.target);
             self.deferred_render.render(
                 &mut encoder,
                 &self.world.data.water.refraction_texture_view,
@@ -149,21 +146,16 @@ impl State {
             );
 
             // Main render pass
-            self.world
-                .render(&mut encoder, &self.deferred_render.target, &self.world.eye_bundle);
-            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.refraction_cam);
+            self.world.eye_bundle.render(&mut encoder, &self.deferred_render.target);
             self.deferred_render.render(
                 &mut encoder,
                 &self.fxaa.texture_view,
                 &self.fxaa.depth_texture_view,
                 &deferred_bundle,
             );
-            self.world.render_water(
-                &mut encoder,
-                &self.fxaa.texture_view,
-                &self.fxaa.depth_texture_view,
-                &self.world.eye_bundle,
-            );
+            self.world
+                .eye_bundle
+                .render_water(&mut encoder, &self.fxaa.texture_view, &self.fxaa.depth_texture_view);
 
             // Post processing
             self.fxaa.render(&mut encoder, &frame.view);

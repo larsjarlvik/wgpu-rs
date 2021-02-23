@@ -1,18 +1,19 @@
-use crate::{settings, texture};
+use crate::{camera, settings, texture};
 mod data;
 
-pub struct Fxaa {
+pub struct Sky {
     pub render_bundle: wgpu::RenderBundle,
     pub texture_view: wgpu::TextureView,
+    pub depth_texture_view: wgpu::TextureView,
 }
 
-impl Fxaa {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+impl Sky {
+    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
+                visibility: wgpu::ShaderStage::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -25,9 +26,10 @@ impl Fxaa {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
-                texture::create_bind_group_layout(0, wgpu::TextureSampleType::Uint),
+                texture::create_bind_group_layout(0, wgpu::TextureSampleType::Depth),
+                texture::create_bind_group_layout(1, wgpu::TextureSampleType::Uint),
                 wgpu::BindGroupLayoutEntry {
-                    binding: 1,
+                    binding: 2,
                     visibility: wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
                     count: None,
@@ -51,29 +53,31 @@ impl Fxaa {
         };
         let texture = device.create_texture(frame_descriptor);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let depth_texture_view = texture::create_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
         let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Linear);
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("texture_array"),
+            label: Some("texture_bind_group"),
             layout: &texture_bind_group_layout,
             entries: &[
-                texture::create_bind_group_entry(0, &texture_view),
+                texture::create_bind_group_entry(0, &depth_texture_view),
+                texture::create_bind_group_entry(1, &texture_view),
                 wgpu::BindGroupEntry {
-                    binding: 1,
+                    binding: 2,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
         });
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("fxaa_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
+            label: Some("sky_pipeline_layout"),
+            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &cameras.bind_group_layout],
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/fxaa.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/fxaa.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/sky.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/sky.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("fxaa_pipeline"),
+            label: Some("sky_pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vs_module,
@@ -99,15 +103,16 @@ impl Fxaa {
             &device,
             &uniform_bind_group_layout,
             data::Uniforms {
-                resolution: [swap_chain_desc.width as f32, swap_chain_desc.height as f32],
+                light_dir: [0.5, -1.0, 0.0],
             },
         );
 
-        let render_bundle = create_bundle(&device, &render_pipeline, &texture_bind_group, &uniforms.bind_group);
+        let render_bundle = create_bundle(&device, &render_pipeline, &texture_bind_group, &uniforms.bind_group, &cameras.eye_cam);
 
         Self {
             render_bundle,
             texture_view,
+            depth_texture_view,
         }
     }
 
@@ -134,6 +139,7 @@ pub fn create_bundle(
     render_pipeline: &wgpu::RenderPipeline,
     texture_bind_group: &wgpu::BindGroup,
     uniform_bind_group: &wgpu::BindGroup,
+    camera: &camera::camera::Camera,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
@@ -145,6 +151,7 @@ pub fn create_bundle(
     encoder.set_pipeline(&render_pipeline);
     encoder.set_bind_group(0, &texture_bind_group, &[]);
     encoder.set_bind_group(1, &uniform_bind_group, &[]);
+    encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
     encoder.draw(0..6, 0..1);
-    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("fxaa") })
+    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("sky") })
 }

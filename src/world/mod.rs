@@ -7,12 +7,14 @@ mod bundle_group;
 mod node;
 mod terrain;
 mod water;
+mod sky;
 
 pub struct WorldData {
-    terrain: terrain::Terrain,
+    pub terrain: terrain::Terrain,
     pub water: water::Water,
-    noise: noise::Noise,
+    pub noise: noise::Noise,
     pub models: models::Models,
+    pub sky: sky::Sky,
 }
 
 pub struct World {
@@ -39,11 +41,13 @@ impl World {
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
         let terrain = terrain::Terrain::new(device, queue, &cameras, &noise);
         let water = water::Water::new(device, swap_chain_desc, &cameras, &noise);
+        let sky = sky::Sky::new(device, swap_chain_desc, &cameras);
         let mut data = WorldData {
             terrain,
             water,
             noise,
             models,
+            sky,
         };
 
         let eye_bundle = bundle_group::BundleGroup::new()
@@ -78,6 +82,7 @@ impl World {
 
     pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) {
         self.data.water = water::Water::new(device, swap_chain_desc, cameras, &self.data.noise);
+        self.data.sky = sky::Sky::new(device, swap_chain_desc, cameras);
     }
 }
 

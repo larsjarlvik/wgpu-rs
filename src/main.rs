@@ -1,5 +1,4 @@
 use std::time::Instant;
-
 use futures::executor::block_on;
 use winit::{
     event::*,
@@ -18,7 +17,13 @@ mod state;
 mod texture;
 mod world;
 mod plane;
+mod logger;
 pub use state::*;
+
+fn exit(control_flow: &mut ControlFlow) {
+    logger::print();
+    *control_flow = ControlFlow::Exit
+}
 
 fn main() {
     env_logger::init();
@@ -39,7 +44,10 @@ fn main() {
             }
         }
         Event::RedrawRequested(_) => {
-            state.update();
+            logger::measure_time("Update", || {
+                state.update();
+            });
+
             match state.render() {
                 Ok(_) => {}
                 Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
@@ -57,13 +65,13 @@ fn main() {
             window.request_redraw();
         }
         Event::WindowEvent { ref event, window_id } if window_id == window.id() => match event {
-            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+            WindowEvent::CloseRequested => exit(control_flow),
             WindowEvent::KeyboardInput { input, .. } => match input {
                 KeyboardInput {
                     state: ElementState::Pressed,
                     virtual_keycode: Some(VirtualKeyCode::Escape),
                     ..
-                } => *control_flow = ControlFlow::Exit,
+                } => exit(control_flow),
                 KeyboardInput {
                     state: ElementState::Pressed,
                     virtual_keycode: Some(VirtualKeyCode::F),

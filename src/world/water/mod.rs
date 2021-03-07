@@ -2,6 +2,7 @@ use crate::{camera, noise, plane, settings, texture};
 use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
 mod uniforms;
+pub mod bundle;
 
 pub struct Water {
     pub plane: plane::Plane,

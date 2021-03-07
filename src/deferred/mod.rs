@@ -104,6 +104,39 @@ impl DeferredRender {
         encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("deferred") })
     }
 
+    pub fn render_to(&self, encoder: &mut wgpu::CommandEncoder, bundles: Vec<&wgpu::RenderBundle>) {
+        let ops = wgpu::Operations {
+            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+            store: true,
+        };
+
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("models_render_pass"),
+                color_attachments: &[
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &self.target.normals_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &self.target.base_color_texture_view,
+                        resolve_target: None,
+                        ops,
+                    },
+                ],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.target.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            })
+            .execute_bundles(bundles.into_iter());
+    }
+
     pub fn render(
         &self,
         encoder: &mut wgpu::CommandEncoder,

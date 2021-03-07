@@ -27,17 +27,15 @@ layout(set=0, binding=0) uniform Camera {
     vec2 u_viewport_size;
 };
 
-// TODO: Uniforms
-vec3 u_light_dir = vec3(0.5, -1.0, 0.0);
-float u_ambient_strength = 0.3;
-vec3 u_light_color = vec3(1.0, 0.9, 0.5);
-float u_light_intensity = 1.0;
-
-#include "include/light.glsl"
-
 layout(set=1, binding=0) uniform Uniforms {
+    vec3 u_light_dir;
+    float u_ambient_strength;
+    vec3 u_light_color;
+    float u_light_intensity;
     float u_time;
 };
+
+#include "include/light.glsl"
 
 float get_wave(vec2 xz) {
     vec2 offset1 = vec2(1.0, 0.5) * u_time * 0.000932;
@@ -77,7 +75,7 @@ void main() {
     vec3 view_dir = normalize(u_eye_pos - v_position.xyz);
 
     float fresnel = pow(dot(view_dir, vec3(0.0, 1.0, 0.0)), 1.2);
-    vec3 water_color = mix(mix(reflection * light, SURFACE_COLOR, 0.3), refraction, clamp(fresnel, 0.25, 1.0));
+    vec3 water_color = mix(mix(reflection * light, SURFACE_COLOR, 0.6), refraction, clamp(fresnel, 0.25, 0.75));
     water_color = clamp(water_color, 0.0, 1.0);
     water_color = mix(ground, water_color, clamp(depth * 10.0, 0.0, 1.0));
 

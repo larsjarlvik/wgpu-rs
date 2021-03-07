@@ -10,6 +10,7 @@ pub struct Uniforms {
     pub z_far: f32,
     pub clip: [f32; 4],
     pub viewport_size: [f32; 2],
+    pub multiply_y: f32,
 }
 pub struct UniformBuffer {
     pub data: Uniforms,

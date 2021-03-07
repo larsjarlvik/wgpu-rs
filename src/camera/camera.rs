@@ -16,6 +16,7 @@ impl Camera {
         z_near: f32,
         z_far: f32,
         clip: [f32; 4],
+        multiply_y: f32,
     ) -> Self {
         let z_far_range = num_traits::Float::sqrt(z_far * z_far + z_far * z_far);
         let frustum = frustum::FrustumCuller::new();
@@ -32,6 +33,7 @@ impl Camera {
                     z_far,
                     viewport_size: [width, height],
                     clip,
+                    multiply_y,
                 },
             ),
             frustum,

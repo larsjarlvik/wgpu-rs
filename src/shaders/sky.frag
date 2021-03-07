@@ -1,7 +1,5 @@
 #version 450
 
-const vec3 sky_color = vec3(0.6, 0.8, 0.9);
-
 layout(set = 0, binding = 0) uniform texture2D t_depth_texture;
 layout(set = 0, binding = 1) uniform texture2D t_texture;
 layout(set = 0, binding = 2) uniform sampler t_sampler;
@@ -10,6 +8,8 @@ layout(location=0) out vec4 f_color;
 
 layout(set=1, binding=0) uniform Uniforms {
     vec3 u_light_dir;
+    float u_not_used;
+    vec3 u_sky_color;
 };
 
 layout(set=2, binding=0) uniform Camera {
@@ -20,6 +20,7 @@ layout(set=2, binding=0) uniform Camera {
     float z_far;
     vec4 u_clip;
     vec2 u_viewport_size;
+    float multiply_y;
 };
 
 float linearize_depth(float d) {
@@ -35,11 +36,12 @@ vec3 sky() {
     mat4 proj = u_view_proj;
     proj[3][0] = 0.0; proj[3][1] = 0.0; proj[3][2] = 0.0;
     vec3 ray_dir = normalize(world_pos_from_depth(1.0, gl_FragCoord.xy / u_viewport_size, proj).xyz);
+    ray_dir.y *= multiply_y;
 
     vec3 sun = pow(max(dot(ray_dir, normalize(-u_light_dir)), 0.0) * 0.993, 100.0) * vec3(1, 0.8, 0.3);
     float theta = atan(max(ray_dir.y, 0.0) / length(vec2(ray_dir.x, ray_dir.z)));
     float sky_factor = pow(abs(sin(theta)), 0.5);
-    vec3 sky = sky_factor * sky_color + (1.0 - sky_factor) * vec3(1.0, 1.0, 0.9);
+    vec3 sky = sky_factor * u_sky_color + (1.0 - sky_factor) * vec3(1.0, 1.0, 0.9);
     return pow(sky + sun, vec3(2.2));
 }
 
@@ -50,10 +52,11 @@ void main() {
 
     if (depth < 1.0) {
         float fog = smoothstep(z_far / 4.0, z_far, linearize_depth(depth));
-        f_color = mix(color, vec4(sky_color, 1.0), fog);
+        f_color = mix(color, vec4(u_sky_color, 1.0), fog);
     } else {
         f_color = vec4(sky(), 1.0);
     }
+
 
     gl_FragDepth = depth;
 }

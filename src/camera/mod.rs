@@ -45,9 +45,9 @@ impl Cameras {
             }],
         });
 
-        let eye_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0]);
-        let reflection_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0]);
-        let refraction_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, -1.0, 0.0, 1.0]);
+        let eye_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0], 1.0);
+        let reflection_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0], -1.0);
+        let refraction_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, -1.0, 0.0, 1.0], 1.0);
 
         Cameras {
             controller,

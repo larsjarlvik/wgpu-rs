@@ -5,9 +5,9 @@ use cgmath::{vec2, Vector2};
 mod assets;
 mod bundle_group;
 mod node;
+mod sky;
 mod terrain;
 mod water;
-mod sky;
 
 pub struct WorldData {
     pub terrain: terrain::Terrain,
@@ -53,13 +53,15 @@ impl World {
         let eye_bundle = bundle_group::BundleGroup::new()
             .with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node)
             .with_water_bundle(device, &mut data, &cameras.eye_cam, &root_node)
-            .with_models_bundle(device, &mut data, &cameras.eye_cam);
+            .with_models_bundle(device, &mut data, &cameras.eye_cam)
+            .with_sky_bundle(device, &mut data, &cameras.eye_cam);
 
         let refraction_bundle = bundle_group::BundleGroup::new().with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node);
 
         let reflection_bundle = bundle_group::BundleGroup::new()
             .with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node)
-            .with_models_bundle(device, &mut data, &cameras.eye_cam);
+            .with_models_bundle(device, &mut data, &cameras.eye_cam)
+            .with_sky_bundle(device, &mut data, &cameras.eye_cam);
 
         Self {
             data,
@@ -83,6 +85,9 @@ impl World {
     pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) {
         self.data.water = water::Water::new(device, swap_chain_desc, cameras, &self.data.noise);
         self.data.sky = sky::Sky::new(device, swap_chain_desc, cameras);
+        self.eye_bundle.resize(device, &mut self.data, &cameras.eye_cam);
+        self.refraction_bundle.resize(device, &mut self.data, &cameras.refraction_cam);
+        self.reflection_bundle.resize(device, &mut self.data, &cameras.reflection_cam);
     }
 }
 

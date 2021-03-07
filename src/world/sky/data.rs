@@ -4,6 +4,8 @@ use wgpu::util::DeviceExt;
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
     pub light_dir: [f32; 3],
+    pub not_used: f32,
+    pub sky_color: [f32; 3],
 }
 
 pub struct UniformBuffer {

@@ -135,7 +135,9 @@ impl State {
                 &self.world.data.sky.depth_texture_view,
                 &deferred_bundle,
             );
-            self.world.data.sky.render(&mut encoder, &self.world.data.water.reflection_texture_view);
+            self.world
+                .reflection_bundle
+                .render_sky(&mut encoder, &self.world.data.water.reflection_texture_view);
 
             // Water refraction pass
             self.world.refraction_bundle.render(&mut encoder, &self.deferred_render.target);
@@ -154,12 +156,14 @@ impl State {
                 &self.world.data.sky.depth_texture_view,
                 &deferred_bundle,
             );
-            self.world
-                .eye_bundle
-                .render_water(&mut encoder, &self.world.data.sky.texture_view, &self.world.data.sky.depth_texture_view);
+            self.world.eye_bundle.render_water(
+                &mut encoder,
+                &self.world.data.sky.texture_view,
+                &self.world.data.sky.depth_texture_view,
+            );
 
             // Post processing
-            self.world.data.sky.render(&mut encoder, &self.fxaa.texture_view);
+            self.world.eye_bundle.render_sky(&mut encoder, &self.fxaa.texture_view);
             self.fxaa.render(&mut encoder, &frame.view);
         }
         self.queue.submit(std::iter::once(encoder.finish()));

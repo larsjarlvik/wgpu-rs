@@ -5,6 +5,7 @@ pub struct BundleGroup {
     pub terrain: Option<wgpu::RenderBundle>,
     pub water: Option<wgpu::RenderBundle>,
     pub models: Option<wgpu::RenderBundle>,
+    pub sky: Option<wgpu::RenderBundle>,
 }
 
 impl BundleGroup {
@@ -13,6 +14,7 @@ impl BundleGroup {
             terrain: None,
             water: None,
             models: None,
+            sky: None,
         }
     }
 
@@ -43,6 +45,11 @@ impl BundleGroup {
         self
     }
 
+    pub fn with_sky_bundle(mut self, device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::camera::Camera) -> Self {
+        self.sky = Some(world_data.sky.get_render_bundle(device, &camera));
+        self
+    }
+
     pub fn update(&mut self, device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::camera::Camera, root_node: &node::Node) {
         if self.terrain.is_some() {
             self.terrain = Some(get_terrain_bundle(device, &camera, &mut world_data.terrain, &root_node));
@@ -52,6 +59,12 @@ impl BundleGroup {
         }
         if self.models.is_some() {
             self.models = Some(world_data.models.get_render_bundle(device, &camera));
+        }
+    }
+
+    pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, camera: &camera::camera::Camera) {
+        if self.sky.is_some() {
+            self.sky = Some(world_data.sky.get_render_bundle(device, &camera));
         }
     }
 
@@ -120,6 +133,23 @@ impl BundleGroup {
                 })
                 .execute_bundles(std::iter::once(self.water.as_ref().unwrap()));
         }
+    }
+
+    pub fn render_sky(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            })
+            .execute_bundles(std::iter::once(self.sky.as_ref().unwrap()));
     }
 }
 

@@ -2,7 +2,9 @@ use crate::{camera, settings, texture};
 mod data;
 
 pub struct Sky {
-    pub render_bundle: wgpu::RenderBundle,
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub texture_bind_group: wgpu::BindGroup,
+    pub uniforms: data::UniformBuffer,
     pub texture_view: wgpu::TextureView,
     pub depth_texture_view: wgpu::TextureView,
 }
@@ -31,7 +33,10 @@ impl Sky {
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                        filtering: false,
+                    },
                     count: None,
                 },
             ],
@@ -103,34 +108,29 @@ impl Sky {
             &device,
             &uniform_bind_group_layout,
             data::Uniforms {
-                light_dir: [0.5, -1.0, 0.0],
+                light_dir: settings::LIGHT_DIR,
+                not_used: 0.0,
+                sky_color: settings::SKY_COLOR,
             },
         );
 
-        let render_bundle = create_bundle(&device, &render_pipeline, &texture_bind_group, &uniforms.bind_group, &cameras.eye_cam);
-
         Self {
-            render_bundle,
+            render_pipeline,
+            texture_bind_group,
+            uniforms,
             texture_view,
             depth_texture_view,
         }
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: target,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            })
-            .execute_bundles(std::iter::once(&self.render_bundle));
+    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::camera::Camera) -> wgpu::RenderBundle {
+        create_bundle(
+            &device,
+            &self.render_pipeline,
+            &self.texture_bind_group,
+            &self.uniforms.bind_group,
+            &camera,
+        )
     }
 }
 

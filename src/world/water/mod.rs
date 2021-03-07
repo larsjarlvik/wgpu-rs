@@ -17,9 +17,23 @@ pub struct Water {
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras, noise: &noise::Noise) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        swap_chain_desc: &wgpu::SwapChainDescriptor,
+        cameras: &camera::Cameras,
+        noise: &noise::Noise,
+    ) -> Self {
         let noise_bindings = noise.create_bindings(device);
-        let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
+        let uniforms = uniforms::UniformBuffer::new(
+            &device,
+            uniforms::Uniforms {
+                light_color: settings::LIGHT_COLOR,
+                ambient_strength: settings::LIGHT_AMBIENT,
+                light_dir: settings::LIGHT_DIR,
+                light_intensity: settings::LIGHT_INTENSITY,
+                time: 0.0,
+            },
+        );
         let plane = plane::Plane::new(settings::TILE_SIZE);
         let mut lods = vec![];
 
@@ -29,7 +43,7 @@ impl Water {
         }
 
         // Textures
-        let sampler =  texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
+        let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
         let refraction_texture_view = texture::create_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
         let refraction_depth_texture_view = texture::create_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
         let reflection_texture_view = texture::create_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
@@ -44,7 +58,10 @@ impl Water {
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                        filtering: false,
+                    },
                     count: None,
                 },
             ],

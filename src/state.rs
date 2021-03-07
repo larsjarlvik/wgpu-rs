@@ -125,53 +125,7 @@ impl State {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            let deferred_bundle = self.deferred_render.get_render_bundle(&self.device, &self.cameras.eye_cam);
-
-            // Water reflection pass
-            self.deferred_render.render_to(&mut encoder, vec![
-                &self.world.reflection_bundle.terrain.as_ref().unwrap().render_bundle,
-                &self.world.reflection_bundle.models.as_ref().unwrap().render_bundle
-            ]);
-            self.deferred_render.render(
-                &mut encoder,
-                &self.world.data.sky.texture_view,
-                &self.world.data.sky.depth_texture_view,
-                &deferred_bundle,
-            );
-            self.world
-                .reflection_bundle
-                .sky.as_ref().unwrap().render(&mut encoder, &self.world.data.water.reflection_texture_view);
-
-            // Water refraction pass
-            self.deferred_render.render_to(&mut encoder, vec![
-                &self.world.refraction_bundle.terrain.as_ref().unwrap().render_bundle,
-            ]);
-            self.deferred_render.render(
-                &mut encoder,
-                &self.world.data.water.refraction_texture_view,
-                &self.world.data.water.refraction_depth_texture_view,
-                &deferred_bundle,
-            );
-
-            // Main render pass
-            self.deferred_render.render_to(&mut encoder, vec![
-                &self.world.eye_bundle.terrain.as_ref().unwrap().render_bundle,
-                &self.world.eye_bundle.models.as_ref().unwrap().render_bundle
-            ]);
-            self.deferred_render.render(
-                &mut encoder,
-                &self.world.data.sky.texture_view,
-                &self.world.data.sky.depth_texture_view,
-                &deferred_bundle,
-            );
-            self.world.eye_bundle.water.as_ref().unwrap().render(
-                &mut encoder,
-                &self.world.data.sky.texture_view,
-                &self.world.data.sky.depth_texture_view,
-            );
-
-            // Post processing
-            self.world.eye_bundle.sky.as_ref().unwrap().render(&mut encoder, &self.fxaa.texture_view);
+            self.world.render(&mut encoder, &self.deferred_render, &self.fxaa.texture_view);
             self.fxaa.render(&mut encoder, &frame.view);
         }
         self.queue.submit(std::iter::once(encoder.finish()));

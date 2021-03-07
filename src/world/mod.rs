@@ -1,13 +1,13 @@
 use std::time::Instant;
 
-use crate::{camera, models, noise, settings};
+use crate::{camera, deferred, models, noise, settings};
 use cgmath::{vec2, Vector2};
 mod assets;
-mod bundle_group;
 mod node;
 mod sky;
 mod terrain;
 mod water;
+mod bundles;
 
 pub struct WorldData {
     pub terrain: terrain::Terrain,
@@ -20,9 +20,7 @@ pub struct WorldData {
 pub struct World {
     root_node: node::Node,
     pub data: WorldData,
-    pub eye_bundle: bundle_group::BundleGroup,
-    pub refraction_bundle: bundle_group::BundleGroup,
-    pub reflection_bundle: bundle_group::BundleGroup,
+    pub bundles: bundles::Bundles,
 }
 
 impl World {
@@ -50,24 +48,11 @@ impl World {
             sky,
         };
 
-        let eye_bundle = bundle_group::BundleGroup::new()
-            .with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node)
-            .with_water_bundle(device, &mut data, &cameras.eye_cam, &root_node)
-            .with_models_bundle(device, &mut data, &cameras.eye_cam)
-            .with_sky_bundle(device, &mut data, &cameras.eye_cam);
-
-        let refraction_bundle = bundle_group::BundleGroup::new().with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node);
-
-        let reflection_bundle = bundle_group::BundleGroup::new()
-            .with_terrain_bundle(device, &mut data, &cameras.eye_cam, &root_node)
-            .with_models_bundle(device, &mut data, &cameras.eye_cam)
-            .with_sky_bundle(device, &mut data, &cameras.eye_cam);
+        let bundles = bundles::Bundles::new(device, &mut data, cameras, &root_node);
 
         Self {
             data,
-            eye_bundle,
-            refraction_bundle,
-            reflection_bundle,
+            bundles,
             root_node,
         }
     }
@@ -75,19 +60,17 @@ impl World {
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cameras: &camera::Cameras, time: Instant) {
         self.root_node.update(device, queue, &mut self.data, &cameras.eye_cam);
         self.data.water.update(queue, time);
-        self.eye_bundle.update(device, &mut self.data, &cameras.eye_cam, &self.root_node);
-        self.refraction_bundle
-            .update(device, &mut self.data, &cameras.refraction_cam, &self.root_node);
-        self.reflection_bundle
-            .update(device, &mut self.data, &cameras.reflection_cam, &self.root_node);
+        self.bundles.update(device, &mut self.data, cameras, &self.root_node);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) {
         self.data.water = water::Water::new(device, swap_chain_desc, cameras, &self.data.noise);
         self.data.sky = sky::Sky::new(device, swap_chain_desc, cameras);
-        self.eye_bundle.resize(device, &mut self.data, &cameras.eye_cam);
-        self.refraction_bundle.resize(device, &mut self.data, &cameras.refraction_cam);
-        self.reflection_bundle.resize(device, &mut self.data, &cameras.reflection_cam);
+        self.bundles.resize(device, &mut self.data, cameras);
+    }
+
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, target: &wgpu::TextureView) {
+        self.bundles.render(encoder, deferred_render, &self.data, target);
     }
 }
 

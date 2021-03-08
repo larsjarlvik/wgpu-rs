@@ -4,7 +4,7 @@
 #define NOISE_SET 2
 #include "include/noise.glsl"
 
-#define SURFACE_COLOR vec3(0.0078, 0.4176, 0.6)
+#define SURFACE_COLOR vec3(0.236, 0.394, 0.404)
 #define DEPTH_COLOR vec3(0.0039, 0.00196, 0.145)
 #define EXTINCTION vec3(7.0, 30.0, 40.0)
 
@@ -75,7 +75,7 @@ void main() {
     vec3 view_dir = normalize(u_eye_pos - v_position.xyz);
 
     float fresnel = pow(dot(view_dir, vec3(0.0, 1.0, 0.0)), 1.2);
-    vec3 water_color = mix(mix(reflection * light, SURFACE_COLOR, 0.6), refraction, clamp(fresnel, 0.25, 0.75));
+    vec3 water_color = mix(mix(reflection * light, SURFACE_COLOR, 0.6), refraction, clamp(fresnel, 0.0, 0.75));
     water_color = clamp(water_color, 0.0, 1.0);
     water_color = mix(ground, water_color, clamp(depth * 10.0, 0.0, 1.0));
 

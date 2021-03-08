@@ -15,7 +15,7 @@ impl Bundles {
         Self {
             eye: eye::Eye::new(device, world_data, &cameras.eye_cam, root_node),
             refraction: refraction::Refraction::new(device, world_data, &cameras.refraction_cam, root_node),
-            reflection: reflection::Reflection::new(device, world_data, &cameras.refraction_cam, root_node),
+            reflection: reflection::Reflection::new(device, world_data, &cameras.reflection_cam, root_node),
         }
     }
 

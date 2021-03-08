@@ -20,7 +20,6 @@ layout(set=2, binding=0) uniform Camera {
     float z_far;
     vec4 u_clip;
     vec2 u_viewport_size;
-    float multiply_y;
 };
 
 float linearize_depth(float d) {
@@ -36,7 +35,6 @@ vec3 sky() {
     mat4 proj = u_view_proj;
     proj[3][0] = 0.0; proj[3][1] = 0.0; proj[3][2] = 0.0;
     vec3 ray_dir = normalize(world_pos_from_depth(1.0, gl_FragCoord.xy / u_viewport_size, proj).xyz);
-    ray_dir.y *= multiply_y;
 
     vec3 sun = pow(max(dot(ray_dir, normalize(-u_light_dir)), 0.0) * 0.993, 100.0) * vec3(1, 0.8, 0.3);
     float theta = atan(max(ray_dir.y, 0.0) / length(vec2(ray_dir.x, ray_dir.z)));

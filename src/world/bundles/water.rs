@@ -1,26 +1,25 @@
-use super::Water;
-use crate::{camera, settings, world::node};
+use crate::{camera, pipelines, settings, world::node};
 
 pub struct WaterBundle {
     render_bundle: wgpu::RenderBundle,
 }
 
 impl WaterBundle {
-    pub fn new(device: &wgpu::Device, camera: &camera::Instance, water: &Water, root_node: &node::Node) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Instance, pipeline: &pipelines::water::Water, root_node: &node::Node) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: Some("water_bundle"),
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],
             depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
             sample_count: 1,
         });
-        encoder.set_pipeline(&water.render_pipeline);
+        encoder.set_pipeline(&pipeline.render_pipeline);
         encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
-        encoder.set_bind_group(1, &water.uniforms.bind_group, &[]);
-        encoder.set_bind_group(2, &water.noise_bindings.bind_group, &[]);
-        encoder.set_bind_group(3, &water.texture_bind_group, &[]);
+        encoder.set_bind_group(1, &pipeline.uniforms.bind_group, &[]);
+        encoder.set_bind_group(2, &pipeline.noise_bindings.bind_group, &[]);
+        encoder.set_bind_group(3, &pipeline.texture_bind_group, &[]);
 
         for lod in 0..=settings::LODS.len() {
-            let water_lod = water.lods.get(lod).expect("Could not get LOD!");
+            let water_lod = pipeline.lods.get(lod).expect("Could not get LOD!");
 
             for (water, connect_type) in root_node.get_nodes(camera, lod as u32) {
                 let lod_buffer = water_lod.get(&connect_type).unwrap();

@@ -1,42 +1,24 @@
-use crate::{camera::frustum, *};
+use crate::{camera::frustum, pipelines};
 use cgmath::*;
+use model::PrimitiveBuffers;
 use std::collections::HashMap;
-pub mod data;
 mod mesh;
-mod model;
-mod render_pipeline;
-pub mod bundle;
+pub mod model;
+mod primitive;
 
 pub struct Models {
     pub models: HashMap<String, model::Model>,
-    render_pipeline: render_pipeline::RenderPipeline,
-    sampler: wgpu::Sampler,
 }
 
 impl Models {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
-        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &viewport);
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
+    pub fn new() -> Self {
         let models = HashMap::new();
-        Self {
-            sampler,
-            render_pipeline,
-            models,
-        }
+        Self { models }
     }
 
-    pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, name: &str, path: &str) {
+    pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, pipeline: &pipelines::model::Model, name: &str, path: &str) {
         let (gltf, buffers, images) = gltf::import(format!("./res/models/{}", path)).expect("Failed to import GLTF!");
-        let mut primitives: Vec<render_pipeline::PrimitiveBuffers> = vec![];
+        let mut primitives: Vec<PrimitiveBuffers> = vec![];
         let mut bounding_box = frustum::BoundingBox {
             min: Point3::new(0.0, 0.0, 0.0),
             max: Point3::new(0.0, 0.0, 0.0),
@@ -65,11 +47,11 @@ impl Models {
                     bounding_box.max.z = primitive.bounding_box.max[2];
                 }
 
-                &primitives.push(primitive.to_buffers(&device, &self.sampler, &self.render_pipeline));
+                &primitives.push(primitive.to_buffers(&device, &pipeline.sampler, &pipeline));
             }
         }
 
-        let instances = data::InstanceBuffer::new(&device, HashMap::new());
+        let instances = pipelines::model::data::InstanceBuffer::new(&device, HashMap::new());
         self.models.insert(
             name.to_string(),
             model::Model {

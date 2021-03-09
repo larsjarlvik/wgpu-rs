@@ -1,20 +1,24 @@
-use crate::settings;
-use crate::{camera, models::*};
+use crate::*;
+pub mod data;
 
-pub struct PrimitiveBuffers {
-    pub texture_bind_group: wgpu::BindGroup,
-    pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-    pub num_elements: u32,
-}
-
-pub struct RenderPipeline {
+pub struct Model {
+    pub sampler: wgpu::Sampler,
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl RenderPipeline {
+impl Model {
     pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
@@ -31,7 +35,10 @@ impl RenderPipeline {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                        filtering: false,
+                    },
                     count: None,
                 },
             ],
@@ -43,8 +50,8 @@ impl RenderPipeline {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/default.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/default.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/default.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/default.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -75,7 +82,8 @@ impl RenderPipeline {
             multisample: wgpu::MultisampleState::default(),
         });
 
-        RenderPipeline {
+        Self {
+            sampler,
             render_pipeline,
             texture_bind_group_layout,
         }

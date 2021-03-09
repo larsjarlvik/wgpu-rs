@@ -1,13 +1,15 @@
+use crate::{
+    camera::{self, frustum},
+    models, pipelines, settings,
+};
 use wgpu::util::DeviceExt;
-use crate::{camera::{self, frustum}, settings};
-use super::{Models, data, model};
 
 pub struct ModelsBundle {
     pub render_bundle: wgpu::RenderBundle,
 }
 
 impl ModelsBundle {
-    pub fn new(device: &wgpu::Device, camera: &camera::Instance, models: &mut Models) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Instance, pipeline: &pipelines::model::Model, models: &mut models::Models) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
@@ -15,7 +17,7 @@ impl ModelsBundle {
             sample_count: 1,
         });
 
-        encoder.set_pipeline(&models.render_pipeline.render_pipeline);
+        encoder.set_pipeline(&pipeline.render_pipeline);
         encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
         for (_, model) in &mut models.models.iter_mut() {
@@ -31,13 +33,11 @@ impl ModelsBundle {
         }
 
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") });
-        Self {
-            render_bundle,
-        }
+        Self { render_bundle }
     }
 }
 
-fn cull_frustum(device: &wgpu::Device, camera: &camera::Instance, model: &mut model::Model) -> usize {
+fn cull_frustum(device: &wgpu::Device, camera: &camera::Instance, model: &mut models::model::Model) -> usize {
     let instances = model
         .instances
         .data
@@ -50,7 +50,7 @@ fn cull_frustum(device: &wgpu::Device, camera: &camera::Instance, model: &mut mo
         })
         .map(|(transform, _)| *transform);
 
-    let instances = instances.collect::<Vec<data::InstanceData>>();
+    let instances = instances.collect::<Vec<pipelines::model::data::InstanceData>>();
     model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("instance_buffer"),
         contents: bytemuck::cast_slice(&instances),

@@ -1,11 +1,11 @@
 use super::{node, WorldData};
-use crate::{camera, deferred};
+use crate::{camera, pipelines};
 mod eye;
 mod reflection;
 mod refraction;
 
 pub struct Views {
-    deferred_render: deferred::DeferredRender,
+    deferred_render: pipelines::deferred::DeferredRender,
     eye: eye::Eye,
     refraction: refraction::Refraction,
     reflection: reflection::Reflection,
@@ -13,7 +13,7 @@ pub struct Views {
 
 impl Views {
     pub fn new(device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Views {
-        let deferred_render = deferred::DeferredRender::new(&device, &viewport);
+        let deferred_render = pipelines::deferred::DeferredRender::new(&device, &viewport);
         Self {
             eye: eye::Eye::new(device, &deferred_render, world_data, &viewport, root_node),
             refraction: refraction::Refraction::new(device, &deferred_render, world_data, &viewport, root_node),
@@ -36,7 +36,7 @@ impl Views {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport) {
-        self.deferred_render = deferred::DeferredRender::new(&device, &viewport);
+        self.deferred_render = pipelines::deferred::DeferredRender::new(&device, &viewport);
 
         self.eye.resize(device, &self.deferred_render, world_data, viewport);
         self.reflection.resize(device, &self.deferred_render, world_data, viewport);

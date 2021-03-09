@@ -1,11 +1,11 @@
 use crate::{
-    camera, deferred,
-    world::{node, terrain::bundle::TerrainBundle, WorldData},
+    camera, pipelines,
+    world::{bundles, node, WorldData},
 };
 use cgmath::*;
 
 pub struct Refraction {
-    pub terrain: TerrainBundle,
+    pub terrain: bundles::terrain::TerrainBundle,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -13,7 +13,7 @@ pub struct Refraction {
 impl Refraction {
     pub fn new(
         device: &wgpu::Device,
-        deferred_render: &deferred::DeferredRender,
+        deferred_render: &pipelines::deferred::DeferredRender,
         world_data: &mut WorldData,
         viewport: &camera::Viewport,
         root_node: &node::Node,
@@ -22,7 +22,7 @@ impl Refraction {
         let deferred = deferred_render.get_render_bundle(device, &camera);
 
         Self {
-            terrain: TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
+            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
             camera,
             deferred,
         }
@@ -38,15 +38,20 @@ impl Refraction {
     ) {
         let view = Matrix4::look_at(viewport.eye, viewport.target, Vector3::unit_y());
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
-        self.terrain = TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
+        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, deferred_render: &deferred::DeferredRender, viewport: &camera::Viewport) {
+    pub fn resize(&mut self, device: &wgpu::Device, deferred_render: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {
         self.camera.resize(viewport.width, viewport.height);
         self.deferred = deferred_render.get_render_bundle(device, &self.camera);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, world_data: &WorldData) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        deferred_render: &pipelines::deferred::DeferredRender,
+        world_data: &WorldData,
+    ) {
         deferred_render.render_to(encoder, vec![&self.terrain.render_bundle]);
         deferred_render.render(
             encoder,

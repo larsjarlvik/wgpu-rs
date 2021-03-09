@@ -29,17 +29,16 @@ impl Fxaa {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                        filtering: false,
+                    },
                     count: None,
                 },
             ],
         });
 
-        let texture_extent = wgpu::Extent3d {
-            width: width,
-            height: height,
-            depth: 1,
-        };
+        let texture_extent = wgpu::Extent3d { width, height, depth: 1 };
         let frame_descriptor = &wgpu::TextureDescriptor {
             label: None,
             size: texture_extent,
@@ -70,8 +69,8 @@ impl Fxaa {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/fxaa.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/fxaa.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/fxaa.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/fxaa.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("fxaa_pipeline"),
             layout: Some(&render_pipeline_layout),

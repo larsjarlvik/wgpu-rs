@@ -3,7 +3,6 @@ use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{convert::TryInto, num::NonZeroU32};
-pub mod bundle;
 
 pub struct Terrain {
     pub compute: compute::Compute,

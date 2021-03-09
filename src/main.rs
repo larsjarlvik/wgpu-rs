@@ -7,12 +7,11 @@ use winit::{
     window::WindowBuilder,
 };
 mod camera;
-mod deferred;
-mod fxaa;
 mod input;
 mod logger;
 mod models;
 mod noise;
+mod pipelines;
 mod plane;
 mod settings;
 mod state;

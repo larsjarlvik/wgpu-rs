@@ -1,4 +1,4 @@
-use crate::{camera, fxaa, input::Input, world};
+use crate::{camera, input::Input, pipelines, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -9,7 +9,7 @@ pub struct State {
     swap_chain: wgpu::SwapChain,
     pub viewport: camera::Viewport,
     world: world::World,
-    fxaa: fxaa::Fxaa,
+    fxaa: pipelines::fxaa::Fxaa,
     start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
@@ -49,9 +49,7 @@ impl State {
         let swap_chain = viewport.create_swap_chain(&device, &surface);
 
         // Drawing
-        let fxaa = fxaa::Fxaa::new(&device, viewport.width, viewport.height);
-
-        // World
+        let fxaa = pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height);
         let world = world::World::new(&device, &queue, &viewport).await;
 
         Self {
@@ -72,7 +70,7 @@ impl State {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.viewport.resize(new_size.width, new_size.height);
         self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
-        self.fxaa = fxaa::Fxaa::new(&self.device, self.viewport.width, self.viewport.height);
+        self.fxaa = pipelines::fxaa::Fxaa::new(&self.device, self.viewport.width, self.viewport.height);
         self.world.resize(&self.device, &self.viewport);
     }
 

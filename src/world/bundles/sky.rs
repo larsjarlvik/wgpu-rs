@@ -1,12 +1,11 @@
-use super::Sky;
-use crate::{camera, settings};
+use crate::{camera, pipelines, settings};
 
 pub struct SkyBundle {
     render_bundle: wgpu::RenderBundle,
 }
 
 impl SkyBundle {
-    pub fn new(device: &wgpu::Device, camera: &camera::Instance, sky: &Sky) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Instance, pipeline: &pipelines::sky::Sky) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],
@@ -14,9 +13,9 @@ impl SkyBundle {
             sample_count: 1,
         });
 
-        encoder.set_pipeline(&sky.render_pipeline);
-        encoder.set_bind_group(0, &sky.texture_bind_group, &[]);
-        encoder.set_bind_group(1, &sky.uniforms.bind_group, &[]);
+        encoder.set_pipeline(&pipeline.render_pipeline);
+        encoder.set_bind_group(0, &pipeline.texture_bind_group, &[]);
+        encoder.set_bind_group(1, &pipeline.uniforms.bind_group, &[]);
         encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
         encoder.draw(0..6, 0..1);
 

@@ -1,5 +1,4 @@
 use crate::{camera, settings, texture};
-pub mod bundle;
 mod data;
 
 pub struct Sky {

@@ -37,8 +37,8 @@ impl DeferredRender {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/deferred.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../shaders-compiled/deferred.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/deferred.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/deferred.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("deferred_pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -151,11 +151,7 @@ impl DeferredRender {
             .execute_bundles(std::iter::once(render_bundle));
     }
 
-    pub fn get_render_bundle(
-        &self,
-        device: &wgpu::Device,
-        camera: &camera::Instance
-    ) -> wgpu::RenderBundle {
+    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Instance) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],
@@ -171,4 +167,3 @@ impl DeferredRender {
         encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("deferred") })
     }
 }
-

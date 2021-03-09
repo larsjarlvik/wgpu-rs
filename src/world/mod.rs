@@ -1,20 +1,18 @@
-use std::time::Instant;
-
-use crate::{camera, models, noise, settings};
+use crate::{camera, models, noise, pipelines, settings};
 use cgmath::{vec2, Vector2};
+use std::time::Instant;
 mod assets;
+mod bundles;
 mod node;
-mod sky;
-mod terrain;
 mod views;
-mod water;
 
 pub struct WorldData {
-    pub terrain: terrain::Terrain,
-    pub water: water::Water,
+    pub terrain: pipelines::terrain::Terrain,
+    pub water: pipelines::water::Water,
+    pub model: pipelines::model::Model,
+    pub sky: pipelines::sky::Sky,
     pub noise: noise::Noise,
     pub models: models::Models,
-    pub sky: sky::Sky,
 }
 
 pub struct World {
@@ -26,20 +24,23 @@ pub struct World {
 impl World {
     pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let mut models = models::Models::new(&device, &viewport);
+        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
+        let water = pipelines::water::Water::new(device, &viewport, &noise);
+        let sky = pipelines::sky::Sky::new(device, &viewport);
+        let model = pipelines::model::Model::new(device, &viewport);
+
+        let mut models = models::Models::new();
         for asset in assets::ASSETS {
-            models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
+            models.load_model(&device, &queue, &model, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
-        let terrain = terrain::Terrain::new(device, queue, &viewport, &noise);
-        let water = water::Water::new(device, &viewport, &noise);
-        let sky = sky::Sky::new(device, &viewport);
         let mut data = WorldData {
             terrain,
             water,
             noise,
-            models,
+            model,
             sky,
+            models,
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
@@ -59,8 +60,8 @@ impl World {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
-        self.data.water = water::Water::new(device, viewport, &self.data.noise);
-        self.data.sky = sky::Sky::new(device, viewport);
+        self.data.water = pipelines::water::Water::new(device, viewport, &self.data.noise);
+        self.data.sky = pipelines::sky::Sky::new(device, viewport);
         self.views.resize(device, &mut self.data, viewport);
     }
 

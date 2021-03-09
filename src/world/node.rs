@@ -1,7 +1,7 @@
 use super::{assets, WorldData};
 use crate::{
     camera::{self, frustum::*},
-    models,
+    pipelines,
     plane::{self, ConnectType},
     settings,
 };
@@ -127,7 +127,7 @@ impl Node {
         self.data = None;
     }
 
-    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> HashMap<String, models::data::Instance> {
+    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> HashMap<String, pipelines::model::data::Instance> {
         let count = (self.size * self.size * asset.density) as u32;
         let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
 
@@ -146,12 +146,12 @@ impl Node {
                 (
                     nanoid::simple(),
                     (
-                        models::data::InstanceData { transform: t.into() },
+                        pipelines::model::data::InstanceData { transform: t.into() },
                         model.transformed_bounding_box(t),
                     ),
                 )
             })
-            .collect::<HashMap<String, models::data::Instance>>()
+            .collect::<HashMap<String, pipelines::model::data::Instance>>()
     }
 
     pub fn get_nodes(&self, camera: &camera::Instance, lod: u32) -> Vec<(&NodeData, ConnectType)> {

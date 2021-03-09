@@ -1,7 +1,6 @@
 use crate::{camera, noise, plane, settings, texture};
 use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
-pub mod bundle;
 mod uniforms;
 
 pub struct Water {

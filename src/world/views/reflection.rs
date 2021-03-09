@@ -1,14 +1,13 @@
 use crate::{
-    camera, deferred,
-    models::bundle::ModelsBundle,
-    world::{node, sky::bundle::SkyBundle, terrain::bundle::TerrainBundle, WorldData},
+    camera, pipelines,
+    world::{bundles, node, WorldData},
 };
 use cgmath::*;
 
 pub struct Reflection {
-    pub terrain: TerrainBundle,
-    pub models: ModelsBundle,
-    pub sky: SkyBundle,
+    pub terrain: bundles::terrain::TerrainBundle,
+    pub models: bundles::models::ModelsBundle,
+    pub sky: bundles::sky::SkyBundle,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -16,7 +15,7 @@ pub struct Reflection {
 impl Reflection {
     pub fn new(
         device: &wgpu::Device,
-        deferred_render: &deferred::DeferredRender,
+        deferred_render: &pipelines::deferred::DeferredRender,
         world_data: &mut WorldData,
         viewport: &camera::Viewport,
         root_node: &node::Node,
@@ -25,9 +24,9 @@ impl Reflection {
         let deferred = deferred_render.get_render_bundle(device, &camera);
 
         Self {
-            terrain: TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
-            models: ModelsBundle::new(device, &camera, &mut world_data.models),
-            sky: SkyBundle::new(device, &camera, &world_data.sky),
+            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
+            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models),
+            sky: bundles::sky::SkyBundle::new(device, &camera, &world_data.sky),
             camera,
             deferred,
         }
@@ -48,23 +47,28 @@ impl Reflection {
         );
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
-        self.terrain = TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
-        self.models = ModelsBundle::new(device, &self.camera, &mut world_data.models);
+        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
+        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models);
     }
 
     pub fn resize(
         &mut self,
         device: &wgpu::Device,
-        deferred_render: &deferred::DeferredRender,
+        deferred_render: &pipelines::deferred::DeferredRender,
         world_data: &mut WorldData,
         viewport: &camera::Viewport,
     ) {
         self.camera.resize(viewport.width, viewport.height);
         self.deferred = deferred_render.get_render_bundle(device, &self.camera);
-        self.sky = SkyBundle::new(device, &self.camera, &world_data.sky);
+        self.sky = bundles::sky::SkyBundle::new(device, &self.camera, &world_data.sky);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, world_data: &WorldData) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        deferred_render: &pipelines::deferred::DeferredRender,
+        world_data: &WorldData,
+    ) {
         deferred_render.render_to(encoder, vec![&self.terrain.render_bundle, &self.models.render_bundle]);
         deferred_render.render(
             encoder,

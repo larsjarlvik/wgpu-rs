@@ -33,7 +33,10 @@ impl Terrain {
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false, filtering: false },
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                        filtering: false,
+                    },
                     count: None,
                 },
             ],
@@ -115,8 +118,11 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
     });
 
     // TODO: Use 3D texture
-    let paths= vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"];
-    let textures = paths.par_iter().map(|&t| load_texture(device, queue, t)).collect::<Vec<wgpu::TextureView>>();
+    let paths = vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"];
+    let textures = paths
+        .par_iter()
+        .map(|&t| load_texture(device, queue, t))
+        .collect::<Vec<wgpu::TextureView>>();
     let t: &[&wgpu::TextureView; 5] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
 
     device.create_bind_group(&wgpu::BindGroupDescriptor {

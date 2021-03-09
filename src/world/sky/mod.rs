@@ -1,6 +1,6 @@
 use crate::{camera, settings, texture};
-mod data;
 pub mod bundle;
+mod data;
 
 pub struct Sky {
     pub render_pipeline: wgpu::RenderPipeline,

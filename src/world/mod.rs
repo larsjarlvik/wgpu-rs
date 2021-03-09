@@ -1,13 +1,13 @@
 use std::time::Instant;
 
-use crate::{camera, deferred, models, noise, settings};
+use crate::{camera, models, noise, settings};
 use cgmath::{vec2, Vector2};
 mod assets;
 mod node;
 mod sky;
 mod terrain;
-mod water;
 mod views;
+mod water;
 
 pub struct WorldData {
     pub terrain: terrain::Terrain,
@@ -24,12 +24,7 @@ pub struct World {
 }
 
 impl World {
-    pub async fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        deferred_render: &deferred::DeferredRender,
-        viewport: &camera::Viewport,
-    ) -> Self {
+    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
         let mut models = models::Models::new(&device, &viewport);
         for asset in assets::ASSETS {
@@ -48,7 +43,7 @@ impl World {
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
-        let bundles = views::Views::new(device, deferred_render, &mut data, viewport, &root_node);
+        let bundles = views::Views::new(device, &mut data, viewport, &root_node);
 
         Self {
             data,
@@ -69,8 +64,8 @@ impl World {
         self.views.resize(device, &mut self.data, viewport);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, target: &wgpu::TextureView) {
-        self.views.render(encoder, deferred_render, &self.data, target);
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        self.views.render(encoder, &self.data, target);
     }
 }
 

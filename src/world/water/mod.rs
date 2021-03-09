@@ -1,8 +1,8 @@
 use crate::{camera, noise, plane, settings, texture};
 use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
-mod uniforms;
 pub mod bundle;
+mod uniforms;
 
 pub struct Water {
     pub plane: plane::Plane,
@@ -18,11 +18,7 @@ pub struct Water {
 }
 
 impl Water {
-    pub fn new(
-        device: &wgpu::Device,
-        viewport: &camera::Viewport,
-        noise: &noise::Noise,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, noise: &noise::Noise) -> Self {
         let noise_bindings = noise.create_bindings(device);
         let uniforms = uniforms::UniformBuffer::new(
             &device,

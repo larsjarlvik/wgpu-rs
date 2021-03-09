@@ -1,5 +1,5 @@
-use crate::{camera, settings};
 use super::Sky;
+use crate::{camera, settings};
 
 pub struct SkyBundle {
     render_bundle: wgpu::RenderBundle,
@@ -21,9 +21,7 @@ impl SkyBundle {
         encoder.draw(0..6, 0..1);
 
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("sky") });
-        Self {
-            render_bundle,
-        }
+        Self { render_bundle }
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {

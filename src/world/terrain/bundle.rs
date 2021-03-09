@@ -1,5 +1,5 @@
-use crate::{camera, settings, world::node};
 use super::Terrain;
+use crate::{camera, settings, world::node};
 
 pub struct TerrainBundle {
     pub render_bundle: wgpu::RenderBundle,
@@ -30,8 +30,6 @@ impl TerrainBundle {
         }
 
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") });
-        Self {
-            render_bundle,
-        }
+        Self { render_bundle }
     }
 }

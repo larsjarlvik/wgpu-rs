@@ -158,7 +158,11 @@ impl Node {
         if self.check_frustum(camera) {
             match &self.data {
                 Some(t) => {
-                    let eye = vec3(camera.uniforms.data.eye_pos[0], camera.uniforms.data.eye_pos[1], camera.uniforms.data.eye_pos[2]);
+                    let eye = vec3(
+                        camera.uniforms.data.eye_pos[0],
+                        camera.uniforms.data.eye_pos[1],
+                        camera.uniforms.data.eye_pos[2],
+                    );
                     if plane::get_lod(eye, vec3(self.x, 0.0, self.z), camera.uniforms.data.z_far) == lod {
                         let ct = plane::get_connect_type(eye, vec3(self.x, 0.0, self.z), lod, camera.uniforms.data.z_far);
                         return vec![(&t, ct)];

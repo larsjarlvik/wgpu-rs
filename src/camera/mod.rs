@@ -1,4 +1,4 @@
-use crate::input;
+use crate::{input, settings};
 use cgmath::*;
 use winit::event::VirtualKeyCode;
 mod controller;
@@ -26,7 +26,7 @@ pub struct Viewport {
 }
 
 impl Viewport {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let z_near = 1.0;
         let z_far = 800.0;
         let fov_y = 45.0;
@@ -52,8 +52,8 @@ impl Viewport {
             eye: Point3::new(0.0, 0.0, 0.0),
             rotation: Point2::new(45.0f32.to_radians(), -90.0f32.to_radians()),
             distance: 100.0,
-            width: swap_chain_desc.width,
-            height: swap_chain_desc.height,
+            width,
+            height,
             fov_y,
             z_near,
             z_far,
@@ -91,6 +91,17 @@ impl Viewport {
         );
 
         self.proj = perspective(Deg(self.fov_y), self.width as f32 / self.height as f32, self.z_near, self.z_far);
+    }
+
+    pub fn create_swap_chain(&self, device: &wgpu::Device, surface: &wgpu::Surface) -> wgpu::SwapChain {
+        let swap_chain_desc = wgpu::SwapChainDescriptor {
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+            format: settings::COLOR_TEXTURE_FORMAT,
+            width: self.width,
+            height: self.height,
+            present_mode: wgpu::PresentMode::Immediate,
+        };
+        device.create_swap_chain(&surface, &swap_chain_desc)
     }
 }
 

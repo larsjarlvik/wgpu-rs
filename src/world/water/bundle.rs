@@ -1,5 +1,5 @@
-use crate::{camera, settings, world::node};
 use super::Water;
+use crate::{camera, settings, world::node};
 
 pub struct WaterBundle {
     render_bundle: wgpu::RenderBundle,
@@ -31,9 +31,7 @@ impl WaterBundle {
         }
 
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("water") });
-        Self {
-            render_bundle,
-        }
+        Self { render_bundle }
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {

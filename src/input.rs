@@ -44,10 +44,7 @@ impl Input {
             DeviceEvent::MouseWheel { delta, .. } => {
                 self.mouse_scroll_delta = -match delta {
                     MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
-                    MouseScrollDelta::PixelDelta(PhysicalPosition {
-                        y: scroll,
-                        ..
-                    }) => *scroll as f32,
+                    MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
                 };
             }
             _ => {}

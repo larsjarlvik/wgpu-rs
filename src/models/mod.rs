@@ -14,8 +14,8 @@ pub struct Models {
 }
 
 impl Models {
-    pub fn new(device: &wgpu::Device, cameras: &camera::Cameras) -> Self {
-        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &cameras);
+    pub fn new(device: &wgpu::Device, cc: &camera::Controller) -> Self {
+        let render_pipeline = render_pipeline::RenderPipeline::new(&device, &cc);
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,

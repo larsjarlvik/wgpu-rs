@@ -14,7 +14,7 @@ pub struct RenderPipeline {
 }
 
 impl RenderPipeline {
-    pub fn new(device: &wgpu::Device, cameras: &camera::Cameras) -> Self {
+    pub fn new(device: &wgpu::Device, cc: &camera::Controller) -> Self {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
@@ -39,7 +39,7 @@ impl RenderPipeline {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("model_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &cameras.bind_group_layout],
+            bind_group_layouts: &[&texture_bind_group_layout, &cc.bind_group_layout],
             push_constant_ranges: &[],
         });
 

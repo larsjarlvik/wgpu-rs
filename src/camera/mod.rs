@@ -1,33 +1,34 @@
 use crate::input;
 use cgmath::*;
 use winit::event::VirtualKeyCode;
-pub mod camera;
 mod controller;
 pub mod frustum;
 mod uniforms;
 
-pub struct Cameras {
+pub struct Instance {
+    pub uniforms: uniforms::UniformBuffer,
+    pub frustum: frustum::FrustumCuller,
+}
+
+pub struct Controller {
     controller: controller::CameraController,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub target: Point3<f32>,
+    pub eye: Point3<f32>,
     pub rotation: Point2<f32>,
     pub distance: f32,
-    pub width: f32,
-    pub height: f32,
+    pub width: u32,
+    pub height: u32,
     pub fov_y: f32,
     pub z_near: f32,
     pub z_far: f32,
-    pub eye_cam: camera::Camera,
-    pub refraction_cam: camera::Camera,
-    pub reflection_cam: camera::Camera,
+    pub proj: Matrix4<f32>,
 }
 
-impl Cameras {
+impl Controller {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
         let z_near = 1.0;
         let z_far = 800.0;
-        let width = swap_chain_desc.width as f32;
-        let height = swap_chain_desc.height as f32;
         let fov_y = 45.0;
         let controller = controller::CameraController::new();
 
@@ -45,36 +46,28 @@ impl Cameras {
             }],
         });
 
-        let eye_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0]);
-        let reflection_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, 1.0, 0.0, 1.0]);
-        let refraction_cam = camera::Camera::new(device, &bind_group_layout, width, height, z_near, z_far, [0.0, -1.0, 0.0, 1.0]);
-
-        Cameras {
+        Controller {
             controller,
             target: Point3::new(0.0, 0.0, 0.0),
+            eye: Point3::new(0.0, 0.0, 0.0),
             rotation: Point2::new(45.0f32.to_radians(), -90.0f32.to_radians()),
             distance: 100.0,
-            width: swap_chain_desc.width as f32,
-            height: swap_chain_desc.height as f32,
+            width: swap_chain_desc.width,
+            height: swap_chain_desc.height,
             fov_y,
             z_near,
             z_far,
-            eye_cam,
-            refraction_cam,
-            reflection_cam,
+            proj: Matrix4::identity(),
             bind_group_layout,
         }
     }
 
     pub fn resize(&mut self, swap_chain_desc: &wgpu::SwapChainDescriptor) {
-        self.width = swap_chain_desc.width as f32;
-        self.height = swap_chain_desc.height as f32;
-        self.eye_cam.uniforms.data.viewport_size = vec2(self.width, self.height).into();
-        self.refraction_cam.uniforms.data.viewport_size = vec2(self.width, self.height).into();
-        self.reflection_cam.uniforms.data.viewport_size = vec2(self.width, self.height).into();
+        self.width = swap_chain_desc.width;
+        self.height = swap_chain_desc.height;
     }
 
-    pub fn update_camera(&mut self, queue: &wgpu::Queue, input: &input::Input, frame_time: f32) {
+    pub fn update(&mut self, input: &input::Input, frame_time: f32) {
         if input.keys.contains(&VirtualKeyCode::PageUp) {
             self.z_far += 1.0;
         }
@@ -91,20 +84,44 @@ impl Cameras {
         self.target.z += self.controller.velocity.z * self.rotation.y.sin();
         self.target.z += self.controller.velocity.x * (self.rotation.y - std::f32::consts::PI / 2.0).sin();
 
-        let eye = Point3::new(
+        self.eye = Point3::new(
             self.target.x - (self.rotation.x.sin() * self.rotation.y.cos() * self.distance),
             self.target.y + self.rotation.x.cos() * self.distance,
             self.target.z - (self.rotation.x.sin() * self.rotation.y.sin() * self.distance),
         );
 
-        let proj = perspective(Deg(self.fov_y), self.width / self.height, self.z_near, self.z_far);
-        let view = Matrix4::look_at(eye, self.target, Vector3::unit_y());
-        let world_matrix = proj * view;
+        self.proj = perspective(Deg(self.fov_y), self.width as f32 / self.height as f32, self.z_near, self.z_far);
+    }
+}
 
-        self.eye_cam.update(queue, self.target, eye, world_matrix);
-        self.refraction_cam.update(queue, self.target, eye, world_matrix);
+impl Instance {
+    pub fn from_controller(device: &wgpu::Device, cameras: &Controller, clip: [f32; 4]) -> Self {
+        let frustum = frustum::FrustumCuller::new();
 
-        let view = Matrix4::look_at(Point3::new(eye.x, -eye.y, eye.z), self.target, -Vector3::unit_y());
-        self.reflection_cam.update(queue, self.target, eye, proj * view);
+        Self {
+            uniforms: uniforms::UniformBuffer::new(
+                &device,
+                &cameras.bind_group_layout,
+                uniforms::Uniforms {
+                    view_proj: Matrix4::identity().into(),
+                    eye_pos: [0.0, 0.0, 0.0],
+                    look_at: [0.0, 0.0, 0.0],
+                    z_near: cameras.z_near,
+                    z_far: cameras.z_far,
+                    viewport_size: [cameras.width as f32, cameras.height as f32],
+                    clip,
+                },
+            ),
+            frustum,
+        }
+    }
+
+    pub fn update(&mut self, queue: &wgpu::Queue, target: Point3<f32>, eye: Point3<f32>, world_matrix: Matrix4<f32>) {
+        self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
+        self.uniforms.data.look_at = target.into();
+        self.uniforms.data.eye_pos = eye.into();
+        self.uniforms.data.view_proj = (world_matrix).into();
+
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 }

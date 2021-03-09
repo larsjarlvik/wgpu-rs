@@ -47,23 +47,25 @@ impl Node {
         node
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::camera::Camera) {
-        let distance = vec2(self.x, self.z).distance(vec2(camera.uniforms.data.look_at[0], camera.uniforms.data.look_at[2])) - self.radius;
-        if distance > camera.z_far_range {
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, cc: &camera::Controller) {
+        let distance = vec2(self.x, self.z).distance(vec2(cc.eye.x, cc.eye.z)) - self.radius;
+        let z_far_range = num_traits::Float::sqrt(cc.z_far * cc.z_far + cc.z_far * cc.z_far);
+
+        if distance > z_far_range {
             self.delete_node(world);
             return;
         }
 
         if self.data.is_none() {
             if self.is_leaf() {
-                let distance = vec2(self.x, self.z).distance(vec2(camera.uniforms.data.eye_pos[0], camera.uniforms.data.eye_pos[2])) - self.radius;
-                if distance < camera.z_far_range && self.data.is_none() {
+                let distance = vec2(self.x, self.z).distance(vec2(cc.eye.x, cc.eye.z)) - self.radius;
+                if distance < z_far_range && self.data.is_none() {
                     self.build_leaf_node(device, queue, world);
                 }
             } else {
                 self.add_children();
                 for child in self.children.iter_mut() {
-                    child.update(device, queue, world, camera);
+                    child.update(device, queue, world, cc);
                 }
             }
         }
@@ -152,7 +154,7 @@ impl Node {
             .collect::<HashMap<String, models::data::Instance>>()
     }
 
-    pub fn get_nodes(&self, camera: &camera::camera::Camera, lod: u32) -> Vec<(&NodeData, ConnectType)> {
+    pub fn get_nodes(&self, camera: &camera::Instance, lod: u32) -> Vec<(&NodeData, ConnectType)> {
         if self.check_frustum(camera) {
             match &self.data {
                 Some(t) => {
@@ -170,7 +172,7 @@ impl Node {
         }
     }
 
-    fn check_frustum(&self, camera: &camera::camera::Camera) -> bool {
+    fn check_frustum(&self, camera: &camera::Instance) -> bool {
         let half_size = self.size / 2.0;
         let min = Point3::new(self.x - half_size, -100.0, self.z - half_size);
         let max = Point3::new(self.x + half_size, 100.0, self.z + half_size);

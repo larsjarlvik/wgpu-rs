@@ -1,4 +1,4 @@
-use crate::{camera::camera, settings, world::node};
+use crate::{camera, settings, world::node};
 use super::Terrain;
 
 pub struct TerrainBundle {
@@ -6,7 +6,7 @@ pub struct TerrainBundle {
 }
 
 impl TerrainBundle {
-    pub fn new(device: &wgpu::Device, camera: &camera::Camera, terrain: &Terrain, root_node: &node::Node) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Instance, terrain: &Terrain, root_node: &node::Node) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: Some("terrain_bundle"),
             color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],

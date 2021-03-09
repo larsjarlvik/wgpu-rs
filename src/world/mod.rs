@@ -7,7 +7,7 @@ mod node;
 mod sky;
 mod terrain;
 mod water;
-mod bundles;
+mod views;
 
 pub struct WorldData {
     pub terrain: terrain::Terrain,
@@ -20,26 +20,25 @@ pub struct WorldData {
 pub struct World {
     root_node: node::Node,
     pub data: WorldData,
-    pub bundles: bundles::Bundles,
+    pub views: views::Views,
 }
 
 impl World {
     pub async fn new(
         device: &wgpu::Device,
-        swap_chain_desc: &wgpu::SwapChainDescriptor,
         queue: &wgpu::Queue,
-        cameras: &camera::Cameras,
+        deferred_render: &deferred::DeferredRender,
+        cc: &camera::Controller,
     ) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let mut models = models::Models::new(&device, &cameras);
+        let mut models = models::Models::new(&device, &cc);
         for asset in assets::ASSETS {
             models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
-        let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
-        let terrain = terrain::Terrain::new(device, queue, &cameras, &noise);
-        let water = water::Water::new(device, swap_chain_desc, &cameras, &noise);
-        let sky = sky::Sky::new(device, swap_chain_desc, &cameras);
+        let terrain = terrain::Terrain::new(device, queue, &cc, &noise);
+        let water = water::Water::new(device, &cc, &noise);
+        let sky = sky::Sky::new(device, &cc);
         let mut data = WorldData {
             terrain,
             water,
@@ -48,29 +47,30 @@ impl World {
             sky,
         };
 
-        let bundles = bundles::Bundles::new(device, &mut data, cameras, &root_node);
+        let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
+        let bundles = views::Views::new(device, deferred_render, &mut data, cc, &root_node);
 
         Self {
             data,
-            bundles,
+            views: bundles,
             root_node,
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cameras: &camera::Cameras, time: Instant) {
-        self.root_node.update(device, queue, &mut self.data, &cameras.eye_cam);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cc: &camera::Controller, time: Instant) {
+        self.root_node.update(device, queue, &mut self.data, &cc);
         self.data.water.update(queue, time);
-        self.bundles.update(device, &mut self.data, cameras, &self.root_node);
+        self.views.update(device, queue, &mut self.data, cc, &self.root_node);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) {
-        self.data.water = water::Water::new(device, swap_chain_desc, cameras, &self.data.noise);
-        self.data.sky = sky::Sky::new(device, swap_chain_desc, cameras);
-        self.bundles.resize(device, &mut self.data, cameras);
+    pub fn resize(&mut self, device: &wgpu::Device, cc: &camera::Controller) {
+        self.data.water = water::Water::new(device, cc, &self.data.noise);
+        self.data.sky = sky::Sky::new(device, cc);
+        self.views.resize(device, &mut self.data, cc);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, target: &wgpu::TextureView) {
-        self.bundles.render(encoder, deferred_render, &self.data, target);
+        self.views.render(encoder, deferred_render, &self.data, target);
     }
 }
 

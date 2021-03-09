@@ -8,11 +8,11 @@ pub struct Textures {
 }
 
 impl Textures {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let sampler =  texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
-        let normals_texture_view = texture::create_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
-        let base_color_texture_view = texture::create_view(&device, &swap_chain_desc, settings::COLOR_TEXTURE_FORMAT);
-        let depth_texture_view = texture::create_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
+        let normals_texture_view = texture::create_view(&device, width, height, settings::COLOR_TEXTURE_FORMAT);
+        let base_color_texture_view = texture::create_view(&device, width, height, settings::COLOR_TEXTURE_FORMAT);
+        let depth_texture_view = texture::create_view(&device, width, height, settings::DEPTH_TEXTURE_FORMAT);
 
         Self {
             normals_texture_view,

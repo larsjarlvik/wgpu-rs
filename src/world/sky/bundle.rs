@@ -1,4 +1,4 @@
-use crate::{camera::camera, settings};
+use crate::{camera, settings};
 use super::Sky;
 
 pub struct SkyBundle {
@@ -6,7 +6,7 @@ pub struct SkyBundle {
 }
 
 impl SkyBundle {
-    pub fn new(device: &wgpu::Device, camera: &camera::Camera, sky: &Sky) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Instance, sky: &Sky) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],

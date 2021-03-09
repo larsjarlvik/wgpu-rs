@@ -11,7 +11,7 @@ pub struct Sky {
 }
 
 impl Sky {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor, cameras: &camera::Cameras) -> Self {
+    pub fn new(device: &wgpu::Device, cc: &camera::Controller) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -44,8 +44,8 @@ impl Sky {
         });
 
         let texture_extent = wgpu::Extent3d {
-            width: swap_chain_desc.width,
-            height: swap_chain_desc.height,
+            width: cc.width,
+            height: cc.height,
             depth: 1,
         };
         let frame_descriptor = &wgpu::TextureDescriptor {
@@ -59,7 +59,7 @@ impl Sky {
         };
         let texture = device.create_texture(frame_descriptor);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let depth_texture_view = texture::create_view(&device, &swap_chain_desc, settings::DEPTH_TEXTURE_FORMAT);
+        let depth_texture_view = texture::create_view(&device, cc.width, cc.height, settings::DEPTH_TEXTURE_FORMAT);
         let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Linear);
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("texture_bind_group"),
@@ -76,7 +76,7 @@ impl Sky {
 
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("sky_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &cameras.bind_group_layout],
+            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &cc.bind_group_layout],
             push_constant_ranges: &[],
         });
 

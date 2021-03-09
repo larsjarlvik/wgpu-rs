@@ -1,5 +1,5 @@
 use wgpu::util::DeviceExt;
-use crate::{camera::{camera, frustum}, settings};
+use crate::{camera::{self, frustum}, settings};
 use super::{Models, data, model};
 
 pub struct ModelsBundle {
@@ -7,7 +7,7 @@ pub struct ModelsBundle {
 }
 
 impl ModelsBundle {
-    pub fn new(device: &wgpu::Device, camera: &camera::Camera, models: &mut Models) -> Self {
+    pub fn new(device: &wgpu::Device, camera: &camera::Instance, models: &mut Models) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
@@ -37,7 +37,7 @@ impl ModelsBundle {
     }
 }
 
-fn cull_frustum(device: &wgpu::Device, camera: &camera::Camera, model: &mut model::Model) -> usize {
+fn cull_frustum(device: &wgpu::Device, camera: &camera::Instance, model: &mut model::Model) -> usize {
     let instances = model
         .instances
         .data

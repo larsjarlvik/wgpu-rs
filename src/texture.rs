@@ -65,12 +65,13 @@ pub fn create_bind_group_layout(binding: u32, sample_type: wgpu::TextureSampleTy
 
 pub fn create_view(
     device: &wgpu::Device,
-    swap_chain_desc: &wgpu::SwapChainDescriptor,
+    width: u32,
+    height: u32,
     format: wgpu::TextureFormat,
 ) -> wgpu::TextureView {
     let texture_extent = wgpu::Extent3d {
-        width: swap_chain_desc.width,
-        height: swap_chain_desc.height,
+        width,
+        height,
         depth: 1,
     };
     let frame_descriptor = &wgpu::TextureDescriptor {

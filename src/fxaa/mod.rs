@@ -7,7 +7,7 @@ pub struct Fxaa {
 }
 
 impl Fxaa {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -36,8 +36,8 @@ impl Fxaa {
         });
 
         let texture_extent = wgpu::Extent3d {
-            width: swap_chain_desc.width,
-            height: swap_chain_desc.height,
+            width: width,
+            height: height,
             depth: 1,
         };
         let frame_descriptor = &wgpu::TextureDescriptor {
@@ -99,7 +99,7 @@ impl Fxaa {
             &device,
             &uniform_bind_group_layout,
             data::Uniforms {
-                resolution: [swap_chain_desc.width as f32, swap_chain_desc.height as f32],
+                resolution: [width as f32, height as f32],
             },
         );
 

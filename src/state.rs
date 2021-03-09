@@ -8,7 +8,7 @@ pub struct State {
     queue: wgpu::Queue,
     swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    cameras: camera::Cameras,
+    camera_controller: camera::Controller,
     world: world::World,
     deferred_render: deferred::DeferredRender,
     fxaa: fxaa::Fxaa,
@@ -58,14 +58,14 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
         // Camera
-        let cameras = camera::Cameras::new(&device, &swap_chain_desc);
+        let camera_controller = camera::Controller::new(&device, &swap_chain_desc);
 
         // Drawing
-        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &cameras);
-        let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
+        let deferred_render = deferred::DeferredRender::new(&device, &camera_controller);
+        let fxaa = fxaa::Fxaa::new(&device, camera_controller.width, camera_controller.height);
 
         // World
-        let world = world::World::new(&device, &swap_chain_desc, &queue, &cameras).await;
+        let world = world::World::new(&device, &queue, &deferred_render, &camera_controller).await;
 
         Self {
             surface,
@@ -76,7 +76,7 @@ impl State {
             size,
             deferred_render,
             fxaa,
-            cameras,
+            camera_controller,
             world,
             input: Input::new(),
             start_time: Instant::now(),
@@ -90,10 +90,10 @@ impl State {
         self.swap_chain_desc.width = new_size.width;
         self.swap_chain_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.cameras.resize(&self.swap_chain_desc);
-        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.cameras);
-        self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
-        self.world.resize(&self.device, &self.swap_chain_desc, &self.cameras);
+        self.camera_controller.resize(&self.swap_chain_desc);
+        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.camera_controller);
+        self.fxaa = fxaa::Fxaa::new(&self.device, new_size.width, new_size.height);
+        self.world.resize(&self.device, &self.camera_controller);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -112,10 +112,10 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        let avg = self.frame_time();
-        self.cameras.update_camera(&self.queue, &self.input, avg);
+        let frame_time = self.frame_time();
+        self.camera_controller.update(&self.input, frame_time);
         self.input.after_update();
-        self.world.update(&self.device, &self.queue, &self.cameras, self.start_time);
+        self.world.update(&self.device, &self.queue, &self.camera_controller, self.start_time);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {

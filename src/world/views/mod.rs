@@ -1,8 +1,8 @@
+use super::{node, WorldData};
 use crate::{camera, deferred};
-use super::{WorldData, node};
 mod eye;
-mod refraction;
 mod reflection;
+mod refraction;
 
 pub struct Views {
     deferred_render: deferred::DeferredRender,
@@ -22,7 +22,14 @@ impl Views {
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) {
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        world_data: &mut WorldData,
+        viewport: &camera::Viewport,
+        root_node: &node::Node,
+    ) {
         self.eye.update(device, queue, world_data, &viewport, root_node);
         self.reflection.update(device, queue, world_data, &viewport, root_node);
         self.refraction.update(device, queue, world_data, &viewport, root_node);

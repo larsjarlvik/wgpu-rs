@@ -11,8 +11,8 @@ pub struct Eye {
 }
 
 impl Eye {
-    pub fn new(device: &wgpu::Device, deferred_render: &deferred::DeferredRender, world_data: &mut WorldData, cc: &camera::Controller, root_node: &node::Node) -> Self {
-        let camera = camera::Instance::from_controller(device, &cc, [0.0, 1.0, 0.0, 1.0]);
+    pub fn new(device: &wgpu::Device, deferred_render: &deferred::DeferredRender, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
+        let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred_render.get_render_bundle(device, &camera);
 
         Self {
@@ -25,17 +25,17 @@ impl Eye {
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, cc: &camera::Controller, root_node: &node::Node) {
-        let view = Matrix4::look_at(cc.eye, cc.target, Vector3::unit_y());
-        self.camera.update(queue, cc.target, cc.eye, cc.proj * view);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) {
+        let view = Matrix4::look_at(viewport.eye, viewport.target, Vector3::unit_y());
+        self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         self.terrain = TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
         self.water = WaterBundle::new(device, &self.camera, &world_data.water, &root_node);
         self.models = ModelsBundle::new(device, &self.camera, &mut world_data.models);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, cc: &camera::Controller) {
-        self.camera.uniforms.data.viewport_size = vec2(cc.width as f32, cc.height as f32).into();
+    pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport) {
+        self.camera.resize(viewport.width, viewport.height);
         self.sky = SkyBundle::new(device, &self.camera, &world_data.sky);
     }
 

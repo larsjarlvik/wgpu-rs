@@ -3,13 +3,13 @@ use winit::event::*;
 
 use crate::{input, settings};
 
-pub struct CameraController {
+pub struct Controller {
     pub velocity: Vector3<f32>,
     pub rotation: Vector2<f32>,
     acceleration: Vector3<f32>,
 }
 
-impl CameraController {
+impl Controller {
     pub fn new() -> Self {
         Self {
             velocity: vec3(0.0, 0.0, 0.0),

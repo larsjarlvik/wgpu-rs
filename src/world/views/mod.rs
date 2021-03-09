@@ -11,24 +11,24 @@ pub struct Views {
 }
 
 impl Views {
-    pub fn new(device: &wgpu::Device, deferred_render: &deferred::DeferredRender, world_data: &mut WorldData, cc: &camera::Controller, root_node: &node::Node) -> Views {
+    pub fn new(device: &wgpu::Device, deferred_render: &deferred::DeferredRender, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Views {
         Self {
-            eye: eye::Eye::new(device, deferred_render, world_data, &cc, root_node),
-            refraction: refraction::Refraction::new(device, deferred_render, world_data, &cc, root_node),
-            reflection: reflection::Reflection::new(device, deferred_render, world_data, &cc, root_node),
+            eye: eye::Eye::new(device, deferred_render, world_data, &viewport, root_node),
+            refraction: refraction::Refraction::new(device, deferred_render, world_data, &viewport, root_node),
+            reflection: reflection::Reflection::new(device, deferred_render, world_data, &viewport, root_node),
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, cc: &camera::Controller, root_node: &node::Node) {
-        self.eye.update(device, queue, world_data, &cc, root_node);
-        self.reflection.update(device, queue, world_data, &cc, root_node);
-        self.refraction.update(device, queue, world_data, &cc, root_node);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) {
+        self.eye.update(device, queue, world_data, &viewport, root_node);
+        self.reflection.update(device, queue, world_data, &viewport, root_node);
+        self.refraction.update(device, queue, world_data, &viewport, root_node);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, cc: &camera::Controller) {
-        self.eye.resize(device, world_data, cc);
-        self.reflection.resize(device, world_data, cc);
-        self.refraction.resize(cc);
+    pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport) {
+        self.eye.resize(device, world_data, viewport);
+        self.reflection.resize(device, world_data, viewport);
+        self.refraction.resize(viewport);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, world_data: &WorldData, target: &wgpu::TextureView) {

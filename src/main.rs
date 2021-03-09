@@ -50,6 +50,7 @@ fn main() {
 
             logger::measure_time("Render", || match state.render() {
                 Ok(_) => {}
+                Err(wgpu::SwapChainError::Lost) => state.resize(winit::dpi::PhysicalSize::new(state.viewport.width, state.viewport.height)),
                 Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("Render error: {:?}", e),
             });

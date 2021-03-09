@@ -10,8 +10,8 @@ pub struct Instance {
     pub frustum: frustum::FrustumCuller,
 }
 
-pub struct Controller {
-    controller: controller::CameraController,
+pub struct Viewport {
+    controller: controller::Controller,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub target: Point3<f32>,
     pub eye: Point3<f32>,
@@ -25,12 +25,12 @@ pub struct Controller {
     pub proj: Matrix4<f32>,
 }
 
-impl Controller {
+impl Viewport {
     pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
         let z_near = 1.0;
         let z_far = 800.0;
         let fov_y = 45.0;
-        let controller = controller::CameraController::new();
+        let controller = controller::Controller::new();
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
@@ -46,7 +46,7 @@ impl Controller {
             }],
         });
 
-        Controller {
+        Viewport {
             controller,
             target: Point3::new(0.0, 0.0, 0.0),
             eye: Point3::new(0.0, 0.0, 0.0),
@@ -62,9 +62,9 @@ impl Controller {
         }
     }
 
-    pub fn resize(&mut self, swap_chain_desc: &wgpu::SwapChainDescriptor) {
-        self.width = swap_chain_desc.width;
-        self.height = swap_chain_desc.height;
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
     }
 
     pub fn update(&mut self, input: &input::Input, frame_time: f32) {
@@ -95,7 +95,7 @@ impl Controller {
 }
 
 impl Instance {
-    pub fn from_controller(device: &wgpu::Device, cameras: &Controller, clip: [f32; 4]) -> Self {
+    pub fn from_controller(device: &wgpu::Device, cameras: &Viewport, clip: [f32; 4]) -> Self {
         let frustum = frustum::FrustumCuller::new();
 
         Self {
@@ -123,5 +123,9 @@ impl Instance {
         self.uniforms.data.view_proj = (world_matrix).into();
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.uniforms.data.viewport_size = [width as f32, height as f32];
     }
 }

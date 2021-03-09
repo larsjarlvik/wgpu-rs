@@ -8,8 +8,8 @@ pub struct Refraction {
 }
 
 impl Refraction {
-    pub fn new(device: &wgpu::Device, deferred_render: &deferred::DeferredRender, world_data: &mut WorldData, cc: &camera::Controller, root_node: &node::Node) -> Self {
-        let camera = camera::Instance::from_controller(device, &cc, [0.0, -1.0, 0.0, 1.0]);
+    pub fn new(device: &wgpu::Device, deferred_render: &deferred::DeferredRender, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
+        let camera = camera::Instance::from_controller(device, &viewport, [0.0, -1.0, 0.0, 1.0]);
         let deferred = deferred_render.get_render_bundle(device, &camera);
 
         Self {
@@ -19,14 +19,14 @@ impl Refraction {
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, cc: &camera::Controller, root_node: &node::Node) {
-        let view = Matrix4::look_at(cc.eye, cc.target, Vector3::unit_y());
-        self.camera.update(queue, cc.target, cc.eye, cc.proj * view);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) {
+        let view = Matrix4::look_at(viewport.eye, viewport.target, Vector3::unit_y());
+        self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
         self.terrain = TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
     }
 
-    pub fn resize(&mut self, cc: &camera::Controller) {
-        self.camera.uniforms.data.viewport_size = vec2(cc.width as f32, cc.height as f32).into();
+    pub fn resize(&mut self, viewport: &camera::Viewport) {
+        self.camera.resize(viewport.width, viewport.height);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, world_data: &WorldData) {

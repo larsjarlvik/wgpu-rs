@@ -28,17 +28,17 @@ impl World {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         deferred_render: &deferred::DeferredRender,
-        cc: &camera::Controller,
+        viewport: &camera::Viewport,
     ) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let mut models = models::Models::new(&device, &cc);
+        let mut models = models::Models::new(&device, &viewport);
         for asset in assets::ASSETS {
             models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
-        let terrain = terrain::Terrain::new(device, queue, &cc, &noise);
-        let water = water::Water::new(device, &cc, &noise);
-        let sky = sky::Sky::new(device, &cc);
+        let terrain = terrain::Terrain::new(device, queue, &viewport, &noise);
+        let water = water::Water::new(device, &viewport, &noise);
+        let sky = sky::Sky::new(device, &viewport);
         let mut data = WorldData {
             terrain,
             water,
@@ -48,7 +48,7 @@ impl World {
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
-        let bundles = views::Views::new(device, deferred_render, &mut data, cc, &root_node);
+        let bundles = views::Views::new(device, deferred_render, &mut data, viewport, &root_node);
 
         Self {
             data,
@@ -57,16 +57,16 @@ impl World {
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cc: &camera::Controller, time: Instant) {
-        self.root_node.update(device, queue, &mut self.data, &cc);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, time: Instant) {
+        self.root_node.update(device, queue, &mut self.data, viewport);
         self.data.water.update(queue, time);
-        self.views.update(device, queue, &mut self.data, cc, &self.root_node);
+        self.views.update(device, queue, &mut self.data, viewport, &self.root_node);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, cc: &camera::Controller) {
-        self.data.water = water::Water::new(device, cc, &self.data.noise);
-        self.data.sky = sky::Sky::new(device, cc);
-        self.views.resize(device, &mut self.data, cc);
+    pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
+        self.data.water = water::Water::new(device, viewport, &self.data.noise);
+        self.data.sky = sky::Sky::new(device, viewport);
+        self.views.resize(device, &mut self.data, viewport);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred_render: &deferred::DeferredRender, target: &wgpu::TextureView) {

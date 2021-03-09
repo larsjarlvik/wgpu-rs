@@ -47,9 +47,9 @@ impl Node {
         node
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, cc: &camera::Controller) {
-        let distance = vec2(self.x, self.z).distance(vec2(cc.eye.x, cc.eye.z)) - self.radius;
-        let z_far_range = num_traits::Float::sqrt(cc.z_far * cc.z_far + cc.z_far * cc.z_far);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, viewport: &camera::Viewport) {
+        let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
+        let z_far_range = num_traits::Float::sqrt(viewport.z_far * viewport.z_far + viewport.z_far * viewport.z_far);
 
         if distance > z_far_range {
             self.delete_node(world);
@@ -58,14 +58,14 @@ impl Node {
 
         if self.data.is_none() {
             if self.is_leaf() {
-                let distance = vec2(self.x, self.z).distance(vec2(cc.eye.x, cc.eye.z)) - self.radius;
+                let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
                 if distance < z_far_range && self.data.is_none() {
                     self.build_leaf_node(device, queue, world);
                 }
             } else {
                 self.add_children();
                 for child in self.children.iter_mut() {
-                    child.update(device, queue, world, cc);
+                    child.update(device, queue, world, viewport);
                 }
             }
         }

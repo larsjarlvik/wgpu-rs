@@ -13,7 +13,7 @@ pub struct Terrain {
 }
 
 impl Terrain {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, cc: &camera::Controller, noise: &noise::Noise) -> Terrain {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, noise: &noise::Noise) -> Terrain {
         let noise_bindings = noise.create_bindings(device);
         let compute = compute::Compute::new(device, noise);
 
@@ -42,7 +42,7 @@ impl Terrain {
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_pipeline_layout"),
             bind_group_layouts: &[
-                &cc.bind_group_layout,
+                &viewport.bind_group_layout,
                 &texture_bind_group_layout,
                 &noise_bindings.bind_group_layout,
             ],

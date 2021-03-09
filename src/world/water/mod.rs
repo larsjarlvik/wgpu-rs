@@ -20,7 +20,7 @@ pub struct Water {
 impl Water {
     pub fn new(
         device: &wgpu::Device,
-        cc: &camera::Controller,
+        viewport: &camera::Viewport,
         noise: &noise::Noise,
     ) -> Self {
         let noise_bindings = noise.create_bindings(device);
@@ -44,10 +44,10 @@ impl Water {
 
         // Textures
         let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
-        let refraction_texture_view = texture::create_view(&device, cc.width, cc.height, settings::COLOR_TEXTURE_FORMAT);
-        let refraction_depth_texture_view = texture::create_view(&device, cc.width, cc.height, settings::DEPTH_TEXTURE_FORMAT);
-        let reflection_texture_view = texture::create_view(&device, cc.width, cc.height, settings::COLOR_TEXTURE_FORMAT);
-        let reflection_depth_texture_view = texture::create_view(&device, cc.width, cc.height, settings::DEPTH_TEXTURE_FORMAT);
+        let refraction_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::COLOR_TEXTURE_FORMAT);
+        let refraction_depth_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
+        let reflection_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::COLOR_TEXTURE_FORMAT);
+        let reflection_depth_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("water_texture_bind_group_layout"),
@@ -84,7 +84,7 @@ impl Water {
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("water_pipeline_layout"),
             bind_group_layouts: &[
-                &cc.bind_group_layout,
+                &viewport.bind_group_layout,
                 &uniforms.bind_group_layout,
                 &noise_bindings.bind_group_layout,
                 &texture_bind_group_layout,

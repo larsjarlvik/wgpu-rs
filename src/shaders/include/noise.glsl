@@ -2,6 +2,9 @@
     #define NODE_SET 0
 #endif
 
+#define SCALE 0.005
+#define NUM_OCTAVES 5
+
 layout(set = NOISE_SET, binding = 0) uniform texture2D t_noise;
 layout(set = NOISE_SET, binding = 1) uniform sampler t_noise_sampler;
 
@@ -36,4 +39,16 @@ float fbm(vec2 st, int octaves) {
         a *= 0.5;
     }
     return v;
+}
+
+float get_elevation(vec2 p) {
+    vec2 xz = p * SCALE;
+    vec2 q = vec2(fbm(xz, NUM_OCTAVES), fbm(xz + vec2(1.0), NUM_OCTAVES));
+
+    vec2 r = vec2(
+        fbm(xz + q + vec2(1.7 + 0.15, 9.2 + 0.15), NUM_OCTAVES),
+        fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), NUM_OCTAVES)
+    );
+
+    return (fbm(xz + r, NUM_OCTAVES) - 0.3) / SCALE / 2.0;
 }

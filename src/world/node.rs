@@ -1,8 +1,8 @@
 use super::{assets, WorldData};
 use crate::{
     camera::{self, frustum::*},
-    models,
-    plane::ConnectType,
+    pipelines,
+    plane::{self, ConnectType},
     settings,
 };
 use cgmath::*;
@@ -10,8 +10,9 @@ use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
-pub struct Terrain {
-    pub buffer: wgpu::Buffer,
+pub struct NodeData {
+    pub terrain_buffer: wgpu::Buffer,
+    pub water_buffer: wgpu::Buffer,
     instance_keys: HashMap<String, Vec<String>>,
 }
 
@@ -22,7 +23,7 @@ pub struct Node {
     size: f32,
     radius: f32,
     depth: i32,
-    terrain: Option<Terrain>,
+    data: Option<NodeData>,
 }
 
 impl Node {
@@ -36,7 +37,7 @@ impl Node {
             z,
             size,
             radius,
-            terrain: None,
+            data: None,
         };
 
         if !node.is_leaf() {
@@ -46,23 +47,25 @@ impl Node {
         node
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, camera: &camera::Camera) {
-        let distance = vec2(self.x, self.z).distance(vec2(camera.target.x, camera.target.z)) - self.radius;
-        if distance > camera.z_far_range {
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, viewport: &camera::Viewport) {
+        let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
+        let z_far_range = num_traits::Float::sqrt(viewport.z_far * viewport.z_far + viewport.z_far * viewport.z_far);
+
+        if distance > z_far_range {
             self.delete_node(world);
             return;
         }
 
-        if self.terrain.is_none() {
+        if self.data.is_none() {
             if self.is_leaf() {
-                let distance = vec2(self.x, self.z).distance(vec2(camera.eye.x, camera.eye.z)) - self.radius;
-                if distance < camera.z_far_range && self.terrain.is_none() {
+                let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
+                if distance < z_far_range && self.data.is_none() {
                     self.build_leaf_node(device, queue, world);
                 }
             } else {
                 self.add_children();
                 for child in self.children.iter_mut() {
-                    child.update(device, queue, world, camera);
+                    child.update(device, queue, world, viewport);
                 }
             }
         }
@@ -99,14 +102,15 @@ impl Node {
             instance_keys.insert(asset.name.to_string(), keys);
         }
 
-        self.terrain = Some(Terrain {
-            buffer: world.terrain.compute.compute(device, queue, self.x, self.z),
+        self.data = Some(NodeData {
+            terrain_buffer: world.terrain.compute.compute(device, queue, self.x, self.z),
+            water_buffer: world.water.create_buffer(&device, self.x, self.z),
             instance_keys,
         });
     }
 
     fn delete_node(&mut self, world: &mut WorldData) {
-        match &self.terrain {
+        match &self.data {
             Some(terrain) => {
                 for (key, model) in world.models.models.iter_mut() {
                     model.remove_instances(terrain.instance_keys.get(key).expect("Model not found!"));
@@ -120,10 +124,10 @@ impl Node {
         }
 
         self.children = Vec::new();
-        self.terrain = None;
+        self.data = None;
     }
 
-    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> HashMap<String, models::data::Instance> {
+    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> HashMap<String, pipelines::model::data::Instance> {
         let count = (self.size * self.size * asset.density) as u32;
         let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
 
@@ -142,67 +146,37 @@ impl Node {
                 (
                     nanoid::simple(),
                     (
-                        models::data::InstanceData { transform: t.into() },
+                        pipelines::model::data::InstanceData { transform: t.into() },
                         model.transformed_bounding_box(t),
                     ),
                 )
             })
-            .collect::<HashMap<String, models::data::Instance>>()
+            .collect::<HashMap<String, pipelines::model::data::Instance>>()
     }
 
-    pub fn get_terrain_nodes(&self, camera: &camera::Camera, lod: u32) -> Vec<(&Terrain, ConnectType)> {
+    pub fn get_nodes(&self, camera: &camera::Instance, lod: u32) -> Vec<(&NodeData, ConnectType)> {
         if self.check_frustum(camera) {
-            match &self.terrain {
+            match &self.data {
                 Some(t) => {
-                    if camera.get_lod(Point3::new(self.x, 0.0, self.z)) == lod {
-                        return vec![(&t, self.get_connect_type(camera, lod))];
+                    let eye = vec3(
+                        camera.uniforms.data.eye_pos[0],
+                        camera.uniforms.data.eye_pos[1],
+                        camera.uniforms.data.eye_pos[2],
+                    );
+                    if plane::get_lod(eye, vec3(self.x, 0.0, self.z), camera.uniforms.data.z_far) == lod {
+                        let ct = plane::get_connect_type(eye, vec3(self.x, 0.0, self.z), lod, camera.uniforms.data.z_far);
+                        return vec![(&t, ct)];
                     }
                     vec![]
                 }
-                None => self
-                    .children
-                    .iter()
-                    .flat_map(|child| child.get_terrain_nodes(camera, lod))
-                    .collect(),
+                None => self.children.iter().flat_map(|child| child.get_nodes(camera, lod)).collect(),
             }
         } else {
             vec![]
         }
     }
 
-    fn get_connect_type(&self, camera: &camera::Camera, lod: u32) -> ConnectType {
-        let ts = settings::TILE_SIZE as f32;
-
-        if camera.get_lod(Point3::new(self.x + ts, 0.0, self.z)) < lod {
-            if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
-                return ConnectType::XPosZPos;
-            }
-            if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
-                return ConnectType::XPosZNeg;
-            }
-
-            return ConnectType::XPos;
-        }
-        if camera.get_lod(Point3::new(self.x - ts, 0.0, self.z)) < lod {
-            if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
-                return ConnectType::XNegZPos;
-            }
-            if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
-                return ConnectType::XNegZNeg;
-            }
-            return ConnectType::XNeg;
-        }
-        if camera.get_lod(Point3::new(self.x, 0.0, self.z + ts)) < lod {
-            return ConnectType::ZPos;
-        }
-        if camera.get_lod(Point3::new(self.x, 0.0, self.z - ts)) < lod {
-            return ConnectType::ZNeg;
-        }
-
-        ConnectType::None
-    }
-
-    fn check_frustum(&self, camera: &camera::Camera) -> bool {
+    fn check_frustum(&self, camera: &camera::Instance) -> bool {
         let half_size = self.size / 2.0;
         let min = Point3::new(self.x - half_size, -100.0, self.z - half_size);
         let max = Point3::new(self.x + half_size, 100.0, self.z + half_size);

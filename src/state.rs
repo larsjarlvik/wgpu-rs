@@ -1,4 +1,4 @@
-use crate::{camera, deferred, fxaa, input::Input, settings, world};
+use crate::{camera, input::Input, pipelines, world};
 use std::time::Instant;
 use winit::{event::*, window::Window};
 
@@ -6,16 +6,14 @@ pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    swap_chain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    camera: camera::Camera,
+    pub viewport: camera::Viewport,
     world: world::World,
-    deferred_render: deferred::DeferredRender,
-    fxaa: fxaa::Fxaa,
+    fxaa: pipelines::fxaa::Fxaa,
+    start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
     input: Input,
-    pub size: winit::dpi::PhysicalSize<u32>,
 }
 
 impl State {
@@ -35,60 +33,45 @@ impl State {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS,
+                    label: None,
+                    features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY
+                        | wgpu::Features::MAPPABLE_PRIMARY_BUFFERS
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
                 },
                 None,
             )
             .await
             .expect("Failed to request device");
 
-        // Swap chain
-        let swap_chain_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: settings::COLOR_TEXTURE_FORMAT,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Immediate,
-        };
-        let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
-
         // Camera
-        let camera = camera::Camera::new(&device, &swap_chain_desc);
+        let viewport = camera::Viewport::new(&device, size.width, size.height);
+        let swap_chain = viewport.create_swap_chain(&device, &surface);
 
         // Drawing
-        let deferred_render = deferred::DeferredRender::new(&device, &swap_chain_desc, &camera);
-        let fxaa = fxaa::Fxaa::new(&device, &swap_chain_desc);
-
-        // World
-        let world = world::World::new(&device, &queue, &camera).await;
+        let fxaa = pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height);
+        let world = world::World::new(&device, &queue, &viewport).await;
 
         Self {
             surface,
             device,
             queue,
             swap_chain,
-            swap_chain_desc,
-            size,
-            deferred_render,
             fxaa,
-            camera,
+            viewport,
             world,
             input: Input::new(),
+            start_time: Instant::now(),
             last_frame: Instant::now(),
             frame_time: Vec::new(),
         }
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.size = new_size;
-        self.swap_chain_desc.width = new_size.width;
-        self.swap_chain_desc.height = new_size.height;
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_desc);
-        self.camera.resize(&self.swap_chain_desc);
-        self.deferred_render = deferred::DeferredRender::new(&self.device, &self.swap_chain_desc, &self.camera);
-        self.fxaa = fxaa::Fxaa::new(&self.device, &self.swap_chain_desc);
+        self.viewport.resize(new_size.width, new_size.height);
+        self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
+        self.fxaa = pipelines::fxaa::Fxaa::new(&self.device, self.viewport.width, self.viewport.height);
+        self.world.resize(&self.device, &self.viewport);
     }
 
     pub fn input(&mut self, event: &DeviceEvent) {
@@ -107,49 +90,22 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        let avg = self.frame_time();
-        self.camera.update_camera(&self.queue, &self.input, avg);
+        let frame_time = self.frame_time();
+        self.viewport.update(&self.input, frame_time);
         self.input.after_update();
-        self.world.update(&self.device, &self.queue, &self.camera);
+        self.world.update(&self.device, &self.queue, &self.viewport, self.start_time);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-        let ops = wgpu::Operations {
-            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-            store: true,
-        };
 
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            // Main render pass
-            self.world.render(&mut encoder, &self.deferred_render.target);
-
-            // Deferred render pass
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &self.fxaa.texture_view,
-                        resolve_target: None,
-                        ops,
-                    }],
-                    depth_stencil_attachment: None,
-                })
-                .execute_bundles(std::iter::once(&self.deferred_render.render_bundle));
-
-            // FXAA render pass
-            encoder
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &frame.view,
-                        resolve_target: None,
-                        ops,
-                    }],
-                    depth_stencil_attachment: None,
-                })
-                .execute_bundles(std::iter::once(&self.fxaa.render_bundle));
+            self.world.render(&mut encoder, &self.fxaa.texture_view);
+            self.fxaa.render(&mut encoder, &frame.view);
         }
-
         self.queue.submit(std::iter::once(encoder.finish()));
         Ok(())
     }

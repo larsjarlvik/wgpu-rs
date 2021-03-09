@@ -1,7 +1,10 @@
+use cgmath::*;
 use std::{collections::HashMap, mem};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use wgpu::util::DeviceExt;
+
+use crate::settings;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -11,17 +14,17 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
-                wgpu::VertexAttributeDescriptor {
+                wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float3,
                 },
-                wgpu::VertexAttributeDescriptor {
+                wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float3,
@@ -232,4 +235,48 @@ fn lod_z_pos(lod: u32, connect_type: &ConnectType) -> u32 {
         ConnectType::ZPos | ConnectType::XNegZPos | ConnectType::XPosZPos => lod,
         _ => 0,
     }
+}
+
+pub fn get_connect_type(a: Vector3<f32>, b: Vector3<f32>, lod: u32, z_far: f32) -> ConnectType {
+    let ts = settings::TILE_SIZE as f32;
+
+    if get_lod(a, vec3(b.x + ts, 0.0, b.z), z_far) < lod {
+        if get_lod(a, vec3(b.x, 0.0, b.z + ts), z_far) < lod {
+            return ConnectType::XPosZPos;
+        }
+        if get_lod(a, vec3(b.x, 0.0, b.z - ts), z_far) < lod {
+            return ConnectType::XPosZNeg;
+        }
+
+        return ConnectType::XPos;
+    }
+    if get_lod(a, vec3(b.x - ts, 0.0, b.z), z_far) < lod {
+        if get_lod(a, vec3(b.x, 0.0, b.z + ts), z_far) < lod {
+            return ConnectType::XNegZPos;
+        }
+        if get_lod(a, vec3(b.x, 0.0, b.z - ts), z_far) < lod {
+            return ConnectType::XNegZNeg;
+        }
+        return ConnectType::XNeg;
+    }
+    if get_lod(a, vec3(b.x, 0.0, b.z + ts), z_far) < lod {
+        return ConnectType::ZPos;
+    }
+    if get_lod(a, vec3(b.x, 0.0, b.z - ts), z_far) < lod {
+        return ConnectType::ZNeg;
+    }
+
+    ConnectType::None
+}
+
+pub fn get_lod(a: Vector3<f32>, b: Vector3<f32>, z_far: f32) -> u32 {
+    let distance = a.distance(b) / z_far;
+    for i in 0..settings::LODS.len() {
+        let lod = settings::LODS.get(i).expect("Failed to get LOD!");
+        if lod > &distance {
+            return i as u32;
+        }
+    }
+
+    settings::LODS.len() as u32
 }

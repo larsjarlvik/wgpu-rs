@@ -1,23 +1,22 @@
-use std::time::Instant;
 use futures::executor::block_on;
+use std::time::Instant;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
     window::Fullscreen,
+    window::WindowBuilder,
 };
 mod camera;
-mod deferred;
-mod fxaa;
 mod input;
+mod logger;
 mod models;
 mod noise;
+mod pipelines;
+mod plane;
 mod settings;
 mod state;
 mod texture;
 mod world;
-mod plane;
-mod logger;
 pub use state::*;
 
 fn exit(control_flow: &mut ControlFlow) {
@@ -48,12 +47,13 @@ fn main() {
                 state.update();
             });
 
-            match state.render() {
+            logger::measure_time("Render", || match state.render() {
                 Ok(_) => {}
-                Err(wgpu::SwapChainError::Lost) => state.resize(state.size),
+                Err(wgpu::SwapChainError::Lost) => state.resize(winit::dpi::PhysicalSize::new(state.viewport.width, state.viewport.height)),
                 Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("Render error: {:?}", e),
-            }
+            });
+
             fps += 1;
             if last_update.elapsed().as_millis() > 1000 {
                 window.set_title(format!("WGPU-RS: {} FPS", fps).as_str());
@@ -83,7 +83,7 @@ fn main() {
                         let fullscreen = Some(Fullscreen::Borderless(window.current_monitor()));
                         window.set_fullscreen(fullscreen.clone());
                     }
-                 },
+                }
                 _ => {}
             },
             WindowEvent::Focused(focused) => {

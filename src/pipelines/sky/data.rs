@@ -3,8 +3,11 @@ use wgpu::util::DeviceExt;
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
-    pub resolution: [f32; 2],
+    pub light_dir: [f32; 3],
+    pub not_used: f32,
+    pub sky_color: [f32; 3],
 }
+
 pub struct UniformBuffer {
     pub data: Uniforms,
     pub buffer: wgpu::Buffer,
@@ -23,7 +26,7 @@ impl UniformBuffer {
             layout: &layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(buffer.slice(..)),
+                resource: buffer.as_entire_binding(),
             }],
         });
         Self { data, buffer, bind_group }

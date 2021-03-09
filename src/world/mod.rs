@@ -1,90 +1,72 @@
-use crate::{camera, deferred, models, noise, settings};
+use crate::{camera, models, noise, pipelines, settings};
 use cgmath::{vec2, Vector2};
+use std::time::Instant;
 mod assets;
+mod bundles;
 mod node;
-mod terrain;
+mod views;
 
 pub struct WorldData {
-    terrain: terrain::Terrain,
-    noise: noise::Noise,
+    pub terrain: pipelines::terrain::Terrain,
+    pub water: pipelines::water::Water,
+    pub model: pipelines::model::Model,
+    pub sky: pipelines::sky::Sky,
+    pub noise: noise::Noise,
     pub models: models::Models,
 }
 
 pub struct World {
     root_node: node::Node,
     pub data: WorldData,
-    pub terrain_bundle: wgpu::RenderBundle,
+    pub views: views::Views,
 }
 
 impl World {
-    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera) -> Self {
+    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let mut models = models::Models::new(&device, &camera);
+        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
+        let water = pipelines::water::Water::new(device, &viewport, &noise);
+        let sky = pipelines::sky::Sky::new(device, &viewport);
+        let model = pipelines::model::Model::new(device, &viewport);
+
+        let mut models = models::Models::new();
         for asset in assets::ASSETS {
-            models.load_model(&device, &queue, asset.name, format!("{}.glb", asset.name).as_str());
+            models.load_model(&device, &queue, &model, asset.name, format!("{}.glb", asset.name).as_str());
         }
 
-        let mut root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
-        let mut terrain = terrain::Terrain::new(device, queue, camera, &noise);
-        let terrain_bundle = get_terrain_bundle(device, camera, &mut terrain, &mut root_node);
+        let mut data = WorldData {
+            terrain,
+            water,
+            noise,
+            model,
+            sky,
+            models,
+        };
 
-        let mut world = Self {
-            data: WorldData { terrain, noise, models },
-            terrain_bundle,
+        let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
+        let bundles = views::Views::new(device, &mut data, viewport, &root_node);
+
+        Self {
+            data,
+            views: bundles,
             root_node,
-        };
-
-        world.terrain_bundle = get_terrain_bundle(device, camera, &mut world.data.terrain, &mut world.root_node);
-        world
+        }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, camera: &camera::Camera) {
-        self.root_node.update(device, queue, &mut self.data, camera);
-        self.data.models.refresh_render_bundle(device, camera);
-        self.terrain_bundle = get_terrain_bundle(device, camera, &mut self.data.terrain, &mut self.root_node);
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, time: Instant) {
+        self.root_node.update(device, queue, &mut self.data, viewport);
+        self.data.water.update(queue, time);
+        self.views.update(device, queue, &mut self.data, viewport, &self.root_node);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &deferred::textures::Textures) {
-        let ops = wgpu::Operations {
-            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-            store: true,
-        };
-
-        let render_bundles = vec![&self.terrain_bundle, &self.data.models.render_bundle];
-        self.render_to_texture_group(encoder, target, ops, render_bundles);
+    pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
+        self.data.water = pipelines::water::Water::new(device, viewport, &self.data.noise);
+        self.data.sky = pipelines::sky::Sky::new(device, viewport);
+        self.views.resize(device, &mut self.data, viewport);
     }
 
-    fn render_to_texture_group(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        target: &deferred::textures::Textures,
-        ops: wgpu::Operations<wgpu::Color>,
-        bundles: Vec<&wgpu::RenderBundle>,
-    ) {
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.normals_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &target.base_color_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                ],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &target.depth_texture_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(bundles.into_iter());
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        self.views.render(encoder, &self.data, target);
     }
 }
 
@@ -103,35 +85,4 @@ impl WorldData {
 
         (self.noise.fbm(xz + r, settings::TERRAIN_OCTAVES) - 0.3) / settings::TERRAIN_SCALE / 2.0
     }
-}
-
-fn get_terrain_bundle(
-    device: &wgpu::Device,
-    camera: &camera::Camera,
-    terrain: &mut terrain::Terrain,
-    root_node: &mut node::Node,
-) -> wgpu::RenderBundle {
-    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-        label: None,
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
-        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-        sample_count: 1,
-    });
-    encoder.set_pipeline(&terrain.render_pipeline);
-    encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
-    encoder.set_bind_group(1, &terrain.texture_bind_group, &[]);
-    encoder.set_bind_group(2, &terrain.noise_bindings.bind_group, &[]);
-
-    for lod in 0..=settings::LODS.len() {
-        let terrain_lod = terrain.compute.lods.get(lod).expect("Could not get LOD!");
-
-        for (terrain, connect_type) in root_node.get_terrain_nodes(camera, lod as u32) {
-            let lod_buffer = terrain_lod.get(&connect_type).unwrap();
-            encoder.set_vertex_buffer(0, terrain.buffer.slice(..));
-            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..));
-            encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
-        }
-    }
-
-    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") })
 }

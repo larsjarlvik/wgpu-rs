@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::{settings, texture};
 mod data;
 
 pub struct Fxaa {
@@ -7,14 +7,15 @@ pub struct Fxaa {
 }
 
 impl Fxaa {
-    pub fn new(device: &wgpu::Device, swap_chain_desc: &wgpu::SwapChainDescriptor) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: None,
                 },
                 count: None,
@@ -24,30 +25,20 @@ impl Fxaa {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Uint,
-                    },
-                    count: None,
-                },
+                texture::create_bind_group_layout(0, wgpu::TextureSampleType::Uint),
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: false,
+                        filtering: false,
+                    },
                     count: None,
                 },
             ],
         });
 
-        let texture_extent = wgpu::Extent3d {
-            width: swap_chain_desc.width,
-            height: swap_chain_desc.height,
-            depth: 1,
-        };
+        let texture_extent = wgpu::Extent3d { width, height, depth: 1 };
         let frame_descriptor = &wgpu::TextureDescriptor {
             label: None,
             size: texture_extent,
@@ -55,27 +46,16 @@ impl Fxaa {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: settings::COLOR_TEXTURE_FORMAT,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
         };
         let texture = device.create_texture(frame_descriptor);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = &device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
+        let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Linear);
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("texture_array"),
             layout: &texture_bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                },
+                texture::create_bind_group_entry(0, &texture_view),
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
@@ -89,41 +69,36 @@ impl Fxaa {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/fxaa.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("../shaders-compiled/fxaa.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/fxaa.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/fxaa.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("fxaa_pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
+            vertex: wgpu::VertexState {
                 module: &vs_module,
                 entry_point: "main",
+                buffers: &[],
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+            fragment: Some(wgpu::FragmentState {
                 module: &fs_module,
                 entry_point: "main",
+                targets: &[settings::COLOR_TEXTURE_FORMAT.into()],
             }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+            primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[settings::COLOR_TEXTURE_FORMAT.into()],
-            depth_stencil_state: None,
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[],
             },
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
         });
 
         let uniforms = data::UniformBuffer::new(
             &device,
             &uniform_bind_group_layout,
             data::Uniforms {
-                resolution: [swap_chain_desc.width as f32, swap_chain_desc.height as f32],
+                resolution: [width as f32, height as f32],
             },
         );
 
@@ -133,6 +108,23 @@ impl Fxaa {
             render_bundle,
             texture_view,
         }
+    }
+
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            })
+            .execute_bundles(std::iter::once(&self.render_bundle));
     }
 }
 
@@ -153,5 +145,5 @@ pub fn create_bundle(
     encoder.set_bind_group(0, &texture_bind_group, &[]);
     encoder.set_bind_group(1, &uniform_bind_group, &[]);
     encoder.draw(0..6, 0..1);
-    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
+    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("fxaa") })
 }

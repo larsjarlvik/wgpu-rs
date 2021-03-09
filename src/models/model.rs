@@ -1,11 +1,18 @@
-use super::{data, render_pipeline};
-use crate::camera::frustum;
-use cgmath::*;
 use std::collections::HashMap;
 
+use crate::{camera::frustum, pipelines};
+use cgmath::*;
+
+pub struct PrimitiveBuffers {
+    pub texture_bind_group: wgpu::BindGroup,
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_elements: u32,
+}
+
 pub struct Model {
-    pub primitives: Vec<render_pipeline::PrimitiveBuffers>,
-    pub instances: data::InstanceBuffer,
+    pub primitives: Vec<PrimitiveBuffers>,
+    pub instances: pipelines::model::data::InstanceBuffer,
     pub bounding_box: frustum::BoundingBox,
 }
 
@@ -28,7 +35,7 @@ impl Model {
         frustum::BoundingBox { min, max }
     }
 
-    pub fn add_instances(&mut self, instances: HashMap<String, data::Instance>) {
+    pub fn add_instances(&mut self, instances: HashMap<String, pipelines::model::data::Instance>) {
         self.instances.data.extend(instances);
     }
 

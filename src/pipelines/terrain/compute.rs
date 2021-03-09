@@ -1,7 +1,6 @@
+use crate::{noise, plane, settings};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-use crate::{noise, plane, settings};
-
 
 pub struct Compute {
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
@@ -28,10 +27,10 @@ impl Compute {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::COMPUTE,
-                ty: wgpu::BindingType::StorageBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
                     min_binding_size: None,
-                    readonly: true,
                 },
                 count: None,
             }],
@@ -42,8 +41,9 @@ impl Compute {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::COMPUTE,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
                     min_binding_size: None,
                 },
                 count: None,
@@ -60,14 +60,12 @@ impl Compute {
             push_constant_ranges: &[],
         });
 
-        let module = device.create_shader_module(wgpu::include_spirv!("../../shaders-compiled/terrain.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain.comp.spv"));
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("terrain_compute_pipeline"),
             layout: Some(&layout),
-            compute_stage: wgpu::ProgrammableStageDescriptor {
-                module: &module,
-                entry_point: "main",
-            },
+            module: &module,
+            entry_point: "main",
         });
 
         Self {
@@ -83,7 +81,7 @@ impl Compute {
     pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> wgpu::Buffer {
         let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("output_vertex_buffer"),
+            label: Some("terrain_vertex_buffer"),
             contents,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE,
         });
@@ -93,7 +91,7 @@ impl Compute {
             layout: &self.vertex_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(dst_vertex_buffer.slice(..)),
+                resource: dst_vertex_buffer.as_entire_binding(),
             }],
         });
 
@@ -107,7 +105,7 @@ impl Compute {
             layout: &self.uniform_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
+                resource: uniform_buffer.as_entire_binding(),
             }],
         });
 
@@ -115,7 +113,7 @@ impl Compute {
             label: Some("compute_terrain"),
         });
         {
-            let mut pass = encoder.begin_compute_pass();
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             pass.set_pipeline(&self.compute_pipeline);
             pass.set_bind_group(0, &vertex_bind_group, &[]);
             pass.set_bind_group(1, &uniform_bind_group, &[]);

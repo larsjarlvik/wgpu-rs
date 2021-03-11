@@ -20,6 +20,8 @@ pub struct Node {
     children: Vec<Node>,
     x: f32,
     z: f32,
+    pub y_min: f32,
+    pub y_max: f32,
     size: f32,
     radius: f32,
     depth: i32,
@@ -35,6 +37,8 @@ impl Node {
             depth,
             x,
             z,
+            y_min: 10000.0,
+            y_max: -10000.0,
             size,
             radius,
             data: None,
@@ -47,13 +51,13 @@ impl Node {
         node
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, viewport: &camera::Viewport) {
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, viewport: &camera::Viewport) -> (f32, f32) {
         let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
         let z_far_range = num_traits::Float::sqrt(viewport.z_far * viewport.z_far + viewport.z_far * viewport.z_far);
 
         if distance > z_far_range {
             self.delete_node(world);
-            return;
+            return (-10000.0, 10000.0);
         }
 
         if self.data.is_none() {
@@ -65,10 +69,14 @@ impl Node {
             } else {
                 self.add_children();
                 for child in self.children.iter_mut() {
-                    child.update(device, queue, world, viewport);
+                    let (y_min, y_max) = child.update(device, queue, world, viewport);
+                    self.y_min = self.y_min.min(y_min);
+                    self.y_max = self.y_max.max(y_max);
                 }
             }
         }
+
+        (self.y_min, self.y_max)
     }
 
     pub fn is_leaf(&self) -> bool {
@@ -80,11 +88,14 @@ impl Node {
             let child_size = self.size / 2.0;
             for cz in -1..1 {
                 for cx in -1..1 {
-                    self.children.push(Node::new(
+                    let child = Node::new(
                         self.x + ((cx as f32 + 0.5) * child_size),
                         self.z + ((cz as f32 + 0.5) * child_size),
                         self.depth - 1,
-                    ));
+                    );
+                    self.y_min = self.y_min.min(child.y_min);
+                    self.y_max = self.y_max.max(child.y_max);
+                    self.children.push(child);
                 }
             }
         }
@@ -102,8 +113,12 @@ impl Node {
             instance_keys.insert(asset.name.to_string(), keys);
         }
 
+        let (y_min, y_max, terrain_buffer) = world.terrain.compute.compute(device, queue, self.x, self.z);
+
+        self.y_min = y_min;
+        self.y_max = y_max;
         self.data = Some(NodeData {
-            terrain_buffer: world.terrain.compute.compute(device, queue, self.x, self.z),
+            terrain_buffer,
             water_buffer: world.water.create_buffer(&device, self.x, self.z),
             instance_keys,
         });
@@ -154,8 +169,17 @@ impl Node {
             .collect::<HashMap<String, pipelines::model::data::Instance>>()
     }
 
-    pub fn get_nodes(&self, camera: &camera::Instance, lod: u32) -> Vec<(&NodeData, ConnectType)> {
-        if self.check_frustum(camera) {
+    pub fn get_nodes(
+        &self,
+        camera: &camera::Instance,
+        lod: u32,
+        fn_clip: &dyn Fn(f32, f32, f32, f32) -> bool,
+    ) -> Vec<(&NodeData, ConnectType)> {
+        let direction = camera.uniforms.data.clip[1];
+        let plane = camera.uniforms.data.clip[3];
+        let clip = fn_clip(direction, plane, self.y_min, self.y_max);
+
+        if clip && self.check_frustum(camera) {
             match &self.data {
                 Some(t) => {
                     let eye = vec3(
@@ -169,7 +193,11 @@ impl Node {
                     }
                     vec![]
                 }
-                None => self.children.iter().flat_map(|child| child.get_nodes(camera, lod)).collect(),
+                None => self
+                    .children
+                    .iter()
+                    .flat_map(|child| child.get_nodes(camera, lod, fn_clip))
+                    .collect(),
             }
         } else {
             vec![]
@@ -178,8 +206,8 @@ impl Node {
 
     fn check_frustum(&self, camera: &camera::Instance) -> bool {
         let half_size = self.size / 2.0;
-        let min = Point3::new(self.x - half_size, -100.0, self.z - half_size);
-        let max = Point3::new(self.x + half_size, 100.0, self.z + half_size);
+        let min = Point3::new(self.x - half_size, self.y_min, self.z - half_size);
+        let max = Point3::new(self.x + half_size, self.y_max, self.z + half_size);
 
         match camera.frustum.test_bounding_box(&BoundingBox { min, max }) {
             Intersection::Inside | Intersection::Partial => true,

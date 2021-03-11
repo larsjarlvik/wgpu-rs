@@ -1,4 +1,9 @@
-use crate::{noise, plane, settings};
+use crate::{
+    noise,
+    plane::{self, Vertex},
+    settings,
+};
+use futures::executor::block_on;
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 
@@ -78,12 +83,12 @@ impl Compute {
         }
     }
 
-    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> wgpu::Buffer {
+    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> (f32, f32, wgpu::Buffer) {
         let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("terrain_vertex_buffer"),
             contents,
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE,
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
         });
 
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -121,6 +126,32 @@ impl Compute {
             pass.dispatch(self.plane.length, 1, 1);
         }
         queue.submit(std::iter::once(encoder.finish()));
-        dst_vertex_buffer
+
+        let (y_min, y_max) = block_on(get_elevation_range(device, &dst_vertex_buffer));
+
+        dst_vertex_buffer.unmap();
+        (y_min, y_max, dst_vertex_buffer)
+    }
+}
+
+async fn get_elevation_range(device: &wgpu::Device, buffer: &wgpu::Buffer) -> (f32, f32) {
+    let buffer_slice = buffer.clone().slice(..);
+    let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+    device.poll(wgpu::Maintain::Wait);
+
+    if let Ok(()) = buffer_future.await {
+        let data = buffer_slice.get_mapped_range();
+        unsafe {
+            let chunks = data.align_to::<Vertex>();
+            let mut min: f32 = chunks.1.first().unwrap().position[1];
+            let mut max: f32 = chunks.1.first().unwrap().position[1];
+            for vertex in chunks.1.iter() {
+                min = min.min(vertex.position[1]);
+                max = max.max(vertex.position[1]);
+            }
+            (min, max)
+        }
+    } else {
+        panic!("Failed to generate noise!")
     }
 }

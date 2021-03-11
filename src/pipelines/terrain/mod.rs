@@ -1,4 +1,4 @@
-mod compute;
+pub mod compute;
 use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};

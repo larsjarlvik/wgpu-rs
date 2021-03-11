@@ -20,7 +20,7 @@ impl TerrainBundle {
         for lod in 0..=settings::LODS.len() {
             let terrain_lod = pipeline.compute.lods.get(lod).expect("Could not get LOD!");
 
-            for (terrain, connect_type) in root_node.get_nodes(camera, lod as u32) {
+            for (terrain, connect_type) in root_node.get_nodes(camera, lod as u32, &check_clip) {
                 let lod_buffer = terrain_lod.get(&connect_type).unwrap();
                 encoder.set_vertex_buffer(0, terrain.terrain_buffer.slice(..));
                 encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -31,4 +31,8 @@ impl TerrainBundle {
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("terrain") });
         Self { render_bundle }
     }
+}
+
+fn check_clip(direction: f32, plane: f32, y_min: f32, y_max: f32) -> bool {
+    direction == 0.0 || (direction > 0.0 && y_max >= plane) || (direction <= 0.0 && y_min < plane)
 }

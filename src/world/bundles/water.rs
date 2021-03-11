@@ -21,7 +21,7 @@ impl WaterBundle {
         for lod in 0..=settings::LODS.len() {
             let water_lod = pipeline.lods.get(lod).expect("Could not get LOD!");
 
-            for (water, connect_type) in root_node.get_nodes(camera, lod as u32) {
+            for (water, connect_type) in root_node.get_nodes(camera, lod as u32, &check_clip) {
                 let lod_buffer = water_lod.get(&connect_type).unwrap();
                 encoder.set_vertex_buffer(0, water.water_buffer.slice(..));
                 encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -56,4 +56,8 @@ impl WaterBundle {
             })
             .execute_bundles(std::iter::once(&self.render_bundle));
     }
+}
+
+fn check_clip(_direction: f32, plane: f32, y_min: f32, _y_max: f32) -> bool {
+    y_min <= plane
 }

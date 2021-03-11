@@ -4,7 +4,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "include/noise.glsl"
 
-layout(local_size_x = 1) in;
+layout(local_size_x = 8, local_size_y = 8) in;
 
 struct Vertex {
     float x; float y; float z;

@@ -78,6 +78,7 @@ pub type Instance = (InstanceData, frustum::BoundingBox);
 pub struct InstanceBuffer {
     pub data: HashMap<String, Instance>,
     pub buffer: wgpu::Buffer,
+    pub visible: usize,
 }
 
 impl InstanceBuffer {
@@ -87,6 +88,7 @@ impl InstanceBuffer {
             contents: &[],
             usage: wgpu::BufferUsage::VERTEX,
         });
-        Self { data, buffer }
+        let visible = data.len();
+        Self { data, buffer, visible }
     }
 }

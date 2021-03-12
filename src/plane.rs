@@ -135,7 +135,7 @@ impl Plane {
                     length: indices.len() as u32,
                     index_buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("Index Buffer"),
-                        contents: bytemuck::cast_slice(&indices.as_slice()),
+                        contents: bytemuck::cast_slice(&indices),
                         usage: wgpu::BufferUsage::INDEX,
                     }),
                 },

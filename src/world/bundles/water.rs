@@ -1,4 +1,5 @@
-use crate::{camera, pipelines, settings, world::node};
+use crate::{camera, pipelines, plane, settings, world::node};
+use cgmath::*;
 
 pub struct WaterBundle {
     render_bundle: wgpu::RenderBundle,
@@ -21,11 +22,27 @@ impl WaterBundle {
         for lod in 0..=settings::LODS.len() {
             let water_lod = pipeline.lods.get(lod).expect("Could not get LOD!");
 
-            for (water, connect_type) in root_node.get_nodes(camera, lod as u32, &check_clip) {
-                let lod_buffer = water_lod.get(&connect_type).unwrap();
-                encoder.set_vertex_buffer(0, water.water_buffer.slice(..));
-                encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+            for node in root_node.get_nodes(camera) {
+                let plane = camera.uniforms.data.clip[3];
+                let eye = vec3(
+                    camera.uniforms.data.eye_pos[0],
+                    camera.uniforms.data.eye_pos[1],
+                    camera.uniforms.data.eye_pos[2],
+                );
+
+                if check_clip(plane, node.bounding_box.min.y) {
+                    let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
+                    let lod_buffer = water_lod.get(&ct).unwrap();
+
+                    match &node.data {
+                        Some(data) => {
+                            encoder.set_vertex_buffer(0, data.water_buffer.slice(..));
+                            encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                            encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+                        }
+                        None => {}
+                    }
+                }
             }
         }
 
@@ -58,6 +75,6 @@ impl WaterBundle {
     }
 }
 
-fn check_clip(_direction: f32, plane: f32, y_min: f32, _y_max: f32) -> bool {
+fn check_clip(plane: f32, y_min: f32) -> bool {
     y_min <= plane
 }

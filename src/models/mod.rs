@@ -51,7 +51,7 @@ impl Models {
             }
         }
 
-        let instances = pipelines::model::data::InstanceBuffer::new(&device, HashMap::new());
+        let instances = pipelines::model::data::InstanceBuffer::new(&device);
         self.models.insert(
             name.to_string(),
             model::Model {

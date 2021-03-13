@@ -34,6 +34,36 @@ pub struct BoundingBox {
     pub min: Point3<f32>,
     pub max: Point3<f32>,
 }
+
+impl BoundingBox {
+    pub fn transform(&self, transform: [[f32; 4]; 4]) -> Self {
+        let b1: Point3<f32> = cgmath::Matrix4::from(transform).transform_point(self.min);
+        let b2: Point3<f32> = cgmath::Matrix4::from(transform).transform_point(self.max);
+
+        let min = Point3::new(
+            if b1.x < b2.x { b1.x } else { b2.x },
+            if b1.y < b2.y { b1.y } else { b2.y },
+            if b1.z < b2.z { b1.z } else { b2.z },
+        );
+        let max = Point3::new(
+            if b1.x > b2.x { b1.x } else { b2.x },
+            if b1.y > b2.y { b1.y } else { b2.y },
+            if b1.z > b2.z { b1.z } else { b2.z },
+        );
+
+        Self { min, max }
+    }
+
+    pub fn grow(&mut self, bounding_box: &Self) {
+        self.min.x = self.min.x.min(bounding_box.min.x);
+        self.max.x = self.max.x.max(bounding_box.max.x);
+        self.min.y = self.min.y.min(bounding_box.min.y);
+        self.max.y = self.max.y.max(bounding_box.max.y);
+        self.min.z = self.min.z.min(bounding_box.min.z);
+        self.max.z = self.max.z.max(bounding_box.max.z);
+    }
+}
+
 pub enum Intersection {
     Inside,
     Partial,

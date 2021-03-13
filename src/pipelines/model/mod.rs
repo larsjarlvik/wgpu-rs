@@ -58,7 +58,7 @@ impl Model {
             vertex: wgpu::VertexState {
                 module: &vs_module,
                 entry_point: "main",
-                buffers: &[data::Vertex::desc(), data::InstanceData::desc()],
+                buffers: &[data::Vertex::desc(), data::Instance::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &fs_module,

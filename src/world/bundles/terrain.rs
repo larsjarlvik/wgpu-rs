@@ -1,4 +1,9 @@
-use crate::{camera, pipelines, settings, world::node};
+use crate::{
+    camera::{self, frustum::BoundingBox},
+    pipelines, plane, settings,
+    world::node,
+};
+use cgmath::*;
 
 pub struct TerrainBundle {
     pub render_bundle: wgpu::RenderBundle,
@@ -20,11 +25,31 @@ impl TerrainBundle {
         for lod in 0..=settings::LODS.len() {
             let terrain_lod = pipeline.compute.lods.get(lod).expect("Could not get LOD!");
 
-            for (terrain, connect_type) in root_node.get_nodes(camera, lod as u32, &check_clip) {
-                let lod_buffer = terrain_lod.get(&connect_type).unwrap();
-                encoder.set_vertex_buffer(0, terrain.terrain_buffer.slice(..));
-                encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+            for node in root_node.get_nodes(camera) {
+                let direction = camera.uniforms.data.clip[1];
+                let plane = camera.uniforms.data.clip[3];
+
+                if check_clip(direction, plane, &node.bounding_box) {
+                    let eye = vec3(
+                        camera.uniforms.data.eye_pos[0],
+                        camera.uniforms.data.eye_pos[1],
+                        camera.uniforms.data.eye_pos[2],
+                    );
+
+                    if plane::get_lod(eye, vec3(node.x, 0.0, node.z), camera.uniforms.data.z_far) == lod as u32 {
+                        let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
+                        let lod_buffer = terrain_lod.get(&ct).unwrap();
+
+                        match &node.data {
+                            Some(data) => {
+                                encoder.set_vertex_buffer(0, data.terrain_buffer.slice(..));
+                                encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                                encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+                            }
+                            None => {}
+                        }
+                    }
+                }
             }
         }
 
@@ -33,6 +58,6 @@ impl TerrainBundle {
     }
 }
 
-fn check_clip(direction: f32, plane: f32, y_min: f32, y_max: f32) -> bool {
-    direction == 0.0 || (direction > 0.0 && y_max >= plane) || (direction <= 0.0 && y_min < plane)
+fn check_clip(direction: f32, plane: f32, bounding_box: &BoundingBox) -> bool {
+    direction == 0.0 || (direction > 0.0 && bounding_box.max.y >= plane) || (direction <= 0.0 && bounding_box.min.y < plane)
 }

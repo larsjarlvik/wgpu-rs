@@ -25,7 +25,7 @@ impl Reflection {
 
         Self {
             terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
-            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models),
+            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models, &root_node),
             sky: bundles::sky::SkyBundle::new(device, &camera, &world_data.sky),
             camera,
             deferred,
@@ -48,7 +48,7 @@ impl Reflection {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
-        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models);
+        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models, &root_node);
     }
 
     pub fn resize(

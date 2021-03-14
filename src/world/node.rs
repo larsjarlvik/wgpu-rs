@@ -73,7 +73,7 @@ impl Node {
                 self.add_children();
                 for child in self.children.iter_mut() {
                     child.update(device, queue, world, viewport);
-                    self.bounding_box.grow(&child.bounding_box);
+                    self.bounding_box = self.bounding_box.grow(&child.bounding_box);
                 }
             }
         }
@@ -93,7 +93,7 @@ impl Node {
                         self.z + ((cz as f32 + 0.5) * child_size),
                         self.depth - 1,
                     );
-                    self.bounding_box.grow(&child.bounding_box);
+                    self.bounding_box = self.bounding_box.grow(&child.bounding_box);
                     self.children.push(child);
                 }
             }
@@ -111,7 +111,7 @@ impl Node {
             let assets = self.create_assets(world, asset);
             for asset in &assets {
                 let asset_bb = model.bounding_box.transform(asset.transform);
-                self.bounding_box.grow(&asset_bb);
+                self.bounding_box = self.bounding_box.grow(&asset_bb);
             }
 
             model_instances.insert(asset.name.to_string(), assets);
@@ -144,10 +144,10 @@ impl Node {
             .collect::<Vec<pipelines::model::data::Instance>>()
     }
 
-    pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<&Self> {
+    pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<(&Self, &NodeData)> {
         if self.check_frustum(camera) {
             match &self.data {
-                Some(_) => vec![&self],
+                Some(t) => vec![(&self, &t)],
                 None => self.children.iter().flat_map(|child| child.get_nodes(camera)).collect(),
             }
         } else {

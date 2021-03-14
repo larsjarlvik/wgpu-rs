@@ -22,10 +22,11 @@ impl Reflection {
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred_render.get_render_bundle(device, &camera);
+        let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
-            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models, &root_node),
+            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &nodes),
+            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models, &nodes),
             sky: bundles::sky::SkyBundle::new(device, &camera, &world_data.sky),
             camera,
             deferred,
@@ -40,6 +41,7 @@ impl Reflection {
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
+        let nodes = root_node.get_nodes(&self.camera);
         let view = Matrix4::look_at(
             Point3::new(viewport.eye.x, -viewport.eye.y, viewport.eye.z),
             viewport.target,
@@ -47,8 +49,8 @@ impl Reflection {
         );
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
-        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
-        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models, &root_node);
+        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &nodes);
+        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);
     }
 
     pub fn resize(

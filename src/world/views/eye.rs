@@ -24,11 +24,12 @@ impl Eye {
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred_render.get_render_bundle(device, &camera);
+        let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
-            water: bundles::water::WaterBundle::new(device, &camera, &world_data.water, &root_node),
-            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models, &root_node),
+            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &nodes),
+            water: bundles::water::WaterBundle::new(device, &camera, &world_data.water, &nodes),
+            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models, &nodes),
             sky: bundles::sky::SkyBundle::new(device, &camera, &world_data.sky),
             camera,
             deferred,
@@ -44,10 +45,12 @@ impl Eye {
         root_node: &node::Node,
     ) {
         let view = Matrix4::look_at(viewport.eye, viewport.target, Vector3::unit_y());
+        let nodes = root_node.get_nodes(&self.camera);
+
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
-        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
-        self.water = bundles::water::WaterBundle::new(device, &self.camera, &world_data.water, &root_node);
-        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models, &root_node);
+        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &nodes);
+        self.water = bundles::water::WaterBundle::new(device, &self.camera, &world_data.water, &nodes);
+        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);
     }
 
     pub fn resize(

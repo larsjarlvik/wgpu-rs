@@ -4,7 +4,7 @@ use crate::{
     camera, models,
     pipelines::{self, model},
     settings,
-    world::node,
+    world::node::{Node, NodeData},
 };
 
 pub struct ModelsBundle {
@@ -17,7 +17,7 @@ impl ModelsBundle {
         camera: &camera::Instance,
         pipeline: &pipelines::model::Model,
         models: &mut models::Models,
-        root_node: &node::Node,
+        nodes: &Vec<(&Node, &NodeData)>,
     ) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
@@ -29,19 +29,12 @@ impl ModelsBundle {
         encoder.set_pipeline(&pipeline.render_pipeline);
         encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
-        let nodes = root_node.get_nodes(camera);
-
         for (key, model) in &mut models.models.iter_mut() {
             let mut instances: Vec<model::data::Instance> = Vec::new();
-            for node in &nodes {
-                match &node.data {
-                    Some(data) => {
-                        // TODO: Check
-                        let node_instances = data.model_instances.get(key).unwrap();
-                        instances.extend(node_instances);
-                    }
-                    None => {}
-                }
+            for (_, data) in nodes {
+                // TODO: Check
+                let node_instances = data.model_instances.get(key).unwrap();
+                instances.extend(node_instances);
             }
 
             model.instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

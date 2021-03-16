@@ -5,7 +5,7 @@ use crate::{
 use cgmath::*;
 
 pub struct Refraction {
-    pub terrain: bundles::terrain::TerrainBundle,
+    pub terrain: bundles::TerrainBundle,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -23,7 +23,7 @@ impl Refraction {
         let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &nodes),
+            terrain: bundles::TerrainBundle::new(device, &camera, &mut world_data.terrain, &nodes),
             camera,
             deferred,
         }
@@ -41,7 +41,7 @@ impl Refraction {
         let nodes = root_node.get_nodes(&self.camera);
 
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
-        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &nodes);
+        self.terrain = bundles::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &nodes);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, deferred_render: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {

@@ -2,6 +2,8 @@ extern crate cgmath;
 use cgmath::*;
 use std::mem;
 
+use super::bounding_box;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct FrustumCuller {
     nx_x: f32,
@@ -28,46 +30,6 @@ pub struct FrustumCuller {
     pz_y: f32,
     pz_z: f32,
     pz_w: f32,
-}
-#[derive(Clone)]
-pub struct BoundingBox {
-    pub min: Point3<f32>,
-    pub max: Point3<f32>,
-}
-
-impl BoundingBox {
-    pub fn transform(&self, transform: [[f32; 4]; 4]) -> Self {
-        let b1: Point3<f32> = cgmath::Matrix4::from(transform).transform_point(self.min);
-        let b2: Point3<f32> = cgmath::Matrix4::from(transform).transform_point(self.max);
-
-        Self {
-            min: Point3::new(
-                if b1.x < b2.x { b1.x } else { b2.x },
-                if b1.y < b2.y { b1.y } else { b2.y },
-                if b1.z < b2.z { b1.z } else { b2.z },
-            ),
-            max: Point3::new(
-                if b1.x > b2.x { b1.x } else { b2.x },
-                if b1.y > b2.y { b1.y } else { b2.y },
-                if b1.z > b2.z { b1.z } else { b2.z },
-            ),
-        }
-    }
-
-    pub fn grow(&self, bounding_box: &Self) -> Self {
-        Self {
-            min: Point3::new(
-                self.min.x.min(bounding_box.min.x),
-                self.min.y.min(bounding_box.min.y),
-                self.min.z.min(bounding_box.min.z),
-            ),
-            max: Point3::new(
-                self.max.x.max(bounding_box.max.x),
-                self.max.y.max(bounding_box.max.y),
-                self.max.z.max(bounding_box.max.z),
-            ),
-        }
-    }
 }
 
 pub enum Intersection {
@@ -165,7 +127,7 @@ impl FrustumCuller {
         culler
     }
 
-    pub fn test_bounding_box(&self, aab: &BoundingBox) -> Intersection {
+    pub fn test_bounding_box(&self, aab: &bounding_box::BoundingBox) -> Intersection {
         let mut inside = true;
         if self.nx_x * if self.nx_x < 0.0 { aab.min.x } else { aab.max.x }
             + self.nx_y * if self.nx_y < 0.0 { aab.min.y } else { aab.max.y }

@@ -1,5 +1,5 @@
 use crate::{camera, models, noise, pipelines, settings};
-use cgmath::{vec2, Vector2};
+use cgmath::*;
 use std::time::Instant;
 mod assets;
 mod bundles;

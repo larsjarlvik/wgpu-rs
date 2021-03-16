@@ -1,6 +1,6 @@
 use super::{assets, WorldData};
 use crate::{
-    camera::{self, frustum::*},
+    camera,
     pipelines::{self, model},
     plane, settings,
 };
@@ -13,7 +13,7 @@ use wgpu::util::DeviceExt;
 pub struct NodeData {
     pub terrain_buffer: wgpu::Buffer,
     pub water_buffer: wgpu::Buffer,
-    pub model_instances: HashMap<String, Vec<model::data::Instance>>,
+    pub model_instances: HashMap<String, Vec<model::Instance>>,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
 }
 
@@ -21,7 +21,7 @@ pub struct Node {
     children: Vec<Node>,
     pub x: f32,
     pub z: f32,
-    pub bounding_box: BoundingBox,
+    pub bounding_box: camera::BoundingBox,
     size: f32,
     radius: f32,
     depth: u32,
@@ -32,7 +32,7 @@ impl Node {
     pub fn new(x: f32, z: f32, depth: u32) -> Self {
         let size = 2.0f32.powf(depth as f32) * settings::TILE_SIZE as f32;
         let radius = (size * size + size * size).sqrt() / 2.0;
-        let bounding_box = BoundingBox {
+        let bounding_box = camera::BoundingBox {
             min: Point3::new(x - size / 2.0, -10000.0, z - size / 2.0),
             max: Point3::new(x + size / 2.0, 10000.0, z + size / 2.0),
         };
@@ -103,7 +103,7 @@ impl Node {
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
-        let mut model_instances: HashMap<String, Vec<pipelines::model::data::Instance>> = HashMap::new();
+        let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
         let (plane, y_min, y_max) = world.terrain.compute.plane.sub(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max;
@@ -137,7 +137,7 @@ impl Node {
         });
     }
 
-    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> Vec<pipelines::model::data::Instance> {
+    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> Vec<pipelines::model::Instance> {
         let count = (self.size * self.size * asset.density) as u32;
 
         (0..count)
@@ -152,9 +152,9 @@ impl Node {
             .filter(|asset| asset.1 > 0.0)
             .map(|(mx, my, mz, rot, scale)| {
                 let t = Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale);
-                pipelines::model::data::Instance { transform: t.into() }
+                pipelines::model::Instance { transform: t.into() }
             })
-            .collect::<Vec<pipelines::model::data::Instance>>()
+            .collect::<Vec<pipelines::model::Instance>>()
     }
 
     pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<(&Self, &NodeData)> {
@@ -170,8 +170,8 @@ impl Node {
 
     fn check_frustum(&self, camera: &camera::Instance) -> bool {
         match camera.frustum.test_bounding_box(&self.bounding_box) {
-            Intersection::Inside | Intersection::Partial => true,
-            Intersection::Outside => false,
+            camera::Intersection::Inside | camera::Intersection::Partial => true,
+            camera::Intersection::Outside => false,
         }
     }
 }

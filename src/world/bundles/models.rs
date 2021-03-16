@@ -30,7 +30,7 @@ impl ModelsBundle {
         encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
         for (key, model) in &mut models.models.iter_mut() {
-            let mut instances: Vec<model::data::Instance> = Vec::new();
+            let mut instances: Vec<model::Instance> = Vec::new();
             for (_, data) in nodes {
                 let node_instances = data.model_instances.get(key).expect("Could not find model instance!");
                 instances.extend(node_instances);

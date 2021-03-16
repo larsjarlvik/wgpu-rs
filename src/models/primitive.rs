@@ -1,4 +1,4 @@
-use crate::{camera::frustum, pipelines, texture};
+use crate::{camera, pipelines, texture};
 use cgmath::*;
 use wgpu::util::DeviceExt;
 
@@ -7,8 +7,8 @@ struct Material {
 }
 
 pub struct Primitive {
-    pub bounding_box: frustum::BoundingBox,
-    vertices: Vec<pipelines::model::data::Vertex>,
+    pub bounding_box: camera::BoundingBox,
+    vertices: Vec<pipelines::model::Vertex>,
     indices: Vec<u32>,
     material: Material,
 }
@@ -30,7 +30,7 @@ impl Primitive {
 
         let mut vertices = vec![];
         for i in 0..positions.len() {
-            vertices.push(pipelines::model::data::Vertex {
+            vertices.push(pipelines::model::Vertex {
                 position: positions[i],
                 normals: normals[i],
                 tex_coords: tex_coords[i],
@@ -41,7 +41,7 @@ impl Primitive {
         let base_color_texture = texture::create_mipmapped_view(&device, &queue, &image.pixels, image.width, image.height);
         let material = Material { base_color_texture };
 
-        let bounding_box = frustum::BoundingBox {
+        let bounding_box = camera::BoundingBox {
             min: Point3::from(primitive.bounding_box().min),
             max: Point3::from(primitive.bounding_box().max),
         };

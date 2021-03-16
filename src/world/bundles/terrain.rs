@@ -1,6 +1,5 @@
 use crate::{
-    camera::{self, frustum::BoundingBox},
-    pipelines, plane, settings,
+    camera, pipelines, plane, settings,
     world::node::{Node, NodeData},
 };
 use cgmath::*;
@@ -57,6 +56,6 @@ impl TerrainBundle {
     }
 }
 
-fn check_clip(direction: f32, plane: f32, bounding_box: &BoundingBox) -> bool {
+fn check_clip(direction: f32, plane: f32, bounding_box: &camera::BoundingBox) -> bool {
     direction == 0.0 || (direction > 0.0 && bounding_box.max.y >= plane) || (direction <= 0.0 && bounding_box.min.y < plane)
 }

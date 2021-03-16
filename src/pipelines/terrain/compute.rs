@@ -1,15 +1,10 @@
-use crate::{
-    noise,
-    plane::{self, Vertex},
-    settings,
-};
-use futures::executor::block_on;
-use std::collections::HashMap;
+use crate::{noise, plane, settings};
+use plane::Vertex;
+use std::time::Instant;
 use wgpu::util::DeviceExt;
 
 pub struct Compute {
-    pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
-    plane: plane::Plane,
+    pub plane: plane::Plane,
     compute_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
@@ -18,14 +13,8 @@ pub struct Compute {
 
 impl Compute {
     pub fn new(device: &wgpu::Device, noise: &noise::Noise) -> Self {
-        let plane = plane::Plane::new(settings::TILE_SIZE);
+        let plane = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
         let noise_bindings = noise.create_bindings(device);
-        let mut lods = vec![];
-
-        for lod in 0..=settings::LODS.len() {
-            let indices_lod = plane.create_indices(&device, lod as u32 + 1);
-            lods.push(indices_lod);
-        }
 
         let vertex_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("input_bind_group_layout"),
@@ -74,7 +63,6 @@ impl Compute {
         });
 
         Self {
-            lods,
             compute_pipeline,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
@@ -83,7 +71,8 @@ impl Compute {
         }
     }
 
-    pub fn compute(&self, device: &wgpu::Device, queue: &wgpu::Queue, x: f32, z: f32) -> (f32, f32, wgpu::Buffer) {
+    pub async fn compute(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let now = Instant::now();
         let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("terrain_vertex_buffer"),
@@ -102,7 +91,7 @@ impl Compute {
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform_buffer"),
-            contents: bytemuck::cast_slice(&[x, z]),
+            contents: bytemuck::cast_slice(&[0.0, 0.0]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -127,31 +116,28 @@ impl Compute {
         }
         queue.submit(std::iter::once(encoder.finish()));
 
-        let (y_min, y_max) = block_on(get_elevation_range(device, &dst_vertex_buffer));
-
+        self.plane = self.get_result(device, &dst_vertex_buffer, self.plane.size).await;
         dst_vertex_buffer.unmap();
-        (y_min, y_max, dst_vertex_buffer)
+        println!("Compute: {} ms", now.elapsed().as_millis());
     }
-}
 
-async fn get_elevation_range(device: &wgpu::Device, buffer: &wgpu::Buffer) -> (f32, f32) {
-    let buffer_slice = buffer.clone().slice(..);
-    let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
-    device.poll(wgpu::Maintain::Wait);
+    async fn get_result(&mut self, device: &wgpu::Device, buffer: &wgpu::Buffer, size: u32) -> plane::Plane {
+        let buffer_slice = buffer.clone().slice(..);
+        let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
+        device.poll(wgpu::Maintain::Wait);
 
-    if let Ok(()) = buffer_future.await {
-        let data = buffer_slice.get_mapped_range();
-        unsafe {
-            let chunks = data.align_to::<Vertex>();
-            let mut min: f32 = chunks.1.first().unwrap().position[1];
-            let mut max: f32 = chunks.1.first().unwrap().position[1];
-            for vertex in chunks.1.iter() {
-                min = min.min(vertex.position[1]);
-                max = max.max(vertex.position[1]);
+        if let Ok(()) = buffer_future.await {
+            let data = buffer_slice.get_mapped_range();
+            unsafe {
+                let now = Instant::now();
+
+                let vertices = data.align_to::<Vertex>().1;
+                let data = plane::from_data(vertices.to_vec(), size);
+                println!("Plane: {} ms", now.elapsed().as_millis());
+                data
             }
-            (min, max)
+        } else {
+            panic!("Failed to generate noise!")
         }
-    } else {
-        panic!("Failed to generate noise!")
     }
 }

@@ -37,7 +37,7 @@ impl TerrainBundle {
 
         for (node, data) in nodes {
             for lod in 0..=settings::LODS.len() {
-                let terrain_lod = pipeline.compute.lods.get(lod).expect("Could not get LOD!");
+                let terrain_lod = data.lods.get(lod).expect("Could not get LOD!");
 
                 if check_clip(direction, plane, &node.bounding_box)
                     && plane::get_lod(eye, vec3(node.x, 0.0, node.z), camera.uniforms.data.z_far) == lod as u32

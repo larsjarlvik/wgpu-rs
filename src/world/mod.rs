@@ -24,10 +24,12 @@ pub struct World {
 impl World {
     pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
+        let mut terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
         let water = pipelines::water::Water::new(device, &viewport, &noise);
         let sky = pipelines::sky::Sky::new(device, &viewport);
         let model = pipelines::model::Model::new(device, &viewport);
+
+        terrain.compute.compute(device, queue).await;
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {
@@ -54,7 +56,7 @@ impl World {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, time: Instant) {
-        self.root_node.update(device, queue, &mut self.data, viewport);
+        self.root_node.update(device, &mut self.data, viewport);
         self.data.water.update(queue, time);
         self.views.update(device, queue, &mut self.data, viewport, &self.root_node);
     }

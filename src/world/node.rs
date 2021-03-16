@@ -2,17 +2,19 @@ use super::{assets, WorldData};
 use crate::{
     camera::{self, frustum::*},
     pipelines::{self, model},
-    settings,
+    plane, settings,
 };
 use cgmath::*;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
+use wgpu::util::DeviceExt;
 
 pub struct NodeData {
     pub terrain_buffer: wgpu::Buffer,
     pub water_buffer: wgpu::Buffer,
     pub model_instances: HashMap<String, Vec<model::data::Instance>>,
+    pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
 }
 
 pub struct Node {
@@ -22,12 +24,12 @@ pub struct Node {
     pub bounding_box: BoundingBox,
     size: f32,
     radius: f32,
-    depth: i32,
+    depth: u32,
     pub data: Option<NodeData>,
 }
 
 impl Node {
-    pub fn new(x: f32, z: f32, depth: i32) -> Self {
+    pub fn new(x: f32, z: f32, depth: u32) -> Self {
         let size = 2.0f32.powf(depth as f32) * settings::TILE_SIZE as f32;
         let radius = (size * size + size * size).sqrt() / 2.0;
         let bounding_box = BoundingBox {
@@ -53,7 +55,7 @@ impl Node {
         node
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData, viewport: &camera::Viewport) {
+    pub fn update(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
         let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
         let z_far_range = num_traits::Float::sqrt(viewport.z_far * viewport.z_far + viewport.z_far * viewport.z_far);
 
@@ -67,12 +69,12 @@ impl Node {
             if self.is_leaf() {
                 let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
                 if distance < z_far_range && self.data.is_none() {
-                    self.build_leaf_node(device, queue, world);
+                    self.build_leaf_node(device, world);
                 }
             } else {
                 self.add_children();
                 for child in self.children.iter_mut() {
-                    child.update(device, queue, world, viewport);
+                    child.update(device, world, viewport);
                     self.bounding_box = self.bounding_box.grow(&child.bounding_box);
                 }
             }
@@ -100,11 +102,21 @@ impl Node {
         }
     }
 
-    fn build_leaf_node(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, world: &mut WorldData) {
+    fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
         let mut model_instances: HashMap<String, Vec<pipelines::model::data::Instance>> = HashMap::new();
-        let (y_min, y_max, terrain_buffer) = world.terrain.compute.compute(device, queue, self.x, self.z);
+        let (plane, y_min, y_max) = world.terrain.compute.plane.sub(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max;
+
+        let lods = (0..=settings::LODS.len())
+            .map(|lod| plane.create_indices(&device, lod as u32 + 1))
+            .collect();
+
+        let terrain_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("terrain_vertex_buffer"),
+            contents: bytemuck::cast_slice(&plane.vertices),
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+        });
 
         for asset in assets::ASSETS {
             let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
@@ -121,6 +133,7 @@ impl Node {
             terrain_buffer,
             water_buffer: world.water.create_buffer(&device, self.x, self.z),
             model_instances,
+            lods,
         });
     }
 

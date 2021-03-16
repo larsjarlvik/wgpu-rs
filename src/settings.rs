@@ -12,7 +12,7 @@ pub const CAMERA_SENSITIVITY: f32 = 10.0;
 pub const TERRAIN_SCALE: f32 = 0.005;
 pub const TERRAIN_OCTAVES: u32 = 5;
 pub const TILE_SIZE: u32 = 40;
-pub const TILE_DEPTH: i32 = 6;
+pub const TILE_DEPTH: u32 = 6;
 pub static LODS: [f32; 3] = [0.2, 0.4, 0.6];
 
 pub static SKY_COLOR: [f32; 3] = [0.312, 0.573, 0.757];

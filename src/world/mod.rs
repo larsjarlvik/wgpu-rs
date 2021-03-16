@@ -24,11 +24,11 @@ pub struct World {
 impl World {
     pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
         let noise = noise::Noise::new(&device, &queue).await;
-        let mut terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
         let water = pipelines::water::Water::new(device, &viewport, &noise);
         let sky = pipelines::sky::Sky::new(device, &viewport);
         let model = pipelines::model::Model::new(device, &viewport);
 
+        let mut terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
         terrain.compute.compute(device, queue).await;
 
         let mut models = models::Models::new();

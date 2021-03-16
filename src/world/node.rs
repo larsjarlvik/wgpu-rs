@@ -18,14 +18,14 @@ pub struct NodeData {
 }
 
 pub struct Node {
-    children: Vec<Node>,
     pub x: f32,
     pub z: f32,
     pub bounding_box: camera::BoundingBox,
+    pub data: Option<NodeData>,
+    children: Vec<Node>,
     size: f32,
     radius: f32,
     depth: u32,
-    pub data: Option<NodeData>,
 }
 
 impl Node {
@@ -38,14 +38,14 @@ impl Node {
         };
 
         let mut node = Self {
-            children: vec![],
-            depth,
             x,
             z,
             bounding_box,
+            data: None,
+            children: vec![],
+            depth,
             size,
             radius,
-            data: None,
         };
 
         if !node.is_leaf() {

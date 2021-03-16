@@ -7,11 +7,11 @@ use crate::{
     world::node::{Node, NodeData},
 };
 
-pub struct ModelsBundle {
+pub struct Models {
     pub render_bundle: wgpu::RenderBundle,
 }
 
-impl ModelsBundle {
+impl Models {
     pub fn new(
         device: &wgpu::Device,
         camera: &camera::Instance,

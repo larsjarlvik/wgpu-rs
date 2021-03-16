@@ -4,11 +4,11 @@ use crate::{
 };
 use cgmath::*;
 
-pub struct TerrainBundle {
+pub struct Terrain {
     pub render_bundle: wgpu::RenderBundle,
 }
 
-impl TerrainBundle {
+impl Terrain {
     pub fn new(
         device: &wgpu::Device,
         camera: &camera::Instance,

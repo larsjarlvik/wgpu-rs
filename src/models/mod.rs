@@ -3,7 +3,7 @@ use cgmath::*;
 use model::PrimitiveBuffers;
 use std::collections::HashMap;
 mod mesh;
-pub mod model;
+mod model;
 mod primitive;
 
 pub struct Models {

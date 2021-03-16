@@ -4,11 +4,11 @@ use crate::{
 };
 use cgmath::*;
 
-pub struct WaterBundle {
+pub struct Water {
     render_bundle: wgpu::RenderBundle,
 }
 
-impl WaterBundle {
+impl Water {
     pub fn new(
         device: &wgpu::Device,
         camera: &camera::Instance,

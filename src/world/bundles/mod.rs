@@ -3,7 +3,7 @@ mod sky;
 mod terrain;
 mod water;
 
-pub use self::models::ModelsBundle;
-pub use self::sky::SkyBundle;
-pub use self::terrain::TerrainBundle;
-pub use self::water::WaterBundle;
+pub use self::models::Models;
+pub use self::sky::Sky;
+pub use self::terrain::Terrain;
+pub use self::water::Water;

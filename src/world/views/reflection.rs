@@ -5,9 +5,9 @@ use crate::{
 use cgmath::*;
 
 pub struct Reflection {
-    pub terrain: bundles::TerrainBundle,
-    pub models: bundles::ModelsBundle,
-    pub sky: bundles::SkyBundle,
+    pub terrain: bundles::Terrain,
+    pub models: bundles::Models,
+    pub sky: bundles::Sky,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -25,9 +25,9 @@ impl Reflection {
         let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::TerrainBundle::new(device, &camera, &mut world_data.terrain, &nodes),
-            models: bundles::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models, &nodes),
-            sky: bundles::SkyBundle::new(device, &camera, &world_data.sky),
+            terrain: bundles::Terrain::new(device, &camera, &mut world_data.terrain, &nodes),
+            models: bundles::Models::new(device, &camera, &world_data.model, &mut world_data.models, &nodes),
+            sky: bundles::Sky::new(device, &camera, &world_data.sky),
             camera,
             deferred,
         }
@@ -49,8 +49,8 @@ impl Reflection {
         );
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
-        self.terrain = bundles::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &nodes);
-        self.models = bundles::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);
+        self.terrain = bundles::Terrain::new(device, &self.camera, &mut world_data.terrain, &nodes);
+        self.models = bundles::Models::new(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);
     }
 
     pub fn resize(
@@ -62,7 +62,7 @@ impl Reflection {
     ) {
         self.camera.resize(viewport.width, viewport.height);
         self.deferred = deferred_render.get_render_bundle(device, &self.camera);
-        self.sky = bundles::SkyBundle::new(device, &self.camera, &world_data.sky);
+        self.sky = bundles::Sky::new(device, &self.camera, &world_data.sky);
     }
 
     pub fn render(

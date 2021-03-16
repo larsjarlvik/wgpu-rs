@@ -5,7 +5,8 @@ use wgpu::util::DeviceExt;
 
 pub struct Compute {
     pub plane: plane::Plane,
-    compute_pipeline: wgpu::ComputePipeline,
+    compute_elev_pipeline: wgpu::ComputePipeline,
+    compute_norm_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     noise_bindings: noise::NoiseBindings,
@@ -54,16 +55,25 @@ impl Compute {
             push_constant_ranges: &[],
         });
 
-        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain.comp.spv"));
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("terrain_compute_pipeline"),
+        let module_elev = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-elev.comp.spv"));
+        let compute_elev_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("terrain_compute_elevation_pipeline"),
             layout: Some(&layout),
-            module: &module,
+            module: &module_elev,
+            entry_point: "main",
+        });
+
+        let module_norm = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-norm.comp.spv"));
+        let compute_norm_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("terrain_compute_normal_pipeline"),
+            layout: Some(&layout),
+            module: &module_norm,
             entry_point: "main",
         });
 
         Self {
-            compute_pipeline,
+            compute_elev_pipeline,
+            compute_norm_pipeline,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
             noise_bindings,
@@ -91,7 +101,7 @@ impl Compute {
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform_buffer"),
-            contents: bytemuck::cast_slice(&[0.0, 0.0]),
+            contents: bytemuck::cast_slice(&[self.plane.size + 1]),
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -103,22 +113,35 @@ impl Compute {
             }],
         });
 
+        let elev_encoder = self.run_compute(device, &self.compute_elev_pipeline, &&vertex_bind_group, &&uniform_bind_group);
+        let norm_encoder = self.run_compute(device, &self.compute_norm_pipeline, &&vertex_bind_group, &&uniform_bind_group);
+
+        queue.submit(vec![elev_encoder.finish(), norm_encoder.finish()]);
+        self.plane = self.get_result(device, &dst_vertex_buffer, self.plane.size).await;
+        dst_vertex_buffer.unmap();
+
+        println!("Compute: {} ms", now.elapsed().as_millis());
+    }
+
+    fn run_compute(
+        &self,
+        device: &wgpu::Device,
+        compute_pipeline: &wgpu::ComputePipeline,
+        vertex_bind_group: &wgpu::BindGroup,
+        uniform_bind_group: &wgpu::BindGroup,
+    ) -> wgpu::CommandEncoder {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("compute_terrain"),
         });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            pass.set_pipeline(&self.compute_pipeline);
+            pass.set_pipeline(&compute_pipeline);
             pass.set_bind_group(0, &vertex_bind_group, &[]);
             pass.set_bind_group(1, &uniform_bind_group, &[]);
             pass.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
             pass.dispatch(self.plane.length, 1, 1);
         }
-        queue.submit(std::iter::once(encoder.finish()));
-
-        self.plane = self.get_result(device, &dst_vertex_buffer, self.plane.size).await;
-        dst_vertex_buffer.unmap();
-        println!("Compute: {} ms", now.elapsed().as_millis());
+        encoder
     }
 
     async fn get_result(&mut self, device: &wgpu::Device, buffer: &wgpu::Buffer, size: u32) -> plane::Plane {
@@ -129,11 +152,8 @@ impl Compute {
         if let Ok(()) = buffer_future.await {
             let data = buffer_slice.get_mapped_range();
             unsafe {
-                let now = Instant::now();
-
                 let vertices = data.align_to::<Vertex>().1;
                 let data = plane::from_data(vertices.to_vec(), size);
-                println!("Plane: {} ms", now.elapsed().as_millis());
                 data
             }
         } else {

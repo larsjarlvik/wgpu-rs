@@ -3,7 +3,7 @@ use std::fs;
 use std::process::Command;
 
 fn main() {
-    let output_dir = "src\\shaders-compiled";
+    let output_dir = "src/shaders-compiled";
     let shader_paths = glob("./src/shaders/**/*").expect("Failed to list shaders!");
 
     fs::create_dir_all(output_dir).expect("Failed to create output directory!");
@@ -21,7 +21,7 @@ fn main() {
                     .arg("-V")
                     .arg(path.display().to_string().as_str())
                     .arg("-o")
-                    .arg(path.display().to_string().replace("src\\shaders", output_dir) + ".spv")
+                    .arg(path.display().to_string().replace("src/shaders", output_dir) + ".spv")
                     .status();
 
                 if !result.unwrap().success() {

@@ -54,7 +54,4 @@ void main() {
     } else {
         f_color = vec4(sky(), 1.0);
     }
-
-
-    gl_FragDepth = depth;
 }

@@ -151,13 +151,12 @@ impl Compute {
 
         if let Ok(()) = buffer_future.await {
             let data = buffer_slice.get_mapped_range();
-            unsafe {
-                let vertices = data.align_to::<Vertex>().1;
-                let data = plane::from_data(vertices.to_vec(), size);
-                data
-            }
+
+            let vertices = unsafe { data.align_to::<Vertex>().1 };
+            let data = plane::from_data(vertices.to_vec(), size);
+            data
         } else {
-            panic!("Failed to generate noise!")
+            panic!("Failed to generate terrain!")
         }
     }
 }

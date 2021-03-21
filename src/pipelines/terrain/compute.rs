@@ -1,3 +1,4 @@
+use super::uniforms;
 use crate::{noise, plane, settings};
 use plane::Vertex;
 use std::time::Instant;
@@ -84,6 +85,7 @@ impl Compute {
     pub async fn compute(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         let now = Instant::now();
         let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
+
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("terrain_vertex_buffer"),
             contents,
@@ -99,22 +101,20 @@ impl Compute {
             }],
         });
 
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform_buffer"),
-            contents: bytemuck::cast_slice(&[self.plane.size + 1]),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("uniform_bind_group"),
-            layout: &self.uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
+        let uniforms = uniforms::UniformBuffer::new(
+            device,
+            &self.uniform_bind_group_layout,
+            uniforms::Uniforms {
+                size: self.plane.size + 1,
+                octaves: settings::TERRAIN_OCTAVES,
+                sea_level: settings::SEA_LEVEL,
+                horizontal_scale: settings::HORIZONTAL_SCALE,
+                vertical_scale: settings::VERTICAL_SCALE,
+            },
+        );
 
-        let elev_encoder = self.run_compute(device, &self.compute_elev_pipeline, &&vertex_bind_group, &&uniform_bind_group);
-        let norm_encoder = self.run_compute(device, &self.compute_norm_pipeline, &&vertex_bind_group, &&uniform_bind_group);
+        let elev_encoder = self.run_compute(device, &self.compute_elev_pipeline, &&vertex_bind_group, &uniforms.bind_group);
+        let norm_encoder = self.run_compute(device, &self.compute_norm_pipeline, &&vertex_bind_group, &uniforms.bind_group);
 
         queue.submit(vec![elev_encoder.finish(), norm_encoder.finish()]);
         self.plane = self.get_result(device, &dst_vertex_buffer, self.plane.size).await;

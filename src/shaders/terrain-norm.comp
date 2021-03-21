@@ -15,7 +15,11 @@ layout(std430, set=0, binding=0) buffer Src {
     Vertex comp_vertices[];
 };
 layout(set=1, binding=0) uniform ComputeData {
+    float u_sea_level;
+    float u_horizontal_scale;
+    float u_vertical_scale;
     uint u_size;
+    uint u_octaves;
 };
 
 float read_elevation(uint i, vec2 offset) {
@@ -26,7 +30,7 @@ float read_elevation(uint i, vec2 offset) {
 
     if (rx < 0 || rx >= u_size ||
         rz < 0 || rz >= u_size) {
-        return get_elevation(vec2(v.x + offset.x, v.z + offset.y));
+        return get_elevation(vec2(v.x + offset.x, v.z + offset.y), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
     }
 
     return comp_vertices[rz * u_size + rx].y;

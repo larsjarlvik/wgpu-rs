@@ -1,5 +1,7 @@
 use crate::*;
-pub mod data;
+mod data;
+
+pub use {self::data::Instance, self::data::InstanceBuffer, self::data::Vertex};
 
 pub struct Model {
     pub sampler: wgpu::Sampler,
@@ -58,7 +60,7 @@ impl Model {
             vertex: wgpu::VertexState {
                 module: &vs_module,
                 entry_point: "main",
-                buffers: &[data::Vertex::desc(), data::InstanceData::desc()],
+                buffers: &[data::Vertex::desc(), data::Instance::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &fs_module,

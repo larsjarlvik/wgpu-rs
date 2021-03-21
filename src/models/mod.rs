@@ -1,9 +1,9 @@
-use crate::{camera::frustum, pipelines};
+use crate::{camera, pipelines};
 use cgmath::*;
 use model::PrimitiveBuffers;
 use std::collections::HashMap;
 mod mesh;
-pub mod model;
+mod model;
 mod primitive;
 
 pub struct Models {
@@ -19,7 +19,7 @@ impl Models {
     pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, pipeline: &pipelines::model::Model, name: &str, path: &str) {
         let (gltf, buffers, images) = gltf::import(format!("./res/models/{}", path)).expect("Failed to import GLTF!");
         let mut primitives: Vec<PrimitiveBuffers> = vec![];
-        let mut bounding_box = frustum::BoundingBox {
+        let mut bounding_box = camera::BoundingBox {
             min: Point3::new(0.0, 0.0, 0.0),
             max: Point3::new(0.0, 0.0, 0.0),
         };
@@ -51,7 +51,7 @@ impl Models {
             }
         }
 
-        let instances = pipelines::model::data::InstanceBuffer::new(&device, HashMap::new());
+        let instances = pipelines::model::InstanceBuffer::new(&device);
         self.models.insert(
             name.to_string(),
             model::Model {

@@ -67,13 +67,34 @@ impl Plane {
             for x in 0..size + 1 {
                 vertices.push(Vertex {
                     position: [(x as f32) - half_size, 0.0, (z as f32) - half_size],
-                    normal: [0.0, 0.0, 0.0],
+                    normal: [0.0, 1.0, 0.0],
                 });
             }
         }
 
         let length = vertices.len() as u32;
         Self { vertices, length, size }
+    }
+
+    pub fn sub(&self, x: f32, z: f32, size: u32) -> (Self, f32, f32) {
+        let mut vertices = Vec::new();
+        let x = (x + (self.size as f32 / 2.0)) as u32 - size / 2;
+        let z = (z + (self.size as f32 / 2.0)) as u32 - size / 2;
+        let first = self.vertices.get(0).unwrap();
+        let mut y_min = first.position[1];
+        let mut y_max = first.position[1];
+
+        for z in z..=(z + size) {
+            for x in x..=(x + size) {
+                let vertex = self.vertices.get(self.get_index(x, z) as usize).unwrap();
+                y_min = y_min.min(vertex.position[1]);
+                y_max = y_max.max(vertex.position[1]);
+                vertices.push(*vertex);
+            }
+        }
+
+        let length = vertices.len() as u32;
+        (Self { vertices, length, size }, y_min, y_max)
     }
 
     pub fn create_indices(&self, device: &wgpu::Device, lod: u32) -> HashMap<ConnectType, LodBuffer> {
@@ -135,7 +156,7 @@ impl Plane {
                     length: indices.len() as u32,
                     index_buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("Index Buffer"),
-                        contents: bytemuck::cast_slice(&indices.as_slice()),
+                        contents: bytemuck::cast_slice(&indices),
                         usage: wgpu::BufferUsage::INDEX,
                     }),
                 },
@@ -165,6 +186,7 @@ impl Plane {
     fn get_index(&self, x: u32, z: u32) -> u32 {
         let index = z * (self.size + 1) + x;
         if index >= self.vertices.len() as u32 {
+            println!("x: {} z: {} index: {} max: {}", x, z, index, self.vertices.len());
             panic!("Index buffer out of range!");
         }
         index
@@ -279,4 +301,9 @@ pub fn get_lod(a: Vector3<f32>, b: Vector3<f32>, z_far: f32) -> u32 {
     }
 
     settings::LODS.len() as u32
+}
+
+pub fn from_data(vertices: Vec<Vertex>, size: u32) -> Plane {
+    let length = vertices.len() as u32;
+    Plane { vertices, length, size }
 }

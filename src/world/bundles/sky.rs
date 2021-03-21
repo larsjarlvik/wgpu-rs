@@ -1,10 +1,10 @@
 use crate::{camera, pipelines, settings};
 
-pub struct SkyBundle {
+pub struct Sky {
     render_bundle: wgpu::RenderBundle,
 }
 
-impl SkyBundle {
+impl Sky {
     pub fn new(device: &wgpu::Device, camera: &camera::Instance, pipeline: &pipelines::sky::Sky) -> Self {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,

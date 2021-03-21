@@ -6,10 +6,10 @@ use cgmath::*;
 use pipelines::*;
 
 pub struct Eye {
-    pub terrain: bundles::terrain::TerrainBundle,
-    pub water: bundles::water::WaterBundle,
-    pub models: bundles::models::ModelsBundle,
-    pub sky: bundles::sky::SkyBundle,
+    pub terrain: bundles::Terrain,
+    pub water: bundles::Water,
+    pub models: bundles::Models,
+    pub sky: bundles::Sky,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -24,12 +24,13 @@ impl Eye {
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred_render.get_render_bundle(device, &camera);
+        let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::terrain::TerrainBundle::new(device, &camera, &mut world_data.terrain, &root_node),
-            water: bundles::water::WaterBundle::new(device, &camera, &world_data.water, &root_node),
-            models: bundles::models::ModelsBundle::new(device, &camera, &world_data.model, &mut world_data.models),
-            sky: bundles::sky::SkyBundle::new(device, &camera, &world_data.sky),
+            terrain: bundles::Terrain::new(device, &camera, &mut world_data.terrain, &nodes),
+            water: bundles::Water::new(device, &camera, &world_data.water, &nodes),
+            models: bundles::Models::new(device, &camera, &world_data.model, &mut world_data.models, &nodes),
+            sky: bundles::Sky::new(device, &camera, &world_data.sky),
             camera,
             deferred,
         }
@@ -44,10 +45,12 @@ impl Eye {
         root_node: &node::Node,
     ) {
         let view = Matrix4::look_at(viewport.eye, viewport.target, Vector3::unit_y());
+        let nodes = root_node.get_nodes(&self.camera);
+
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
-        self.terrain = bundles::terrain::TerrainBundle::new(device, &self.camera, &mut world_data.terrain, &root_node);
-        self.water = bundles::water::WaterBundle::new(device, &self.camera, &world_data.water, &root_node);
-        self.models = bundles::models::ModelsBundle::new(device, &self.camera, &world_data.model, &mut world_data.models);
+        self.terrain = bundles::Terrain::new(device, &self.camera, &mut world_data.terrain, &nodes);
+        self.water = bundles::Water::new(device, &self.camera, &world_data.water, &nodes);
+        self.models = bundles::Models::new(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);
     }
 
     pub fn resize(
@@ -59,7 +62,7 @@ impl Eye {
     ) {
         self.camera.resize(viewport.width, viewport.height);
         self.deferred = deferred_render.get_render_bundle(device, &self.camera);
-        self.sky = bundles::sky::SkyBundle::new(device, &self.camera, &world_data.sky);
+        self.sky = bundles::Sky::new(device, &self.camera, &world_data.sky);
     }
 
     pub fn render(

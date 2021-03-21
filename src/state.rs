@@ -3,11 +3,11 @@ use std::time::Instant;
 use winit::{event::*, window::Window};
 
 pub struct State {
+    pub viewport: camera::Viewport,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     swap_chain: wgpu::SwapChain,
-    pub viewport: camera::Viewport,
     world: world::World,
     fxaa: pipelines::fxaa::Fxaa,
     start_time: Instant,

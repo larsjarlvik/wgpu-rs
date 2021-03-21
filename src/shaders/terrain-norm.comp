@@ -1,0 +1,45 @@
+#version 450
+
+#define NOISE_SET 2
+#extension GL_GOOGLE_include_directive : require
+#include "include/noise.glsl"
+
+layout(local_size_x = 1, local_size_y = 1) in;
+
+struct Vertex {
+    float x; float y; float z;
+    float nx; float ny; float nz;
+};
+
+layout(std430, set=0, binding=0) buffer Src {
+    Vertex comp_vertices[];
+};
+layout(set=1, binding=0) uniform ComputeData {
+    uint u_size;
+};
+
+float read_elevation(uint i, vec2 offset) {
+    Vertex v = comp_vertices[i];
+    float half_size = float(u_size) / 2.0;
+    uint rx = uint(v.x + half_size + offset.x);
+    uint rz = uint(v.z + half_size + offset.y);
+
+    if (rx < 0 || rx >= u_size ||
+        rz < 0 || rz >= u_size) {
+        return get_elevation(vec2(v.x + offset.x, v.z + offset.y));
+    }
+
+    return comp_vertices[rz * u_size + rx].y;
+}
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    Vertex v = comp_vertices[i];
+    vec3 normal = normalize(vec3(
+        read_elevation(i, vec2(-1.0, 0.0)) - read_elevation(i, vec2(1.0, 0.0)),
+        2.0,
+        read_elevation(i, vec2(0.0, -1.0)) - read_elevation(i, vec2(0.0, 1.0))
+    ));
+    v.nx = normal.x; v.ny = normal.y; v.nz = normal.z;
+    comp_vertices[i] = v;
+}

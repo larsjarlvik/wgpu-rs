@@ -2,6 +2,8 @@ extern crate cgmath;
 use cgmath::*;
 use std::mem;
 
+use super::bounding_box;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct FrustumCuller {
     nx_x: f32,
@@ -29,11 +31,7 @@ pub struct FrustumCuller {
     pz_z: f32,
     pz_w: f32,
 }
-#[derive(Clone)]
-pub struct BoundingBox {
-    pub min: Point3<f32>,
-    pub max: Point3<f32>,
-}
+
 pub enum Intersection {
     Inside,
     Partial,
@@ -129,7 +127,7 @@ impl FrustumCuller {
         culler
     }
 
-    pub fn test_bounding_box(&self, aab: &BoundingBox) -> Intersection {
+    pub fn test_bounding_box(&self, aab: &bounding_box::BoundingBox) -> Intersection {
         let mut inside = true;
         if self.nx_x * if self.nx_x < 0.0 { aab.min.x } else { aab.max.x }
             + self.nx_y * if self.nx_y < 0.0 { aab.min.y } else { aab.max.y }

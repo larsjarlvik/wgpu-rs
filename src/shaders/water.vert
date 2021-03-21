@@ -5,7 +5,6 @@
 #include "include/noise.glsl"
 
 layout(location=0) in vec3 a_position;
-layout(location=1) in vec3 a_normal;
 
 layout(location=0) out vec4 v_position;
 
@@ -32,9 +31,6 @@ float get_wave(vec2 xz) {
 }
 
 void main() {
-    vec3 bitangent = normalize(cross(vec3(0.0, 0.0, 1.0), a_normal));
-    vec3 tangent = normalize(cross(a_normal, bitangent));
-
     v_position = vec4(a_position, 1.0);
     v_position.y = get_wave(v_position.xz);
     gl_Position = u_view_proj * v_position;

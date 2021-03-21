@@ -1,7 +1,6 @@
+use crate::{input, settings};
 use cgmath::*;
 use winit::event::*;
-
-use crate::{input, settings};
 
 pub struct Controller {
     pub velocity: Vector3<f32>,

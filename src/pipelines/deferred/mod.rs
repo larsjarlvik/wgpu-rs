@@ -1,5 +1,5 @@
 use crate::{camera, settings};
-pub mod textures;
+mod textures;
 mod uniforms;
 
 pub struct DeferredRender {

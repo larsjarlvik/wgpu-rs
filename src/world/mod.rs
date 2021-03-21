@@ -74,7 +74,7 @@ impl World {
 
 impl WorldData {
     pub fn get_elevation(&self, p: Vector2<f32>) -> f32 {
-        let xz = p * settings::TERRAIN_SCALE;
+        let xz = p * settings::HORIZONTAL_SCALE;
         let q = vec2(
             self.noise.fbm(xz, settings::TERRAIN_OCTAVES),
             self.noise.fbm(xz + vec2(1.0, 1.0), settings::TERRAIN_OCTAVES),
@@ -85,6 +85,6 @@ impl WorldData {
             self.noise.fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), settings::TERRAIN_OCTAVES),
         );
 
-        (self.noise.fbm(xz + r, settings::TERRAIN_OCTAVES) - 0.3) / settings::TERRAIN_SCALE / 2.0
+        (self.noise.fbm(xz + r, settings::TERRAIN_OCTAVES) - settings::SEA_LEVEL) / settings::VERTICAL_SCALE
     }
 }

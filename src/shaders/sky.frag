@@ -34,9 +34,9 @@ vec4 world_pos_from_depth(float depth, vec2 coords, mat4 view_proj) {
 vec3 sky() {
     mat4 proj = u_view_proj;
     proj[3][0] = 0.0; proj[3][1] = 0.0; proj[3][2] = 0.0;
-    vec3 ray_dir = normalize(world_pos_from_depth(1.0, gl_FragCoord.xy / u_viewport_size, proj).xyz);
+    vec3 ray_dir = normalize(world_pos_from_depth(0.6, gl_FragCoord.xy / u_viewport_size, proj).xyz);
 
-    vec3 sun = pow(max(dot(ray_dir, normalize(-u_light_dir)), 0.0) * 0.993, 100.0) * vec3(1, 0.8, 0.3);
+    vec3 sun = pow(max(dot(ray_dir, normalize(-u_light_dir)), 0.0) * 0.993, 50.0) * vec3(1, 0.7, 0.3);
     float theta = atan(max(ray_dir.y, 0.0) / length(vec2(ray_dir.x, ray_dir.z)));
     float sky_factor = pow(abs(sin(theta)), 0.5);
     vec3 sky = sky_factor * u_sky_color + (1.0 - sky_factor) * vec3(1.0, 1.0, 0.9);

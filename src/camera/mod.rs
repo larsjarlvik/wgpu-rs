@@ -25,6 +25,7 @@ pub struct Viewport {
     pub z_near: f32,
     pub z_far: f32,
     pub proj: Matrix4<f32>,
+    pub valid: bool,
 }
 
 impl Viewport {
@@ -61,6 +62,7 @@ impl Viewport {
             z_far,
             proj: Matrix4::identity(),
             bind_group_layout,
+            valid: true,
         }
     }
 

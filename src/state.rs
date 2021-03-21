@@ -68,6 +68,12 @@ impl State {
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        if new_size.width == 0 || new_size.height == 0 {
+            self.viewport.valid = false;
+            return;
+        }
+
+        self.viewport.valid = true;
         self.viewport.resize(new_size.width, new_size.height);
         self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
         self.fxaa = pipelines::fxaa::Fxaa::new(&self.device, self.viewport.width, self.viewport.height);

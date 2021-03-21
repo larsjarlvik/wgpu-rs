@@ -62,7 +62,9 @@ fn main() {
             }
         }
         Event::MainEventsCleared => {
-            window.request_redraw();
+            if state.viewport.valid {
+                window.request_redraw();
+            }
         }
         Event::WindowEvent { ref event, window_id } if window_id == window.id() => match event {
             WindowEvent::CloseRequested => exit(control_flow),

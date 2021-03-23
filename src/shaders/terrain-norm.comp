@@ -41,7 +41,7 @@ void main() {
     Vertex v = comp_vertices[i];
     vec3 normal = normalize(vec3(
         read_elevation(i, vec2(-1.0, 0.0)) - read_elevation(i, vec2(1.0, 0.0)),
-        2.0,
+        1.0,
         read_elevation(i, vec2(0.0, -1.0)) - read_elevation(i, vec2(0.0, 1.0))
     ));
     v.nx = normal.x; v.ny = normal.y; v.nz = normal.z;

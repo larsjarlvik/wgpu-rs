@@ -3,6 +3,7 @@ use cgmath::*;
 use std::time::Instant;
 mod assets;
 mod bundles;
+mod erosion;
 mod node;
 mod views;
 
@@ -30,6 +31,7 @@ impl World {
 
         let mut terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
         terrain.compute.compute(device, queue).await;
+        erosion::erode(&mut terrain.compute.plane);
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {

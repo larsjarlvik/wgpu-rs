@@ -7,8 +7,8 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 
 struct Vertex {
-    float x; float y; float z;
-    float nx; float ny; float nz;
+    vec4 pos;
+    vec4 norm;
 };
 
 layout(std430, set=0, binding=0) buffer Src {
@@ -22,10 +22,9 @@ layout(set=1, binding=0) uniform ComputeData {
     uint u_octaves;
 };
 
-
 void main() {
     uint i = gl_GlobalInvocationID.x;
     Vertex v = comp_vertices[i];
-    v.y = get_elevation(vec2(v.x, v.z), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
+    v.pos.y = get_elevation(vec2(v.pos.x, v.pos.z), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
     comp_vertices[i] = v;
 }

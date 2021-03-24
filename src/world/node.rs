@@ -104,7 +104,7 @@ impl Node {
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
         let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
-        let (plane, y_min, y_max) = world.terrain.compute.plane.sub(self.x, self.z, settings::TILE_SIZE);
+        let (plane, y_min, y_max) = world.heightmap.sub(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max;
 

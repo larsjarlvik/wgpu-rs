@@ -1,4 +1,4 @@
-use crate::{camera, models, noise, pipelines, settings};
+use crate::{camera, models, noise, pipelines, plane, settings};
 use cgmath::*;
 use std::time::Instant;
 mod assets;
@@ -14,6 +14,7 @@ pub struct WorldData {
     pub sky: pipelines::sky::Sky,
     pub noise: noise::Noise,
     pub models: models::Models,
+    pub heightmap: plane::Plane,
 }
 
 pub struct World {
@@ -29,9 +30,28 @@ impl World {
         let sky = pipelines::sky::Sky::new(device, &viewport);
         let model = pipelines::model::Model::new(device, &viewport);
 
-        let mut terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
-        terrain.compute.compute(device, queue).await;
-        erosion::erode(&mut terrain.compute.plane);
+        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
+
+        let mut heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
+        heightmap = terrain
+            .compute
+            .compute(
+                device,
+                queue,
+                vec![&terrain.compute.elev_pipeline, &terrain.compute.norm_pipeline],
+                &heightmap,
+            )
+            .await;
+        erosion::erode(&mut heightmap);
+        heightmap = terrain
+            .compute
+            .compute(
+                device,
+                queue,
+                vec![&terrain.compute.smooth_pipeline, &terrain.compute.norm_pipeline],
+                &heightmap,
+            )
+            .await;
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {
@@ -45,6 +65,7 @@ impl World {
             model,
             sky,
             models,
+            heightmap,
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);

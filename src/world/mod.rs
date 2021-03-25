@@ -3,7 +3,6 @@ use cgmath::*;
 use std::time::Instant;
 mod assets;
 mod bundles;
-mod erosion;
 mod node;
 mod views;
 
@@ -33,25 +32,14 @@ impl World {
         let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
 
         let mut heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
-        heightmap = terrain
-            .compute
-            .compute(
-                device,
-                queue,
-                vec![&terrain.compute.elev_pipeline, &terrain.compute.norm_pipeline],
-                &heightmap,
-            )
-            .await;
-        erosion::erode(&mut heightmap);
-        heightmap = terrain
-            .compute
-            .compute(
-                device,
-                queue,
-                vec![&terrain.compute.smooth_pipeline, &terrain.compute.norm_pipeline],
-                &heightmap,
-            )
-            .await;
+        let pipelines = vec![
+            &terrain.compute.elevation_pipeline,
+            &terrain.compute.erosion_pipeline,
+            &terrain.compute.smooth_pipeline,
+            &terrain.compute.smooth_pipeline,
+            &terrain.compute.normal_pipeline,
+        ];
+        heightmap = terrain.compute.compute(device, queue, pipelines, &heightmap).await;
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {

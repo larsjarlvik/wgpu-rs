@@ -5,8 +5,9 @@ use std::time::Instant;
 use wgpu::util::DeviceExt;
 
 pub struct Compute {
-    pub elev_pipeline: wgpu::ComputePipeline,
-    pub norm_pipeline: wgpu::ComputePipeline,
+    pub elevation_pipeline: wgpu::ComputePipeline,
+    pub normal_pipeline: wgpu::ComputePipeline,
+    pub erosion_pipeline: wgpu::ComputePipeline,
     pub smooth_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
@@ -55,33 +56,22 @@ impl Compute {
             push_constant_ranges: &[],
         });
 
-        let module_elev = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-elev.comp.spv"));
-        let elev_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("terrain_compute_elevation_pipeline"),
-            layout: Some(&layout),
-            module: &module_elev,
-            entry_point: "main",
-        });
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-elev.comp.spv"));
+        let elevation_pipeline = create_pipeline(device, &layout, &module, "elevation");
 
-        let module_norm = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-norm.comp.spv"));
-        let norm_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("terrain_compute_normal_pipeline"),
-            layout: Some(&layout),
-            module: &module_norm,
-            entry_point: "main",
-        });
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-norm.comp.spv"));
+        let normal_pipeline = create_pipeline(device, &layout, &module, "normal");
 
-        let module_smooth = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-smooth.comp.spv"));
-        let smooth_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("terrain_compute_smooth_pipeline"),
-            layout: Some(&layout),
-            module: &module_smooth,
-            entry_point: "main",
-        });
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-erosion.comp.spv"));
+        let erosion_pipeline = create_pipeline(device, &layout, &module, "erosion");
+
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-smooth.comp.spv"));
+        let smooth_pipeline = create_pipeline(device, &layout, &module, "smooth");
 
         Self {
-            elev_pipeline,
-            norm_pipeline,
+            elevation_pipeline,
+            normal_pipeline,
+            erosion_pipeline,
             smooth_pipeline,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
@@ -179,4 +169,13 @@ impl Compute {
             panic!("Failed to generate terrain!")
         }
     }
+}
+
+fn create_pipeline(device: &wgpu::Device, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, name: &str) -> wgpu::ComputePipeline {
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some(format!("terrain_compute_{}_pipeline", name).as_str()),
+        layout: Some(&layout),
+        module,
+        entry_point: "main",
+    })
 }

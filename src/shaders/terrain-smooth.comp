@@ -4,11 +4,11 @@
 #extension GL_GOOGLE_include_directive : require
 #include "include/noise.glsl"
 
-layout(local_size_x = 1, local_size_y = 1) in;
+layout(local_size_x = 16, local_size_y = 1) in;
 
 struct Vertex {
-    vec4 pos;
-    vec4 norm;
+    float x; float y; float z;
+    float nx; float ny; float nz;
 };
 
 layout(std430, set=0, binding=0) buffer Src {
@@ -26,20 +26,20 @@ layout(set=1, binding=0) uniform ComputeData {
 float read_elevation(uint i, vec2 offset) {
     Vertex v = comp_vertices[i];
     float half_size = float(u_size) / 2.0;
-    uint rx = uint(v.pos.x + half_size + offset.x);
-    uint rz = uint(v.pos.z + half_size + offset.y);
+    uint rx = uint(v.x + half_size + offset.x);
+    uint rz = uint(v.z + half_size + offset.y);
 
     if (rx < 0 || rx >= u_size ||
         rz < 0 || rz >= u_size) {
-        return get_elevation(vec2(v.pos.x + offset.x, v.pos.z + offset.y), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
+        return get_elevation(vec2(v.x + offset.x, v.z + offset.y), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
     }
 
-    return comp_vertices[rz * u_size + rx].pos.y;
+    return comp_vertices[rz * u_size + rx].y;
 }
 
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    comp_vertices[i].pos.y = (
+    comp_vertices[i].y = (
         read_elevation(i, vec2(-1.0, 0.0)) +
         read_elevation(i, vec2( 0.0,-1.0)) +
         read_elevation(i, vec2( 1.0, 0.0)) +
@@ -49,5 +49,5 @@ void main() {
         read_elevation(i, vec2( 1.0,-1.0)) +
         read_elevation(i, vec2( 1.0, 1.0)) +
         read_elevation(i, vec2(-1.0, 1.0))
-    ) * 0.0625 + comp_vertices[i].pos.y * 0.25;
+    ) * 0.0625 + comp_vertices[i].y * 0.25;
 }

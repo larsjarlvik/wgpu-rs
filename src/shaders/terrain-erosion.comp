@@ -14,11 +14,11 @@
 #define RESOLUTION 0.1
 #define SCALE 4.0
 
-layout(local_size_x = 1, local_size_y = 1) in;
+layout(local_size_x = 16, local_size_y = 1) in;
 
 struct Vertex {
-    vec4 pos;
-    vec4 norm;
+    float x; float y; float z;
+    float nx; float ny; float nz;
 };
 
 layout(std430, set=0, binding=0) buffer Src {
@@ -32,20 +32,16 @@ layout(set=1, binding=0) uniform ComputeData {
     uint u_octaves;
 };
 
-float sample_point(uint i) {
-    return comp_vertices[i].pos.y;
-}
-
 float sample_height(vec2 pos) {
     float size = float(u_size);
     vec2 s = pos * SCALE;
     vec2 n = floor(s);
     vec2 f = s - n;
 
-    float ylu = sample_point(uint(n.x + n.y * size));
-    float yld = sample_point(uint(n.x + (n.y + 1.0) * size));
-    float yru = sample_point(uint(n.x + 1.0 + n.y * size));
-    float yrd = sample_point(uint(n.x + 1.0 + (n.y + 1.0) * size));
+    float ylu = comp_vertices[uint(n.x + n.y * size)].y;
+    float yld = comp_vertices[uint(n.x + (n.y + 1.0) * size)].y;
+    float yru = comp_vertices[uint(n.x + 1.0 + n.y * size)].y;
+    float yrd = comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].y;
     float yl = ylu + (yld - ylu) * f.y;
     float yr = yru + (yrd - yru) * f.y;
 
@@ -74,19 +70,19 @@ void change(vec2 pos, float delta) {
     vec2 n = floor(s);
     vec2 f = s - n;
 
-    comp_vertices[uint(n.x + n.y * size)].pos.y += f.x * f.y * delta;
-    comp_vertices[uint(n.x + 1.0 + n.y * size)].pos.y += (1.0 - f.x) * f.y * delta;
-    comp_vertices[uint(n.x + (n.y + 1.0) * size)].pos.y += f.x * (1.0 - f.y) * delta;
-    comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].pos.y += (1.0 - f.x) * (1.0 - f.y) * delta;
+    comp_vertices[uint(n.x + n.y * size)].y += f.x * f.y * delta;
+    comp_vertices[uint(n.x + 1.0 + n.y * size)].y += (1.0 - f.x) * f.y * delta;
+    comp_vertices[uint(n.x + (n.y + 1.0) * size)].y += f.x * (1.0 - f.y) * delta;
+    comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].y += (1.0 - f.x) * (1.0 - f.y) * delta;
 }
 
 void main() {
-    vec4 vert = comp_vertices[gl_GlobalInvocationID.x].pos;
-    vec2 pos = vec2(vert.x + (random(vert.xz) * 15.0), vert.z + (random(vert.yz) * 15.0));
+    Vertex vert = comp_vertices[gl_GlobalInvocationID.x];
+    vec2 pos = vec2(vert.x + (random(vec2(vert.x, vert.z)) * 15.0), vert.z + (random(vec2(vert.x, vert.z)) * 15.0));
 
     vec2 o = vec2(
-        (random(vert.xz) * 2.0 - 1.0) * RADIUS * RESOLUTION,
-        (random(vert.zx) * 2.0 - 1.0) * RADIUS * RESOLUTION
+        (random(vec2(vert.x, vert.z)) * 2.0 - 1.0) * RADIUS * RESOLUTION,
+        (random(vec2(vert.z, vert.x)) * 2.0 - 1.0) * RADIUS * RESOLUTION
     );
     float sediment = 0.0;
     vec2 x = pos + (float(u_size) / 2.0);

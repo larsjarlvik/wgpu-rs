@@ -28,7 +28,6 @@ impl World {
         let water = pipelines::water::Water::new(device, &viewport, &noise);
         let sky = pipelines::sky::Sky::new(device, &viewport);
         let model = pipelines::model::Model::new(device, &viewport);
-
         let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
 
         let mut heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));

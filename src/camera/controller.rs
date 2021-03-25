@@ -44,7 +44,7 @@ impl Controller {
         }
 
         // Rotation
-        if input.mouse_buttons.contains(&3) {
+        if input.mouse_buttons.contains(&MouseButton::Right) {
             self.update_rotation(input.mouse_delta, time_step);
         } else {
             self.update_rotation((0.0, 0.0), time_step);

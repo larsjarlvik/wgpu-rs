@@ -3,7 +3,7 @@ use winit::{dpi::PhysicalPosition, event::*};
 
 pub struct Input {
     pub keys: HashSet<VirtualKeyCode>,
-    pub mouse_buttons: HashSet<u32>,
+    pub mouse_buttons: HashSet<MouseButton>,
     pub mouse_delta: (f32, f32),
     pub mouse_scroll_delta: f32,
 }
@@ -18,26 +18,26 @@ impl Input {
         }
     }
 
-    pub fn process_events(&mut self, event: &DeviceEvent) {
+    pub fn process_key(&mut self, input: &KeyboardInput) {
+        if let Some(key_code) = input.virtual_keycode {
+            if input.state == ElementState::Pressed {
+                self.keys.insert(key_code);
+            } else {
+                self.keys.remove(&key_code);
+            }
+        }
+    }
+
+    pub fn process_mouse_button(&mut self, button: &MouseButton, state: &ElementState) {
+        if *state == ElementState::Pressed {
+            self.mouse_buttons.insert(*button);
+        } else {
+            self.mouse_buttons.remove(button);
+        }
+    }
+
+    pub fn process_device_event(&mut self, event: &DeviceEvent) {
         match event {
-            DeviceEvent::Key(KeyboardInput {
-                state,
-                virtual_keycode: Some(keycode),
-                ..
-            }) => {
-                if *state == ElementState::Pressed {
-                    self.keys.insert(*keycode);
-                } else {
-                    self.keys.remove(keycode);
-                }
-            }
-            DeviceEvent::Button { state, button, .. } => {
-                if *state == ElementState::Pressed {
-                    self.mouse_buttons.insert(*button);
-                } else {
-                    self.mouse_buttons.remove(button);
-                }
-            }
             DeviceEvent::MouseMotion { delta: (x, y), .. } => {
                 self.mouse_delta = (*x as f32, *y as f32);
             }

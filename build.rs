@@ -1,5 +1,5 @@
 use glob::glob;
-use std::process::Command;
+use std::{env, process::Command};
 use std::{fs, path::Path};
 
 fn main() {
@@ -17,12 +17,12 @@ fn main() {
 
                 println!("cargo:rerun-if-changed={}", path.display().to_string().as_str());
 
-                let test = path.file_name().unwrap().to_str().unwrap().to_string() + ".spv";
-                let result = Command::new("./tools/glslangValidator.exe")
+                let output_name = format!("{}.spv", path.file_name().unwrap().to_str().unwrap());
+                let result = Command::new(format!("./tools/glslangValidator-{}", env::consts::OS))
                     .arg("-V")
                     .arg(path.display().to_string().as_str())
                     .arg("-o")
-                    .arg(output_dir.join(test).display().to_string().as_str())
+                    .arg(output_dir.join(output_name).display().to_string().as_str())
                     .status();
 
                 if !result.unwrap().success() {

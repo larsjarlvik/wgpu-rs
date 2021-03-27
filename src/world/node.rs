@@ -144,13 +144,23 @@ impl Node {
             .into_par_iter()
             .map(|_| {
                 let mut rng = rand::thread_rng();
-                let mx = self.x + (rng.gen::<f32>() - 0.5) * self.size;
-                let mz = self.z + (rng.gen::<f32>() - 0.5) * self.size;
-                let my = world.get_elevation(vec2(mx, mz)) - 0.25;
-                (mx, my, mz, rng.gen::<f32>(), rng.gen_range(asset.min_size, asset.max_size))
+                let m = vec2(
+                    self.x + (rng.gen::<f32>() - 0.5) * self.size,
+                    self.z + (rng.gen::<f32>() - 0.5) * self.size,
+                );
+                let v = world.get_vertex(m);
+                let elev = world.get_elevation(v, m) - 0.25;
+                (
+                    elev,
+                    v.normal,
+                    m.x,
+                    m.y,
+                    rng.gen::<f32>(),
+                    rng.gen_range(asset.min_size, asset.max_size),
+                )
             })
-            .filter(|asset| asset.1 > 0.0)
-            .map(|(mx, my, mz, rot, scale)| {
+            .filter(|(my, normal, ..)| *my > 0.0 && normal[1] > asset.max_slope)
+            .map(|(my, _, mx, mz, rot, scale)| {
                 let t = Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale);
                 pipelines::model::Instance { transform: t.into() }
             })

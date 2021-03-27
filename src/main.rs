@@ -34,13 +34,10 @@ fn main() {
     let mut state = block_on(state::State::new(&window));
     let mut fps = 0;
     let mut last_update = Instant::now();
-    let mut is_focused = true;
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
-            if is_focused {
-                state.input(event);
-            }
+            state.input.process_device_event(event);
         }
         Event::RedrawRequested(_) => {
             logger::measure_time("Update", || {
@@ -68,6 +65,7 @@ fn main() {
         }
         Event::WindowEvent { ref event, window_id } if window_id == window.id() => match event {
             WindowEvent::CloseRequested => exit(control_flow),
+            WindowEvent::MouseInput { button, state: mouse_state , .. } => { &state.input.process_mouse_button(button, mouse_state); }
             WindowEvent::KeyboardInput { input, .. } => match input {
                 KeyboardInput {
                     state: ElementState::Pressed,
@@ -85,12 +83,11 @@ fn main() {
                         let fullscreen = Some(Fullscreen::Borderless(window.current_monitor()));
                         window.set_fullscreen(fullscreen.clone());
                     }
+                },
+                input => {
+                    &state.input.process_key(input);
                 }
-                _ => {}
             },
-            WindowEvent::Focused(focused) => {
-                is_focused = *focused;
-            }
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);
             }

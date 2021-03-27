@@ -1,9 +1,10 @@
 use crate::{camera, input::Input, pipelines, world};
 use std::time::Instant;
-use winit::{event::*, window::Window};
+use winit::window::Window;
 
 pub struct State {
     pub viewport: camera::Viewport,
+    pub input: Input,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -13,7 +14,6 @@ pub struct State {
     start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
-    input: Input,
 }
 
 impl State {
@@ -78,10 +78,6 @@ impl State {
         self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
         self.fxaa = pipelines::fxaa::Fxaa::new(&self.device, self.viewport.width, self.viewport.height);
         self.world.resize(&self.device, &self.viewport);
-    }
-
-    pub fn input(&mut self, event: &DeviceEvent) {
-        &self.input.process_events(event);
     }
 
     fn frame_time(&mut self) -> f32 {

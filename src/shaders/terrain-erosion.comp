@@ -1,0 +1,107 @@
+#version 450
+
+#define NOISE_SET 2
+#extension GL_GOOGLE_include_directive : require
+#include "include/noise.glsl"
+
+#define MAX_ITERATIONS 100
+#define DEPOSITION_RATE 0.03
+#define EROSION_RATE 0.04
+#define SPEED 0.15
+#define FRICTION 0.7
+#define ITERATION_SCALE 0.04
+#define RADIUS 0.8
+#define RESOLUTION 0.1
+#define SCALE 4.0
+
+layout(local_size_x = 16, local_size_y = 1) in;
+
+struct Vertex {
+    float x; float y; float z;
+    float nx; float ny; float nz;
+};
+
+layout(std430, set=0, binding=0) buffer Src {
+    Vertex comp_vertices[];
+};
+layout(set=1, binding=0) uniform ComputeData {
+    float u_sea_level;
+    float u_horizontal_scale;
+    float u_vertical_scale;
+    uint u_size;
+    uint u_octaves;
+};
+
+float sample_height(vec2 pos) {
+    float size = float(u_size);
+    vec2 s = pos * SCALE;
+    vec2 n = floor(s);
+    vec2 f = s - n;
+
+    float ylu = comp_vertices[uint(n.x + n.y * size)].y;
+    float yld = comp_vertices[uint(n.x + (n.y + 1.0) * size)].y;
+    float yru = comp_vertices[uint(n.x + 1.0 + n.y * size)].y;
+    float yrd = comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].y;
+    float yl = ylu + (yld - ylu) * f.y;
+    float yr = yru + (yrd - yru) * f.y;
+
+    return yl + (yr - yl) * f.x;
+}
+
+vec3 sample_normal(vec2 pos) {
+    float double_radius = -(RESOLUTION + RESOLUTION);
+    float left = sample_height(vec2(pos.x - RESOLUTION, pos.y));
+    float top = sample_height(vec2(pos.x, pos.y - RESOLUTION));
+    float right = sample_height(vec2(pos.x + RESOLUTION, pos.y));
+    float bottom = sample_height(vec2(pos.x, pos.y + RESOLUTION));
+
+    vec3 normal = vec3(
+        double_radius * (right - left),
+        double_radius * double_radius,
+        double_radius * (bottom - top)
+    );
+
+    return normalize(normal);
+}
+
+void change(vec2 pos, float delta) {
+    float size = float(u_size);
+    vec2 s = pos * SCALE;
+    vec2 n = floor(s);
+    vec2 f = s - n;
+
+    comp_vertices[uint(n.x + n.y * size)].y += f.x * f.y * delta;
+    comp_vertices[uint(n.x + 1.0 + n.y * size)].y += (1.0 - f.x) * f.y * delta;
+    comp_vertices[uint(n.x + (n.y + 1.0) * size)].y += f.x * (1.0 - f.y) * delta;
+    comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].y += (1.0 - f.x) * (1.0 - f.y) * delta;
+}
+
+void main() {
+    Vertex vert = comp_vertices[gl_GlobalInvocationID.x];
+    vec2 pos = vec2(vert.x + (random(vec2(vert.x, vert.z)) * 15.0), vert.z + (random(vec2(vert.x, vert.z)) * 15.0));
+
+    vec2 o = vec2(
+        (random(vec2(vert.x, vert.z)) * 2.0 - 1.0) * RADIUS * RESOLUTION,
+        (random(vec2(vert.z, vert.x)) * 2.0 - 1.0) * RADIUS * RESOLUTION
+    );
+    float sediment = 0.0;
+    vec2 x = pos + (float(u_size) / 2.0);
+    vec2 p = x.xy;
+    vec2 v = vec2(0.0);
+
+    for (int i = 0; i < MAX_ITERATIONS; i++) {
+        vec3 surface_normal = sample_normal(x + o);
+        if (surface_normal.y == 1.0) break;
+
+        float deposit = sediment * DEPOSITION_RATE * surface_normal.y;
+        float erosion = EROSION_RATE * (1.0 - surface_normal.y) * min(1.0, float(i) * ITERATION_SCALE);
+
+        change(p, deposit - erosion);
+
+        v = FRICTION * v + surface_normal.xz * SPEED * RESOLUTION;
+        p = x;
+        x += v;
+
+        sediment += erosion - deposit;
+    }
+}

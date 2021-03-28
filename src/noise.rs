@@ -1,9 +1,6 @@
-use cgmath::*;
 use std::time::Instant;
 
 pub struct Noise {
-    noise: Vec<Vec<f32>>,
-    size: wgpu::Extent3d,
     texture_view: wgpu::TextureView,
 }
 
@@ -105,44 +102,9 @@ impl Noise {
         );
 
         queue.submit(std::iter::once(encoder.finish()));
-        let noise = read_buffer(device, &buffer, size.width as usize).await;
 
         println!("Noise: {} ms", now.elapsed().as_millis());
-        Self { noise, size, texture_view }
-    }
-
-    pub fn random(&self, st: Vector2<f32>) -> f32 {
-        let s = vec2(
-            (st.x as i32).rem_euclid(self.size.width as i32),
-            (st.y as i32).rem_euclid(self.size.height as i32),
-        );
-        self.noise[s.y as usize][s.x as usize]
-    }
-
-    pub fn noise(&self, st: Vector2<f32>) -> f32 {
-        let i = vec2(st.x.floor(), st.y.floor());
-        let f = st - i;
-        let a = self.random(i);
-        let b = self.random(i + vec2(1.0, 0.0));
-        let c = self.random(i + vec2(0.0, 1.0));
-        let d = self.random(i + vec2(1.0, 1.0));
-
-        let u = vec2(f.x * f.x * (3.0 - 2.0 * f.x), f.y * f.y * (3.0 - 2.0 * f.y));
-        mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y
-    }
-
-    pub fn fbm(&self, mut st: Vector2<f32>, octaves: u32) -> f32 {
-        let mut v = 0.0;
-        let mut a = 0.5;
-        let shift = vec2(100.0, 100.0);
-
-        let rot = Matrix2::new(0.5f32.cos(), 0.5f32.sin(), -0.5f32.sin(), 0.5f32.cos());
-        for _ in 0..octaves {
-            v += a * self.noise(st);
-            st = rot * st * 2.0 + shift;
-            a *= 0.5;
-        }
-        v
+        Self { texture_view }
     }
 
     pub fn create_bindings(&self, device: &wgpu::Device) -> NoiseBindings {
@@ -199,33 +161,5 @@ impl Noise {
             bind_group_layout,
             bind_group,
         }
-    }
-}
-
-fn mix(x: f32, y: f32, a: f32) -> f32 {
-    let yi = f32::one();
-    x * (yi - a) + y * a
-}
-
-async fn read_buffer(device: &wgpu::Device, buffer: &wgpu::Buffer, width: usize) -> Vec<Vec<f32>> {
-    let buffer_slice = buffer.slice(..);
-    let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
-    device.poll(wgpu::Maintain::Wait);
-
-    if let Ok(()) = buffer_future.await {
-        let data = buffer_slice.get_mapped_range();
-        unsafe {
-            let chunks = data.align_to::<f32>();
-            let mut grid = vec![];
-
-            let rows: Vec<&[f32]> = chunks.1.chunks_exact(width).collect();
-            for row in rows {
-                grid.push(row.to_vec());
-            }
-
-            grid
-        }
-    } else {
-        panic!("Failed to generate noise!")
     }
 }

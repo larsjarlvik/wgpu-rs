@@ -4,7 +4,7 @@
 #extension GL_GOOGLE_include_directive : require
 #include "include/noise.glsl"
 
-layout(local_size_x = 1, local_size_y = 1) in;
+layout(local_size_x = 16, local_size_y = 1) in;
 
 struct Vertex {
     float x; float y; float z;
@@ -21,7 +21,6 @@ layout(set=1, binding=0) uniform ComputeData {
     uint u_size;
     uint u_octaves;
 };
-
 
 void main() {
     uint i = gl_GlobalInvocationID.x;

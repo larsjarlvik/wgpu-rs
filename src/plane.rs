@@ -183,7 +183,7 @@ impl Plane {
         }
     }
 
-    fn get_index(&self, x: u32, z: u32) -> u32 {
+    pub fn get_index(&self, x: u32, z: u32) -> u32 {
         let index = z * (self.size + 1) + x;
         if index >= self.vertices.len() as u32 {
             println!("x: {} z: {} index: {} max: {}", x, z, index, self.vertices.len());

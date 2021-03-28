@@ -5,9 +5,10 @@ use std::time::Instant;
 use wgpu::util::DeviceExt;
 
 pub struct Compute {
-    pub plane: plane::Plane,
-    compute_elev_pipeline: wgpu::ComputePipeline,
-    compute_norm_pipeline: wgpu::ComputePipeline,
+    pub elevation_pipeline: wgpu::ComputePipeline,
+    pub normal_pipeline: wgpu::ComputePipeline,
+    pub erosion_pipeline: wgpu::ComputePipeline,
+    pub smooth_pipeline: wgpu::ComputePipeline,
     vertex_bind_group_layout: wgpu::BindGroupLayout,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     noise_bindings: noise::NoiseBindings,
@@ -15,7 +16,6 @@ pub struct Compute {
 
 impl Compute {
     pub fn new(device: &wgpu::Device, noise: &noise::Noise) -> Self {
-        let plane = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
         let noise_bindings = noise.create_bindings(device);
 
         let vertex_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -56,35 +56,38 @@ impl Compute {
             push_constant_ranges: &[],
         });
 
-        let module_elev = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-elev.comp.spv"));
-        let compute_elev_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("terrain_compute_elevation_pipeline"),
-            layout: Some(&layout),
-            module: &module_elev,
-            entry_point: "main",
-        });
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-elev.comp.spv"));
+        let elevation_pipeline = create_pipeline(device, &layout, &module, "elevation");
 
-        let module_norm = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-norm.comp.spv"));
-        let compute_norm_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("terrain_compute_normal_pipeline"),
-            layout: Some(&layout),
-            module: &module_norm,
-            entry_point: "main",
-        });
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-norm.comp.spv"));
+        let normal_pipeline = create_pipeline(device, &layout, &module, "normal");
+
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-erosion.comp.spv"));
+        let erosion_pipeline = create_pipeline(device, &layout, &module, "erosion");
+
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-smooth.comp.spv"));
+        let smooth_pipeline = create_pipeline(device, &layout, &module, "smooth");
 
         Self {
-            compute_elev_pipeline,
-            compute_norm_pipeline,
+            elevation_pipeline,
+            normal_pipeline,
+            erosion_pipeline,
+            smooth_pipeline,
             vertex_bind_group_layout,
             uniform_bind_group_layout,
             noise_bindings,
-            plane,
         }
     }
 
-    pub async fn compute(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub async fn compute(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        pipelines: Vec<&wgpu::ComputePipeline>,
+        plane: &plane::Plane,
+    ) -> plane::Plane {
         let now = Instant::now();
-        let contents: &[u8] = bytemuck::cast_slice(&self.plane.vertices);
+        let contents: &[u8] = bytemuck::cast_slice(&plane.vertices);
 
         let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("terrain_vertex_buffer"),
@@ -105,7 +108,7 @@ impl Compute {
             device,
             &self.uniform_bind_group_layout,
             uniforms::Uniforms {
-                size: self.plane.size + 1,
+                size: plane.size + 1,
                 octaves: settings::TERRAIN_OCTAVES,
                 sea_level: settings::SEA_LEVEL,
                 horizontal_scale: settings::HORIZONTAL_SCALE,
@@ -113,14 +116,20 @@ impl Compute {
             },
         );
 
-        let elev_encoder = self.run_compute(device, &self.compute_elev_pipeline, &&vertex_bind_group, &uniforms.bind_group);
-        let norm_encoder = self.run_compute(device, &self.compute_norm_pipeline, &&vertex_bind_group, &uniforms.bind_group);
+        let encoders: Vec<wgpu::CommandBuffer> = pipelines
+            .iter()
+            .map(|&p| {
+                self.run_compute(device, p, &vertex_bind_group, &uniforms.bind_group, plane.length)
+                    .finish()
+            })
+            .collect();
 
-        queue.submit(vec![elev_encoder.finish(), norm_encoder.finish()]);
-        self.plane = self.get_result(device, &dst_vertex_buffer, self.plane.size).await;
+        queue.submit(encoders);
+        let plane = self.get_result(device, &dst_vertex_buffer, plane.size).await;
         dst_vertex_buffer.unmap();
 
         println!("Compute: {} ms", now.elapsed().as_millis());
+        plane
     }
 
     fn run_compute(
@@ -129,6 +138,7 @@ impl Compute {
         compute_pipeline: &wgpu::ComputePipeline,
         vertex_bind_group: &wgpu::BindGroup,
         uniform_bind_group: &wgpu::BindGroup,
+        length: u32,
     ) -> wgpu::CommandEncoder {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("compute_terrain"),
@@ -139,12 +149,12 @@ impl Compute {
             pass.set_bind_group(0, &vertex_bind_group, &[]);
             pass.set_bind_group(1, &uniform_bind_group, &[]);
             pass.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
-            pass.dispatch(self.plane.length, 1, 1);
+            pass.dispatch(length, 1, 1);
         }
         encoder
     }
 
-    async fn get_result(&mut self, device: &wgpu::Device, buffer: &wgpu::Buffer, size: u32) -> plane::Plane {
+    async fn get_result(&self, device: &wgpu::Device, buffer: &wgpu::Buffer, size: u32) -> plane::Plane {
         let buffer_slice = buffer.clone().slice(..);
         let buffer_future = buffer_slice.map_async(wgpu::MapMode::Read);
         device.poll(wgpu::Maintain::Wait);
@@ -159,4 +169,13 @@ impl Compute {
             panic!("Failed to generate terrain!")
         }
     }
+}
+
+fn create_pipeline(device: &wgpu::Device, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, name: &str) -> wgpu::ComputePipeline {
+    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some(format!("terrain_compute_{}_pipeline", name).as_str()),
+        layout: Some(&layout),
+        module,
+        entry_point: "main",
+    })
 }

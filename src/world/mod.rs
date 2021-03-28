@@ -1,6 +1,6 @@
-use crate::{camera, models, noise, pipelines, settings};
+use crate::{camera, models, noise, pipelines, plane, settings};
 use cgmath::*;
-use std::time::Instant;
+use std::{time::Instant, usize};
 mod assets;
 mod bundles;
 mod node;
@@ -13,6 +13,7 @@ pub struct WorldData {
     pub sky: pipelines::sky::Sky,
     pub noise: noise::Noise,
     pub models: models::Models,
+    pub heightmap: plane::Plane,
 }
 
 pub struct World {
@@ -27,9 +28,17 @@ impl World {
         let water = pipelines::water::Water::new(device, &viewport, &noise);
         let sky = pipelines::sky::Sky::new(device, &viewport);
         let model = pipelines::model::Model::new(device, &viewport);
+        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
 
-        let mut terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
-        terrain.compute.compute(device, queue).await;
+        let mut heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
+        let pipelines = vec![
+            &terrain.compute.elevation_pipeline,
+            &terrain.compute.erosion_pipeline,
+            &terrain.compute.smooth_pipeline,
+            &terrain.compute.smooth_pipeline,
+            &terrain.compute.normal_pipeline,
+        ];
+        heightmap = terrain.compute.compute(device, queue, pipelines, &heightmap).await;
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {
@@ -43,6 +52,7 @@ impl World {
             model,
             sky,
             models,
+            heightmap,
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
@@ -73,18 +83,15 @@ impl World {
 }
 
 impl WorldData {
-    pub fn get_elevation(&self, p: Vector2<f32>) -> f32 {
-        let xz = p * settings::HORIZONTAL_SCALE;
-        let q = vec2(
-            self.noise.fbm(xz, settings::TERRAIN_OCTAVES),
-            self.noise.fbm(xz + vec2(1.0, 1.0), settings::TERRAIN_OCTAVES),
-        );
+    pub fn get_vertex(&self, p: Vector2<f32>) -> &plane::Vertex {
+        let half_size = self.heightmap.size as f32 / 2.0;
+        let a = self.heightmap.get_index((p.x + half_size) as u32, (p.y + half_size) as u32) as usize;
+        let v = self.heightmap.vertices.get(a).unwrap();
+        v
+    }
 
-        let r = vec2(
-            self.noise.fbm(xz + q + vec2(1.7 + 0.15, 9.2 + 0.15), settings::TERRAIN_OCTAVES),
-            self.noise.fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), settings::TERRAIN_OCTAVES),
-        );
-
-        (self.noise.fbm(xz + r, settings::TERRAIN_OCTAVES) - settings::SEA_LEVEL) / settings::VERTICAL_SCALE
+    pub fn get_elevation(&self, v: &plane::Vertex, p: Vector2<f32>) -> f32 {
+        let d = -(v.position[0] * v.normal[0] + v.position[1] * v.normal[1] + v.position[2] * v.normal[2]);
+        -(d + v.normal[2] * p.y + v.normal[0] * p.x) / v.normal[1]
     }
 }

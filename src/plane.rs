@@ -99,48 +99,58 @@ impl Plane {
 
     pub fn create_indices(&self, device: &wgpu::Device, lod: u32) -> HashMap<ConnectType, LodBuffer> {
         let mut lod_buffers: HashMap<ConnectType, LodBuffer> = HashMap::new();
+        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
+        let lod = 2u32.pow(lod as u32) / 2;
+
         for connect_type in ConnectType::iter() {
             let mut indices = Vec::new();
 
             if lod > 1 {
                 match connect_type {
                     ConnectType::ZNeg => {
-                        self.z_neg(&mut indices, lod);
+                        self.z_neg(&mut indices, lod, n_lod);
+                        indices.push(self.get_index(0, 0));
                         self.fill_tile(&mut indices, lod, &connect_type);
                     }
                     ConnectType::XPos => {
                         self.fill_tile(&mut indices, lod, &connect_type);
-                        self.x_pos(&mut indices, lod);
+                        self.x_pos(&mut indices, lod, n_lod);
                     }
                     ConnectType::ZPos => {
                         self.fill_tile(&mut indices, lod, &connect_type);
-                        self.z_pos(&mut indices, lod);
+                        self.z_pos(&mut indices, lod, n_lod);
                     }
                     ConnectType::XNeg => {
-                        self.x_neg(&mut indices, lod);
+                        self.x_neg(&mut indices, lod, n_lod);
                         self.fill_tile(&mut indices, lod, &connect_type);
                     }
                     ConnectType::XNegZPos => {
-                        self.x_neg(&mut indices, lod);
+                        self.x_neg(&mut indices, lod, n_lod);
                         self.fill_tile(&mut indices, lod, &connect_type);
-                        self.z_pos(&mut indices, lod);
+                        self.z_pos(&mut indices, lod, n_lod);
                     }
                     ConnectType::XPosZNeg => {
-                        self.z_neg(&mut indices, lod);
+                        self.z_neg(&mut indices, lod, n_lod);
+                        indices.push(self.get_index(0, 0));
                         self.fill_tile(&mut indices, lod, &connect_type);
-                        self.x_pos(&mut indices, lod);
+                        self.x_pos(&mut indices, lod, n_lod);
                     }
                     ConnectType::XNegZNeg => {
-                        self.x_neg(&mut indices, lod);
-                        self.z_neg(&mut indices, lod);
+                        self.z_neg(&mut indices, lod, n_lod);
+                        indices.push(self.get_index(0, 0));
+                        indices.push(self.get_index(0, self.size));
+                        self.x_neg(&mut indices, lod, n_lod);
+                        indices.push(self.get_index(lod, 0));
                         self.fill_tile(&mut indices, lod, &connect_type);
                     }
                     ConnectType::XPosZPos => {
                         self.fill_tile(&mut indices, lod, &connect_type);
-                        self.z_pos(&mut indices, lod);
+                        indices.push(self.get_index(self.size, self.size - lod));
+                        indices.push(self.get_index(self.size, self.size - lod));
+                        self.z_pos(&mut indices, lod, n_lod);
                         indices.push(self.get_index(0, self.size));
                         indices.push(self.get_index(self.size, self.size));
-                        self.x_pos(&mut indices, lod);
+                        self.x_pos(&mut indices, lod, n_lod);
                     }
                     ConnectType::None => {
                         self.fill_tile(&mut indices, lod, &connect_type);
@@ -167,8 +177,6 @@ impl Plane {
     }
 
     fn fill_tile(&self, indices: &mut Vec<u32>, lod: u32, connect_type: &ConnectType) {
-        let lod = 2u32.pow(lod as u32) / 2;
-
         for z in (lod_z_neg(lod, connect_type)..(self.size - lod_z_pos(lod, connect_type))).step_by(lod as usize) {
             if z > 0 {
                 indices.push(self.get_index(lod_x_neg(lod, connect_type), z));
@@ -192,41 +200,28 @@ impl Plane {
         index
     }
 
-    fn z_neg(&self, indices: &mut Vec<u32>, lod: u32) {
-        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
-        let lod = 2u32.pow(lod as u32) / 2;
-
-        for x in (0..self.size + 1).step_by(n_lod as usize) {
-            indices.push(self.get_index(x, 0));
+    fn z_neg(&self, indices: &mut Vec<u32>, lod: u32, n_lod: u32) {
+        for x in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(x + (x % lod), lod));
+            indices.push(self.get_index(x, 0));
         }
-        indices.push(self.get_index(self.size + 1 - lod, lod));
     }
 
-    fn x_pos(&self, indices: &mut Vec<u32>, lod: u32) {
-        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
-        let lod = 2u32.pow(lod as u32) / 2;
-
+    fn x_pos(&self, indices: &mut Vec<u32>, lod: u32, n_lod: u32) {
         for z in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(self.size, z));
             indices.push(self.get_index(self.size - lod, z - (z % lod)));
         }
     }
 
-    fn z_pos(&self, indices: &mut Vec<u32>, lod: u32) {
-        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
-        let lod = 2u32.pow(lod as u32) / 2;
-
+    fn z_pos(&self, indices: &mut Vec<u32>, lod: u32, n_lod: u32) {
         for x in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(x + (x % lod), self.size - lod));
             indices.push(self.get_index(x, self.size));
         }
     }
 
-    fn x_neg(&self, indices: &mut Vec<u32>, lod: u32) {
-        let n_lod = 2u32.pow(lod as u32 - 1) / 2;
-        let lod = 2u32.pow(lod as u32) / 2;
-
+    fn x_neg(&self, indices: &mut Vec<u32>, lod: u32, n_lod: u32) {
         for z in (0..self.size + 1).rev().step_by(n_lod as usize) {
             indices.push(self.get_index(0, z));
             indices.push(self.get_index(lod, z - (z % lod)));

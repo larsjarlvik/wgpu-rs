@@ -106,7 +106,7 @@ impl Node {
         let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
         let (plane, y_min, y_max) = world.heightmap.sub(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
-        self.bounding_box.max.y = y_max;
+        self.bounding_box.max.y = y_max.max(0.0);
 
         let lods = (0..=settings::LODS.len())
             .map(|lod| plane.create_indices(&device, lod as u32 + 1))

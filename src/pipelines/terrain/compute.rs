@@ -88,11 +88,20 @@ impl Compute {
     ) -> plane::Plane {
         let now = Instant::now();
         let contents: &[u8] = bytemuck::cast_slice(&plane.vertices);
+        let slice_size = contents.len() * std::mem::size_of::<u8>();
+        let size = slice_size as wgpu::BufferAddress;
 
-        let dst_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("terrain_vertex_buffer"),
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("compute_vertex_buffer"),
             contents,
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_SRC,
+        });
+
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("compute_staging_buffer"),
+            size,
+            usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
         });
 
         let vertex_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -100,7 +109,7 @@ impl Compute {
             layout: &self.vertex_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: dst_vertex_buffer.as_entire_binding(),
+                resource: vertex_buffer.as_entire_binding(),
             }],
         });
 
@@ -116,7 +125,7 @@ impl Compute {
             },
         );
 
-        let encoders: Vec<wgpu::CommandBuffer> = pipelines
+        let mut encoders: Vec<wgpu::CommandBuffer> = pipelines
             .iter()
             .map(|&p| {
                 self.run_compute(device, p, &vertex_bind_group, &uniforms.bind_group, plane.length)
@@ -124,9 +133,15 @@ impl Compute {
             })
             .collect();
 
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("compute_terrain"),
+        });
+        encoder.copy_buffer_to_buffer(&vertex_buffer, 0, &staging_buffer, 0, size);
+        encoders.push(encoder.finish());
         queue.submit(encoders);
-        let plane = self.get_result(device, &dst_vertex_buffer, plane.size).await;
-        dst_vertex_buffer.unmap();
+
+        let plane = self.get_result(device, &staging_buffer, plane.size).await;
+        staging_buffer.unmap();
 
         println!("Compute: {} ms", now.elapsed().as_millis());
         plane

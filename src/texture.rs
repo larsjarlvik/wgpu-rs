@@ -22,7 +22,7 @@ pub fn create_mipmapped_view(device: &wgpu::Device, queue: &wgpu::Queue, pixels:
     encoder.copy_buffer_to_texture(
         wgpu::BufferCopyView {
             buffer: &device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Temporary Buffer"),
+                label: Some("mipmap_buffer"),
                 contents: pixels.as_slice(),
                 usage: wgpu::BufferUsage::COPY_SRC,
             }),

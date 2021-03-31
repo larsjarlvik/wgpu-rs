@@ -115,7 +115,7 @@ impl Node {
         let terrain_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("terrain_vertex_buffer"),
             contents: bytemuck::cast_slice(&plane.vertices),
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsage::VERTEX,
         });
 
         for asset in assets::ASSETS {

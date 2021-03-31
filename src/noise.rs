@@ -12,13 +12,11 @@ pub struct NoiseBindings {
 impl Noise {
     pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let now = Instant::now();
-
         let size = wgpu::Extent3d {
             width: 512,
             height: 512,
             depth: 1,
         };
-        let byte_size = std::mem::size_of::<f32>() as u32;
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -69,13 +67,6 @@ impl Noise {
         });
 
         // Generate noise
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("output_vertex_buffer"),
-            size: (size.width * size.height * byte_size) as u64,
-            usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::MAP_READ,
-            mapped_at_creation: false,
-        });
-
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("noise") });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
@@ -83,23 +74,6 @@ impl Noise {
             pass.set_bind_group(0, &compute_texture_bind_group, &[]);
             pass.dispatch(size.width, size.height, 1);
         }
-
-        encoder.copy_texture_to_buffer(
-            wgpu::TextureCopyView {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-            },
-            wgpu::BufferCopyView {
-                buffer: &buffer,
-                layout: wgpu::TextureDataLayout {
-                    offset: 0,
-                    bytes_per_row: byte_size * size.width,
-                    rows_per_image: size.height,
-                },
-            },
-            size,
-        );
 
         queue.submit(std::iter::once(encoder.finish()));
 

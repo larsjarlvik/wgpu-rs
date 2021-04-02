@@ -37,7 +37,7 @@ impl Refraction {
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
-        let view = Matrix4::look_at(viewport.eye, viewport.target, Vector3::unit_y());
+        let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
         let nodes = root_node.get_nodes(&self.camera);
 
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);

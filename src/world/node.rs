@@ -156,7 +156,7 @@ impl Node {
                     m.x,
                     m.y,
                     rng.gen::<f32>(),
-                    rng.gen_range(asset.min_size, asset.max_size),
+                    rng.gen_range(asset.min_size..asset.max_size),
                 )
             })
             .filter(|(my, normal, ..)| *my > 0.0 && normal[1] > asset.max_slope)

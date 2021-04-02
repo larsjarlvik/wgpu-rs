@@ -47,8 +47,8 @@ impl State {
         let swap_chain = viewport.create_swap_chain(&device, &surface);
 
         // Drawing
-        let fxaa = pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height);
         let world = world::World::new(&device, &queue, &viewport).await;
+        let fxaa = pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height);
 
         Self {
             surface,

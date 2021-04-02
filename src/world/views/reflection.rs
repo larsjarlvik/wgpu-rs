@@ -42,7 +42,7 @@ impl Reflection {
         root_node: &node::Node,
     ) {
         let nodes = root_node.get_nodes(&self.camera);
-        let view = Matrix4::look_at(
+        let view = Matrix4::look_at_rh(
             Point3::new(viewport.eye.x, -viewport.eye.y, viewport.eye.z),
             viewport.target,
             -Vector3::unit_y(),

@@ -168,20 +168,13 @@ impl Node {
     }
 
     pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<(&Self, &NodeData)> {
-        if self.check_frustum(camera) {
+        if camera.frustum.test_bounding_box(&self.bounding_box) {
             match &self.data {
                 Some(t) => vec![(&self, &t)],
                 None => self.children.iter().flat_map(|child| child.get_nodes(camera)).collect(),
             }
         } else {
             vec![]
-        }
-    }
-
-    fn check_frustum(&self, camera: &camera::Instance) -> bool {
-        match camera.frustum.test_bounding_box(&self.bounding_box) {
-            camera::Intersection::Inside | camera::Intersection::Partial => true,
-            camera::Intersection::Outside => false,
         }
     }
 }

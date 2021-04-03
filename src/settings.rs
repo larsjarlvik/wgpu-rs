@@ -22,3 +22,5 @@ pub static LIGHT_DIR: [f32; 3] = [0.5, -1.0, 0.0];
 pub static LIGHT_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
 pub const LIGHT_AMBIENT: f32 = 0.3;
 pub const LIGHT_INTENSITY: f32 = 1.0;
+
+pub const SHADOW_RESOLUTION: u32 = 8096;

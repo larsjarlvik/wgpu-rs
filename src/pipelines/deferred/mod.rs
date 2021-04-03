@@ -1,12 +1,14 @@
 use crate::{camera, settings};
 mod textures;
 mod uniforms;
+use cgmath::*;
 
 pub struct DeferredRender {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
     pub target: textures::Textures,
     pub uniforms: uniforms::UniformBuffer,
+    pub shadow_matrix: Matrix4<f32>,
 }
 
 impl DeferredRender {
@@ -77,6 +79,7 @@ impl DeferredRender {
                 light_color: [1.0, 0.9, 0.5],
                 ambient_strength: 0.3,
                 light_intensity: 2.0,
+                shadow_matrix: Matrix4::identity().into(),
             },
         );
 
@@ -85,6 +88,7 @@ impl DeferredRender {
             texture_bind_group,
             target,
             uniforms,
+            shadow_matrix: Matrix4::identity(),
         }
     }
 
@@ -96,7 +100,7 @@ impl DeferredRender {
 
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("models_render_pass"),
+                label: Some("deferred_render_pass"),
                 color_attachments: &[
                     wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &self.target.normals_texture_view,
@@ -119,6 +123,43 @@ impl DeferredRender {
                 }),
             })
             .execute_bundles(bundles.into_iter());
+    }
+
+    pub fn update(&mut self, viewport: &camera::Viewport, eye: &camera::Instance) {
+        let corners = eye.frustum.get_frustum_corners();
+        let mut min = vec3(0.0, 0.0, 0.0);
+        let mut max = vec3(0.0, 0.0, 0.0);
+        let mut first = true;
+
+        for corner in corners.iter() {
+            if first {
+                min.x = corner.x;
+                max.x = corner.x;
+                min.y = corner.y;
+                max.y = corner.y;
+                min.z = corner.z;
+                max.z = corner.z;
+                first = false;
+                continue;
+            }
+
+            min.x = min.x.min(corner.x);
+            max.x = max.x.max(corner.x);
+            min.y = min.y.min(corner.y);
+            max.y = max.y.max(corner.y);
+            min.z = min.z.min(corner.z);
+            max.z = max.z.max(corner.z);
+        }
+
+        let sun = Point3::new(
+            viewport.target.x - settings::LIGHT_DIR[0],
+            viewport.target.y - settings::LIGHT_DIR[1],
+            viewport.target.z - settings::LIGHT_DIR[2],
+        );
+        let view = Matrix4::look_at_rh(sun, viewport.target, Vector3::unit_y());
+        let proj = ortho(min.x, max.x, min.y, max.y, min.z, max.z);
+        self.shadow_matrix = proj * view;
+        self.uniforms.data.shadow_matrix = self.shadow_matrix.into();
     }
 
     pub fn render(

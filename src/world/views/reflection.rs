@@ -41,7 +41,6 @@ impl Reflection {
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
-        let nodes = root_node.get_nodes(&self.camera);
         let view = Matrix4::look_at_rh(
             Point3::new(viewport.eye.x, -viewport.eye.y, viewport.eye.z),
             viewport.target,
@@ -49,6 +48,7 @@ impl Reflection {
         );
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
+        let nodes = root_node.get_nodes(&self.camera);
         self.terrain = bundles::Terrain::new(device, &self.camera, &mut world_data.terrain, &nodes);
         self.models = bundles::Models::new(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);
     }

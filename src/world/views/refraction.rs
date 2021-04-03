@@ -38,9 +38,9 @@ impl Refraction {
         root_node: &node::Node,
     ) {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
-        let nodes = root_node.get_nodes(&self.camera);
-
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
+
+        let nodes = root_node.get_nodes(&self.camera);
         self.terrain = bundles::Terrain::new(device, &self.camera, &mut world_data.terrain, &nodes);
     }
 

@@ -1,3 +1,5 @@
+use cgmath::*;
+
 pub const COLOR_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8UnormSrgb;
 pub const DEPTH_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -17,9 +19,9 @@ pub const TILE_SIZE: u32 = 40;
 pub const TILE_DEPTH: u32 = 6;
 pub static LODS: [f32; 3] = [0.2, 0.4, 0.6];
 
-pub static SKY_COLOR: [f32; 3] = [0.312, 0.573, 0.757];
-pub static LIGHT_DIR: [f32; 3] = [0.5, -1.0, 0.0];
-pub static LIGHT_COLOR: [f32; 3] = [1.0, 0.9, 0.5];
+pub static SKY_COLOR: Vector3<f32> = vec3(0.312, 0.573, 0.757);
+pub const LIGHT_DIR: Vector3<f32> = vec3(0.5, -1.0, 0.0);
+pub static LIGHT_COLOR: Vector3<f32> = vec3(1.0, 0.9, 0.5);
 pub const LIGHT_AMBIENT: f32 = 0.3;
 pub const LIGHT_INTENSITY: f32 = 1.0;
 

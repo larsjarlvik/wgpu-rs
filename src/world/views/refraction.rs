@@ -19,7 +19,7 @@ impl Refraction {
         root_node: &node::Node,
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, -1.0, 0.0, 1.0]);
-        let deferred = deferred_render.get_render_bundle(device, &camera);
+        let deferred = deferred_render.get_render_bundle(device, &camera, "refraction");
         let nodes = root_node.get_nodes(&camera);
 
         Self {
@@ -46,7 +46,7 @@ impl Refraction {
 
     pub fn resize(&mut self, device: &wgpu::Device, deferred_render: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {
         self.camera.resize(viewport.width, viewport.height);
-        self.deferred = deferred_render.get_render_bundle(device, &self.camera);
+        self.deferred = deferred_render.get_render_bundle(device, &self.camera, "refraction");
     }
 
     pub fn render(

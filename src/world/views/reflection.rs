@@ -21,7 +21,7 @@ impl Reflection {
         root_node: &node::Node,
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
-        let deferred = deferred_render.get_render_bundle(device, &camera);
+        let deferred = deferred_render.get_render_bundle(device, &camera, "reflection");
         let nodes = root_node.get_nodes(&camera);
 
         Self {
@@ -61,7 +61,7 @@ impl Reflection {
         viewport: &camera::Viewport,
     ) {
         self.camera.resize(viewport.width, viewport.height);
-        self.deferred = deferred_render.get_render_bundle(device, &self.camera);
+        self.deferred = deferred_render.get_render_bundle(device, &self.camera, "reflection");
         self.sky = bundles::Sky::new(device, &self.camera, &world_data.sky);
     }
 

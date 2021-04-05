@@ -125,7 +125,7 @@ impl DeferredRender {
             .execute_bundles(bundles.into_iter());
     }
 
-    pub fn update(&mut self, viewport: &camera::Viewport, eye: &camera::Instance) {
+    pub fn update(&mut self, queue: &wgpu::Queue, eye: &camera::Instance) {
         let corners = eye.frustum.get_frustum_corners();
         let mut min = vec3(0.0, 0.0, 0.0);
         let mut max = vec3(0.0, 0.0, 0.0);
@@ -151,15 +151,11 @@ impl DeferredRender {
             max.z = max.z.max(corner.z);
         }
 
-        let sun = Point3::new(
-            viewport.target.x - settings::LIGHT_DIR[0],
-            viewport.target.y - settings::LIGHT_DIR[1],
-            viewport.target.z - settings::LIGHT_DIR[2],
-        );
-        let view = Matrix4::look_at_rh(sun, viewport.target, Vector3::unit_y());
+        let view = Matrix4::look_at_rh(Point3::origin(), Point3::from_vec(settings::LIGHT_DIR), Vector3::unit_y());
         let proj = ortho(min.x, max.x, min.y, max.y, min.z, max.z);
         self.shadow_matrix = proj * view;
         self.uniforms.data.shadow_matrix = self.shadow_matrix.into();
+        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 
     pub fn render(
@@ -192,7 +188,7 @@ impl DeferredRender {
             .execute_bundles(std::iter::once(render_bundle));
     }
 
-    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Instance) -> wgpu::RenderBundle {
+    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Instance, bundle_name: &str) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
             color_formats: &[settings::COLOR_TEXTURE_FORMAT],
@@ -205,6 +201,8 @@ impl DeferredRender {
         encoder.set_bind_group(1, &self.uniforms.bind_group, &[]);
         encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
         encoder.draw(0..6, 0..1);
-        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("deferred") })
+        encoder.finish(&wgpu::RenderBundleDescriptor {
+            label: Some(format!("deferred_{}", bundle_name).as_str()),
+        })
     }
 }

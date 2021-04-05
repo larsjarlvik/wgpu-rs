@@ -33,7 +33,7 @@ impl Views {
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
-        self.deferred_render.update(viewport, &self.eye.camera);
+        self.deferred_render.update(queue, &self.eye.camera);
         self.eye.update(device, queue, world_data, &viewport, root_node);
         self.reflection.update(device, queue, world_data, &viewport, root_node);
         self.refraction.update(device, queue, world_data, &viewport, root_node);
@@ -51,9 +51,9 @@ impl Views {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData, target: &wgpu::TextureView) {
+        self.shadow.render(encoder, &self.deferred_render);
         self.reflection.render(encoder, &self.deferred_render, world_data);
         self.refraction.render(encoder, &self.deferred_render, world_data);
-        self.shadow.render(encoder, &self.deferred_render);
         self.eye.render(encoder, &self.deferred_render, world_data, target);
     }
 }

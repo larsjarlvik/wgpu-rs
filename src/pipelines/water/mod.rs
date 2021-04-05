@@ -22,9 +22,9 @@ impl Water {
         let uniforms = uniforms::UniformBuffer::new(
             &device,
             uniforms::Uniforms {
-                light_color: settings::LIGHT_COLOR,
+                light_color: settings::LIGHT_COLOR.into(),
                 ambient_strength: settings::LIGHT_AMBIENT,
-                light_dir: settings::LIGHT_DIR,
+                light_dir: settings::LIGHT_DIR.into(),
                 light_intensity: settings::LIGHT_INTENSITY,
                 time: 0.0,
             },

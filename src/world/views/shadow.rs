@@ -44,7 +44,7 @@ impl Shadow {
                 label: Some("shadow_render_pass"),
                 color_attachments: &[],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &deferred.target.depth_texture_view,
+                    attachment: &deferred.target.shadow_texture_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,

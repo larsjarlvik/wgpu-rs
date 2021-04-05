@@ -6,11 +6,13 @@ pub struct Textures {
     pub depth_texture_view: wgpu::TextureView,
     pub shadow_texture_view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub shadow_sampler: wgpu::Sampler,
 }
 
 impl Textures {
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
+        let shadow_sampler = texture::create_shadow_sampler(device);
         let normals_texture_view = texture::create_view(&device, width, height, settings::COLOR_TEXTURE_FORMAT);
         let base_color_texture_view = texture::create_view(&device, width, height, settings::COLOR_TEXTURE_FORMAT);
         let depth_texture_view = texture::create_view(&device, width, height, settings::DEPTH_TEXTURE_FORMAT);
@@ -27,6 +29,7 @@ impl Textures {
             depth_texture_view,
             shadow_texture_view,
             sampler,
+            shadow_sampler,
         }
     }
 
@@ -47,6 +50,15 @@ impl Textures {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: true,
+                        filtering: false,
+                    },
+                    count: None,
+                },
             ],
         })
     }
@@ -63,6 +75,10 @@ impl Textures {
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::Sampler(&self.shadow_sampler),
                 },
             ],
         })

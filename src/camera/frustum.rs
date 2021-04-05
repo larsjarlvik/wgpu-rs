@@ -63,11 +63,11 @@ impl FrustumCuller {
     }
 
     fn get_frustum_corner(&self, f1: Vector4<f32>, f2: Vector4<f32>, f3: Vector4<f32>) -> Vector3<f32> {
-        let det = Matrix3::new(f1.x, f1.y, f1.z, f2.x, f2.y, f2.z, f3.x, f3.y, f3.z).determinant();
+        let det = Matrix3::from_cols(f1.truncate(), f2.truncate(), f3.truncate()).determinant();
 
-        let v1: Vector3<f32> = vec3(f2.x, f2.y, f2.z).cross(vec3(f3.x, f3.y, f3.z)) * -f1.z;
-        let v2: Vector3<f32> = vec3(f3.x, f3.y, f3.z).cross(vec3(f1.x, f1.y, f1.z)) * -f2.z;
-        let v3: Vector3<f32> = vec3(f1.x, f1.y, f1.z).cross(vec3(f2.x, f2.y, f2.z)) * -f3.z;
+        let v1: Vector3<f32> = f2.truncate().cross(f3.truncate()) * -f1.w;
+        let v2: Vector3<f32> = f3.truncate().cross(f1.truncate()) * -f2.w;
+        let v3: Vector3<f32> = f1.truncate().cross(f2.truncate()) * -f3.w;
 
         (v1 + v2 + v3) / det
     }

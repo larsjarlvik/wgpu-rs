@@ -60,8 +60,8 @@ void main() {
 
     vec3 color;
     if (depth < 1.0) {
-        color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz), 16.0, 1.0);
-        color *= get_shadow_factor(u_shadow_matrix * position);
+        float shadow_factor = get_shadow_factor(u_shadow_matrix * position);
+        color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz), 16.0, 1.0, shadow_factor);
     }
 
     f_color = vec4(color, 1.0);

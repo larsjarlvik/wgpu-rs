@@ -11,9 +11,9 @@ layout(set = 0, binding = 1) uniform sampler s_diffuse;
 
 void main() {
    vec4 base_color = texture(sampler2D(t_diffuse, s_diffuse), v_tex_coords);
-   // if (base_color.a < 0.3) {
-   //    discard; return;
-   // }
+   if (base_color.a < 0.3) {
+      discard; return;
+   }
 
    f_normals = vec4(v_normals, 1.0);
    f_base_color = base_color;

@@ -40,7 +40,8 @@ impl Views {
         self.reflection.update(device, queue, world_data, &viewport, root_node);
         self.refraction.update(device, queue, world_data, &viewport, root_node);
         self.deferred.update(queue, viewport, view);
-        self.shadow.update(device, queue, world_data, &viewport, &self.deferred, root_node);
+        self.shadow
+            .update(device, queue, world_data, &viewport, view, &self.deferred, root_node);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport) {

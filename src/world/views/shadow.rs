@@ -2,6 +2,7 @@ use crate::{
     camera, pipelines,
     world::{bundles, node, WorldData},
 };
+use cgmath::*;
 
 pub struct Shadow {
     pub models: bundles::Models,
@@ -25,10 +26,12 @@ impl Shadow {
         queue: &wgpu::Queue,
         world_data: &mut WorldData,
         viewport: &camera::Viewport,
+        view: Matrix4<f32>,
         deferred: &pipelines::deferred::DeferredRender,
         root_node: &node::Node,
     ) {
         self.camera.update(queue, viewport.target, viewport.eye, deferred.shadow_matrix);
+        self.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
 
         let nodes = root_node.get_nodes(&self.camera);
         self.models = bundles::Models::new_shadow_bundle(device, &self.camera, &world_data.model, &mut world_data.models, &nodes);

@@ -3,6 +3,14 @@ mod textures;
 mod uniforms;
 use cgmath::*;
 
+#[rustfmt::skip]
+const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.0,
+    0.0, 0.0, 0.5, 1.0,
+);
+
 pub struct DeferredRender {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
@@ -125,35 +133,57 @@ impl DeferredRender {
             .execute_bundles(bundles.into_iter());
     }
 
-    pub fn update(&mut self, queue: &wgpu::Queue, eye: &camera::Instance) {
-        let corners = eye.frustum.get_frustum_corners();
-        let mut min = vec3(0.0, 0.0, 0.0);
-        let mut max = vec3(0.0, 0.0, 0.0);
-        let mut first = true;
+    pub fn update(&mut self, queue: &wgpu::Queue, viewport: &camera::Viewport, view: Matrix4<f32>) {
+        let inv_cam = (viewport.proj * view).inverse_transform().unwrap();
 
-        for corner in corners.iter() {
-            if first {
-                min.x = corner.x;
-                max.x = corner.x;
-                min.y = corner.y;
-                max.y = corner.y;
-                min.z = corner.z;
-                max.z = corner.z;
-                first = false;
-                continue;
-            }
+        let mut frustum_corners = [
+            vec3(-1.0, 1.0, -1.0),
+            vec3(1.0, 1.0, -1.0),
+            vec3(1.0, -1.0, -1.0),
+            vec3(-1.0, -1.0, -1.0),
+            vec3(-1.0, 1.0, 1.0),
+            vec3(1.0, 1.0, 1.0),
+            vec3(1.0, -1.0, 1.0),
+            vec3(-1.0, -1.0, 1.0),
+        ];
 
-            min.x = min.x.min(corner.x);
-            max.x = max.x.max(corner.x);
-            min.y = min.y.min(corner.y);
-            max.y = max.y.max(corner.y);
-            min.z = min.z.min(corner.z);
-            max.z = max.z.max(corner.z);
+        for i in 0..8 {
+            let inverted = inv_cam * frustum_corners[i].extend(1.0);
+            frustum_corners[i] = inverted.truncate() / inverted.w;
         }
 
-        let view = Matrix4::look_at_rh(Point3::origin(), Point3::from_vec(settings::LIGHT_DIR), Vector3::unit_y());
-        let proj = ortho(min.x, max.x, min.y, max.y, min.z, max.z);
-        self.shadow_matrix = proj * view;
+        for i in 0..4 {
+            let dist = frustum_corners[i + 4] - frustum_corners[i];
+            frustum_corners[i + 4] = frustum_corners[i] + dist;
+            frustum_corners[i] = frustum_corners[i];
+        }
+
+        let mut center = Vector3::zero();
+        for corner in frustum_corners.iter() {
+            center += *corner;
+        }
+        center /= 8.0;
+        center = vec3(center.x.round(), center.y.round(), center.z.round());
+
+        let mut radius = 0.0f32;
+        for corner in frustum_corners.iter() {
+            let distance = corner.distance(center);
+            radius = radius.max(distance);
+        }
+        radius = radius.round();
+
+        let max = Vector3::from_value(radius);
+        let min = Vector3::from_value(-radius);
+        let light_dir = settings::LIGHT_DIR.normalize();
+
+        let light_view_matrix = Matrix4::look_at_rh(
+            Point3::from_vec(center - light_dir * -min.z),
+            Point3::from_vec(center),
+            Vector3::unit_y(),
+        );
+        let light_ortho_matrix = OPENGL_TO_WGPU_MATRIX * ortho(min.x, max.x, min.y, max.y, 0.0, max.z - min.z);
+
+        self.shadow_matrix = light_ortho_matrix * light_view_matrix;
         self.uniforms.data.shadow_matrix = self.shadow_matrix.into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }

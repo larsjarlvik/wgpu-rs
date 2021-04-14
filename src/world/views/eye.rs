@@ -42,9 +42,9 @@ impl Eye {
         queue: &wgpu::Queue,
         world_data: &mut WorldData,
         viewport: &camera::Viewport,
+        view: Matrix4<f32>,
         root_node: &node::Node,
     ) {
-        let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         let nodes = root_node.get_nodes(&self.camera);

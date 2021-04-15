@@ -1,7 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#define BIAS 0.005
-#define CASCADE_COUNT 3
+#define CASCADE_COUNT 4
 
 layout(location=0) out vec4 f_color;
 

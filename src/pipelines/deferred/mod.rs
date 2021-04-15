@@ -87,8 +87,8 @@ impl DeferredRender {
                 light_color: [1.0, 0.9, 0.5],
                 ambient_strength: 0.3,
                 light_intensity: 2.0,
-                shadow_matrix: [Matrix4::identity().into(), Matrix4::identity().into(), Matrix4::identity().into()],
-                shadow_split_depth: [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
+                shadow_matrix: [Matrix4::identity().into(); settings::SHADOW_CASCADE_COUNT],
+                shadow_split_depth: [[0.0, 0.0, 0.0, 0.0]; settings::SHADOW_CASCADE_COUNT],
             },
         );
 
@@ -97,7 +97,7 @@ impl DeferredRender {
             texture_bind_group,
             target,
             uniforms,
-            shadow_matrix: vec![Matrix4::identity(), Matrix4::identity(), Matrix4::identity()],
+            shadow_matrix: vec![Matrix4::identity(); settings::SHADOW_CASCADE_COUNT],
         }
     }
 
@@ -181,7 +181,11 @@ impl DeferredRender {
                 center += *corner;
             }
             center /= 8.0;
-            center = vec3(center.x.round(), center.y.round(), center.z.round());
+            center = vec3(
+                (center.x * 16.0).ceil() / 16.0,
+                (center.y * 16.0).ceil() / 16.0,
+                (center.z * 16.0).ceil() / 16.0,
+            );
 
             let mut radius = 0.0f32;
             for corner in frustum_corners.iter() {

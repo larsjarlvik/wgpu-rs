@@ -28,11 +28,9 @@ pub struct Shadow {
 impl Shadow {
     pub fn new(device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         Self {
-            cascades: vec![
-                Cascade::new(device, world_data, viewport, root_node),
-                Cascade::new(device, world_data, viewport, root_node),
-                Cascade::new(device, world_data, viewport, root_node),
-            ],
+            cascades: (0..settings::SHADOW_CASCADE_COUNT)
+                .map(|_| Cascade::new(device, world_data, viewport, root_node))
+                .collect(),
         }
     }
 

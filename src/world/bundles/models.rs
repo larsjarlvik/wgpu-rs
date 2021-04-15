@@ -84,6 +84,7 @@ impl Models {
                 usage: wgpu::BufferUsage::VERTEX,
             });
             for mesh in &model.primitives {
+                encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 encoder.set_vertex_buffer(1, model.instances.buffer.slice(..));
                 encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);

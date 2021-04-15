@@ -85,6 +85,8 @@ impl Model {
             multisample: wgpu::MultisampleState::default(),
         });
 
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model-shadows.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model-shadows.frag.spv"));
         let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_shadow_pipeline"),
             layout: Some(&pipeline_layout),
@@ -93,10 +95,14 @@ impl Model {
                 entry_point: "main",
                 buffers: &[data::Vertex::desc(), data::Instance::desc()],
             },
-            fragment: None,
+            fragment: Some(wgpu::FragmentState {
+                module: &fs_module,
+                entry_point: "main",
+                targets: &[],
+            }),
             primitive: wgpu::PrimitiveState {
-                front_face: wgpu::FrontFace::Cw,
-                cull_mode: wgpu::CullMode::Front,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
@@ -105,11 +111,7 @@ impl Model {
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState {
-                    clamp: 0.0,
-                    constant: 2,
-                    slope_scale: 2.0,
-                },
+                bias: wgpu::DepthBiasState::default(),
                 clamp_depth: true,
             }),
             multisample: wgpu::MultisampleState::default(),

@@ -36,46 +36,47 @@ float linearize_depth(float d) {
     return z_near * z_far / (z_far + d * (z_near - z_far));
 }
 
-float get_shadow_factor(vec4 position, int texture_index) {
-    vec4 homogeneous_coords = u_shadow_matrix[texture_index] * position;
-    if (homogeneous_coords.w <= 0.0) {
+float get_shadow_factor(vec3 position, int cascade_index) {
+    vec4 shadow_coords = u_shadow_matrix[cascade_index] * vec4(position, 1.0);
+    if (shadow_coords.w <= 0.0) {
         return 1.0;
     }
 
     const vec2 flip_correction = vec2(0.5, -0.5);
     vec3 light_local = vec3(
-        homogeneous_coords.xy * flip_correction / homogeneous_coords.w + 0.5,
-        homogeneous_coords.z / homogeneous_coords.w
+        shadow_coords.xy * flip_correction / shadow_coords.w + 0.5,
+        shadow_coords.z / shadow_coords.w
     );
 
-    return texture(sampler2DShadow(t_shadow[texture_index], t_shadow_sampler), light_local);
+    return texture(sampler2DShadow(t_shadow[cascade_index], t_shadow_sampler), light_local);
 }
 
-float get_shadow(vec4 position, float depth) {
+float get_shadow(vec3 position) {
     for(int i = 0; i < CASCADE_COUNT; i ++) {
-        if (depth < u_shadow_split[i].x) {
+        if (distance(u_eye_pos, position) < u_shadow_split[i].x) {
             return get_shadow_factor(position, i);
         }
     }
 }
 
-vec4 world_pos_from_depth(float depth, vec2 coords, mat4 view_proj) {
-    vec4 pos = vec4(vec2(coords.x, 1.0 - coords.y) * 2.0 - 1.0, depth, 1.0);
-    return (inverse(view_proj) * pos) / pos.w;
+vec3 world_pos_from_depth(float depth, vec2 uv, mat4 inv_matrix) {
+    vec3 ndc = vec3(vec2(uv.x, 1.0 - uv.y) * 2.0 - 1.0, depth);
+    vec4 p = inv_matrix * vec4(ndc, 1.0);
+    return p.xyz / p.w;
 }
 
 void main() {
     ivec2 fragCoord = ivec2(gl_FragCoord.xy);
     float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
 
-    vec4 position = world_pos_from_depth(depth, gl_FragCoord.xy / u_viewport_size, u_view_proj);
+    vec3 position = world_pos_from_depth(depth, gl_FragCoord.xy / u_viewport_size, inverse(u_view_proj));
     vec4 normal = normalize(texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0));
     vec4 base_color = texelFetch(sampler2D(t_base_color, t_sampler), fragCoord, 0);
 
     vec3 color;
     if (depth < 1.0) {
-        float shadow_factor = get_shadow(position, linearize_depth(depth));
-        color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz), 16.0, 1.0, shadow_factor);
+        float shadow_factor = get_shadow(position);
+        color = base_color.rgb * calculate_light(position, normalize(normal.xyz), 16.0, 1.0, shadow_factor);
     }
 
     f_color = vec4(color, 1.0);

@@ -95,8 +95,8 @@ impl Model {
             },
             fragment: None,
             primitive: wgpu::PrimitiveState {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+                front_face: wgpu::FrontFace::Cw,
+                cull_mode: wgpu::CullMode::Front,
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },

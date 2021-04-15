@@ -2,7 +2,7 @@ mod compute;
 use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::{convert::TryInto, num::NonZeroU32};
+use std::convert::TryInto;
 mod uniforms;
 
 pub struct Terrain {
@@ -20,16 +20,7 @@ impl Terrain {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2Array,
-                        sample_type: wgpu::TextureSampleType::Uint,
-                    },
-                    count: Some(NonZeroU32::new(5).unwrap()),
-                },
+                texture::create_array_bind_group_layout(0, wgpu::TextureSampleType::Uint, 5),
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,

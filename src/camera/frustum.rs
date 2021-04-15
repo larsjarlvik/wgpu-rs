@@ -48,27 +48,4 @@ impl FrustumCuller {
 
         true
     }
-
-    pub fn get_frustum_corners(&self) -> [Vector3<f32>; 8] {
-        [
-            self.get_frustum_corner(self.f[4], self.f[3], self.f[0]),
-            self.get_frustum_corner(self.f[4], self.f[3], self.f[1]),
-            self.get_frustum_corner(self.f[4], self.f[2], self.f[0]),
-            self.get_frustum_corner(self.f[4], self.f[2], self.f[1]),
-            self.get_frustum_corner(self.f[5], self.f[3], self.f[0]),
-            self.get_frustum_corner(self.f[5], self.f[3], self.f[1]),
-            self.get_frustum_corner(self.f[5], self.f[2], self.f[0]),
-            self.get_frustum_corner(self.f[5], self.f[2], self.f[1]),
-        ]
-    }
-
-    fn get_frustum_corner(&self, f1: Vector4<f32>, f2: Vector4<f32>, f3: Vector4<f32>) -> Vector3<f32> {
-        let det = Matrix3::from_cols(f1.truncate(), f2.truncate(), f3.truncate()).determinant();
-
-        let v1: Vector3<f32> = f2.truncate().cross(f3.truncate()) * -f1.w;
-        let v2: Vector3<f32> = f3.truncate().cross(f1.truncate()) * -f2.w;
-        let v3: Vector3<f32> = f1.truncate().cross(f2.truncate()) * -f3.w;
-
-        (v1 + v2 + v3) / det
-    }
 }

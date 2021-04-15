@@ -3,11 +3,12 @@ use wgpu::util::DeviceExt;
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
-    pub shadow_matrix: [[f32; 4]; 4],
     pub light_dir: [f32; 3],
     pub ambient_strength: f32,
     pub light_color: [f32; 3],
     pub light_intensity: f32,
+    pub shadow_matrix: [[[f32; 4]; 4]; 3],
+    pub shadow_split_depth: [[f32; 4]; 3],
 }
 
 pub struct UniformBuffer {

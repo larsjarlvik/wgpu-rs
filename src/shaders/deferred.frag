@@ -1,22 +1,24 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define BIAS 0.005
+#define CASCADE_COUNT 3
 
 layout(location=0) out vec4 f_color;
 
 layout(set = 0, binding = 0) uniform texture2D t_depth_texture;
 layout(set = 0, binding = 1) uniform texture2D t_normal;
 layout(set = 0, binding = 2) uniform texture2D t_base_color;
-layout(set = 0, binding = 3) uniform texture2D t_shadow;
+layout(set = 0, binding = 3) uniform texture2D t_shadow[3];
 layout(set = 0, binding = 4) uniform sampler t_sampler;
 layout(set = 0, binding = 5) uniform samplerShadow t_shadow_sampler;
 
 layout(set=1, binding=0) uniform Uniforms {
-    mat4 u_shadow_matrix;
     vec3 u_light_dir;
     float u_ambient_strength;
     vec3 u_light_color;
     float u_light_intensity;
+    mat4 u_shadow_matrix[CASCADE_COUNT];
+    vec4 u_shadow_split[CASCADE_COUNT];
 };
 
 layout(set=2, binding=0) uniform Camera {
@@ -31,18 +33,31 @@ layout(set=2, binding=0) uniform Camera {
 
 #include "include/light.glsl"
 
-float get_shadow_factor(vec4 homogeneous_coords) {
+float linearize_depth(float d) {
+    return z_near * z_far / (z_far + d * (z_near - z_far));
+}
+
+float get_shadow_factor(vec4 position, int texture_index) {
+    vec4 homogeneous_coords = u_shadow_matrix[texture_index] * position;
     if (homogeneous_coords.w <= 0.0) {
         return 1.0;
     }
 
     const vec2 flip_correction = vec2(0.5, -0.5);
     vec3 light_local = vec3(
-        homogeneous_coords.xy * flip_correction/homogeneous_coords.w + 0.5,
+        homogeneous_coords.xy * flip_correction / homogeneous_coords.w + 0.5,
         homogeneous_coords.z / homogeneous_coords.w
     );
 
-    return texture(sampler2DShadow(t_shadow, t_shadow_sampler), light_local);
+    return texture(sampler2DShadow(t_shadow[texture_index], t_shadow_sampler), light_local);
+}
+
+float get_shadow(vec4 position, float depth) {
+    for(int i = 0; i < CASCADE_COUNT; i ++) {
+        if (depth < u_shadow_split[i].x) {
+            return get_shadow_factor(position, i);
+        }
+    }
 }
 
 vec4 world_pos_from_depth(float depth, vec2 coords, mat4 view_proj) {
@@ -60,7 +75,7 @@ void main() {
 
     vec3 color;
     if (depth < 1.0) {
-        float shadow_factor = get_shadow_factor(u_shadow_matrix * position);
+        float shadow_factor = get_shadow(position, linearize_depth(depth));
         color = base_color.rgb * calculate_light(position.xyz, normalize(normal.xyz), 16.0, 1.0, shadow_factor);
     }
 

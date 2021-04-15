@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use wgpu::util::DeviceExt;
 use wgpu_mipmap::{MipmapGenerator, RecommendedMipmapGenerator};
 
@@ -56,6 +58,18 @@ pub fn create_bind_group_layout(binding: u32, sample_type: wgpu::TextureSampleTy
             view_dimension: wgpu::TextureViewDimension::D2,
         },
         count: None,
+    }
+}
+pub fn create_array_bind_group_layout(binding: u32, sample_type: wgpu::TextureSampleType, count: usize) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStage::FRAGMENT,
+        ty: wgpu::BindingType::Texture {
+            multisampled: false,
+            sample_type,
+            view_dimension: wgpu::TextureViewDimension::D2Array,
+        },
+        count: Some(NonZeroU32::new(count as u32).unwrap()),
     }
 }
 

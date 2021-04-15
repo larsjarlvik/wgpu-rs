@@ -16,7 +16,7 @@ pub struct DeferredRender {
     pub texture_bind_group: wgpu::BindGroup,
     pub target: textures::Textures,
     pub uniforms: uniforms::UniformBuffer,
-    pub shadow_matrix: Matrix4<f32>,
+    pub shadow_matrix: Vec<Matrix4<f32>>,
 }
 
 impl DeferredRender {
@@ -87,7 +87,8 @@ impl DeferredRender {
                 light_color: [1.0, 0.9, 0.5],
                 ambient_strength: 0.3,
                 light_intensity: 2.0,
-                shadow_matrix: Matrix4::identity().into(),
+                shadow_matrix: [Matrix4::identity().into(), Matrix4::identity().into(), Matrix4::identity().into()],
+                shadow_split_depth: [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]],
             },
         );
 
@@ -96,7 +97,7 @@ impl DeferredRender {
             texture_bind_group,
             target,
             uniforms,
-            shadow_matrix: Matrix4::identity(),
+            shadow_matrix: vec![Matrix4::identity(), Matrix4::identity(), Matrix4::identity()],
         }
     }
 
@@ -136,55 +137,76 @@ impl DeferredRender {
     pub fn update(&mut self, queue: &wgpu::Queue, viewport: &camera::Viewport, view: Matrix4<f32>) {
         let inv_cam = (viewport.proj * view).inverse_transform().unwrap();
 
-        let mut frustum_corners = [
-            vec3(-1.0, 1.0, -1.0),
-            vec3(1.0, 1.0, -1.0),
-            vec3(1.0, -1.0, -1.0),
-            vec3(-1.0, -1.0, -1.0),
-            vec3(-1.0, 1.0, 1.0),
-            vec3(1.0, 1.0, 1.0),
-            vec3(1.0, -1.0, 1.0),
-            vec3(-1.0, -1.0, 1.0),
-        ];
+        let clip_range = viewport.z_far - viewport.z_near;
+        let min_z = viewport.z_near;
+        let max_z = viewport.z_near + clip_range;
 
-        for i in 0..8 {
-            let inverted = inv_cam * frustum_corners[i].extend(1.0);
-            frustum_corners[i] = inverted.truncate() / inverted.w;
+        let range = max_z - min_z;
+        let ratio = max_z / min_z;
+
+        let cascade_splits = (0..settings::SHADOW_CASCADE_COUNT).map(|i| {
+            let p = (i + 1) as f32 / settings::SHADOW_CASCADE_COUNT as f32;
+            let log = min_z * ratio.powf(p);
+            let uniform = min_z + range * p;
+            let d = 0.95 * (log - uniform) + uniform;
+            (d - viewport.z_near) / clip_range
+        });
+
+        let mut last_split_dist = 0.0;
+        for (i, split_dist) in cascade_splits.enumerate() {
+            let mut frustum_corners = [
+                vec3(-1.0, 1.0, -1.0),
+                vec3(1.0, 1.0, -1.0),
+                vec3(1.0, -1.0, -1.0),
+                vec3(-1.0, -1.0, -1.0),
+                vec3(-1.0, 1.0, 1.0),
+                vec3(1.0, 1.0, 1.0),
+                vec3(1.0, -1.0, 1.0),
+                vec3(-1.0, -1.0, 1.0),
+            ];
+
+            for i in 0..8 {
+                let inverted = inv_cam * frustum_corners[i].extend(1.0);
+                frustum_corners[i] = inverted.truncate() / inverted.w;
+            }
+
+            for i in 0..4 {
+                let dist = frustum_corners[i + 4] - frustum_corners[i];
+                frustum_corners[i + 4] = frustum_corners[i] + (dist * split_dist);
+                frustum_corners[i] = frustum_corners[i] + (dist * last_split_dist);
+            }
+
+            let mut center = Vector3::zero();
+            for corner in frustum_corners.iter() {
+                center += *corner;
+            }
+            center /= 8.0;
+            center = vec3(center.x.round(), center.y.round(), center.z.round());
+
+            let mut radius = 0.0f32;
+            for corner in frustum_corners.iter() {
+                let distance = corner.distance(center);
+                radius = radius.max(distance);
+            }
+            radius = (radius * 16.0).ceil() / 16.0;
+
+            let max = Vector3::from_value(radius);
+            let min = Vector3::from_value(-radius);
+            let light_dir = settings::LIGHT_DIR.normalize();
+
+            let light_view_matrix = Matrix4::look_at_rh(
+                Point3::from_vec(center - light_dir * -min.z),
+                Point3::from_vec(center),
+                Vector3::unit_y(),
+            );
+            let light_ortho_matrix = OPENGL_TO_WGPU_MATRIX * ortho(min.x, max.x, min.y, max.y, 0.0, max.z - min.z);
+
+            self.shadow_matrix[i] = light_ortho_matrix * light_view_matrix;
+            self.uniforms.data.shadow_matrix[i] = self.shadow_matrix[i].into();
+            self.uniforms.data.shadow_split_depth[i] = [viewport.z_near + split_dist * clip_range, 0.0, 0.0, 0.0];
+            last_split_dist = split_dist;
         }
 
-        for i in 0..4 {
-            let dist = frustum_corners[i + 4] - frustum_corners[i];
-            frustum_corners[i + 4] = frustum_corners[i] + dist;
-            frustum_corners[i] = frustum_corners[i];
-        }
-
-        let mut center = Vector3::zero();
-        for corner in frustum_corners.iter() {
-            center += *corner;
-        }
-        center /= 8.0;
-        center = vec3(center.x.round(), center.y.round(), center.z.round());
-
-        let mut radius = 0.0f32;
-        for corner in frustum_corners.iter() {
-            let distance = corner.distance(center);
-            radius = radius.max(distance);
-        }
-        radius = radius.round();
-
-        let max = Vector3::from_value(radius);
-        let min = Vector3::from_value(-radius);
-        let light_dir = settings::LIGHT_DIR.normalize();
-
-        let light_view_matrix = Matrix4::look_at_rh(
-            Point3::from_vec(center - light_dir * -min.z),
-            Point3::from_vec(center),
-            Vector3::unit_y(),
-        );
-        let light_ortho_matrix = OPENGL_TO_WGPU_MATRIX * ortho(min.x, max.x, min.y, max.y, 0.0, max.z - min.z);
-
-        self.shadow_matrix = light_ortho_matrix * light_view_matrix;
-        self.uniforms.data.shadow_matrix = self.shadow_matrix.into();
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 

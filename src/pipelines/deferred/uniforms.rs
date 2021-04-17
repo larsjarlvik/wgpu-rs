@@ -8,8 +8,8 @@ pub struct Uniforms {
     pub ambient_strength: f32,
     pub light_color: [f32; 3],
     pub light_intensity: f32,
-    pub shadow_matrix: [[[f32; 4]; 4]; settings::SHADOW_CASCADE_COUNT],
-    pub shadow_split_depth: [[f32; 4]; settings::SHADOW_CASCADE_COUNT],
+    pub shadow_matrix: [[[f32; 4]; 4]; settings::SHADOW_CASCADE_SPLITS.len()],
+    pub shadow_split_depth: [[f32; 4]; settings::SHADOW_CASCADE_SPLITS.len()],
 }
 
 pub struct UniformBuffer {

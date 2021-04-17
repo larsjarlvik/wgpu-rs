@@ -24,6 +24,5 @@ pub const LIGHT_DIR: Vector3<f32> = vec3(0.5, -1.0, 0.0);
 pub static LIGHT_COLOR: Vector3<f32> = vec3(1.0, 0.9, 0.5);
 pub const LIGHT_AMBIENT: f32 = 0.3;
 pub const LIGHT_INTENSITY: f32 = 1.0;
-pub const SHADOW_CASCADE_COUNT: usize = 4;
-
-pub const SHADOW_RESOLUTION: u32 = 2048;
+pub const SHADOW_CASCADE_SPLITS: [f32; 4] = [0.05, 0.15, 0.3, 1.0];
+pub const SHADOW_RESOLUTION: u32 = 4096;

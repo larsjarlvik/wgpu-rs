@@ -79,8 +79,8 @@ impl DeferredRender {
                 light_color: [1.0, 0.9, 0.5],
                 ambient_strength: 0.3,
                 light_intensity: 2.0,
-                shadow_matrix: [Matrix4::identity().into(); settings::SHADOW_CASCADE_COUNT],
-                shadow_split_depth: [[0.0, 0.0, 0.0, 0.0]; settings::SHADOW_CASCADE_COUNT],
+                shadow_matrix: [Matrix4::identity().into(); settings::SHADOW_CASCADE_SPLITS.len()],
+                shadow_split_depth: [[0.0, 0.0, 0.0, 0.0]; settings::SHADOW_CASCADE_SPLITS.len()],
             },
         );
 
@@ -89,7 +89,7 @@ impl DeferredRender {
             texture_bind_group,
             target,
             uniforms,
-            shadow_matrix: vec![Matrix4::identity(); settings::SHADOW_CASCADE_COUNT],
+            shadow_matrix: vec![Matrix4::identity(); settings::SHADOW_CASCADE_SPLITS.len()],
         }
     }
 
@@ -128,30 +128,20 @@ impl DeferredRender {
 
     pub fn update(&mut self, queue: &wgpu::Queue, viewport: &camera::Viewport, view: Matrix4<f32>) {
         let inv_cam = (viewport.proj * view).inverse_transform().unwrap();
-
         let clip_range = viewport.z_far - viewport.z_near;
-        let range = viewport.z_far - viewport.z_near;
-        let ratio = viewport.z_far / viewport.z_near;
-
-        let cascade_splits = (0..settings::SHADOW_CASCADE_COUNT).map(|i| {
-            let p = (i + 1) as f32 / settings::SHADOW_CASCADE_COUNT as f32;
-            let log = viewport.z_near * ratio.powf(p);
-            let uniform = viewport.z_near + range * p;
-            let d = 0.95 * (log - uniform) + uniform;
-            (d - viewport.z_near) / clip_range
-        });
 
         let mut last_split_dist = 0.0;
-        for (i, split_dist) in cascade_splits.enumerate() {
+        for (i, split_dist) in settings::SHADOW_CASCADE_SPLITS.iter().enumerate() {
+            #[rustfmt::skip]
             let mut frustum_corners = [
-                vec3(-1.0, 1.0, -1.0),
-                vec3(1.0, 1.0, -1.0),
-                vec3(1.0, -1.0, -1.0),
-                vec3(-1.0, -1.0, -1.0),
+                vec3(-1.0, 1.0,-1.0),
+                vec3( 1.0, 1.0,-1.0),
+                vec3( 1.0,-1.0,-1.0),
+                vec3(-1.0,-1.0,-1.0),
                 vec3(-1.0, 1.0, 1.0),
-                vec3(1.0, 1.0, 1.0),
-                vec3(1.0, -1.0, 1.0),
-                vec3(-1.0, -1.0, 1.0),
+                vec3( 1.0, 1.0, 1.0),
+                vec3( 1.0,-1.0, 1.0),
+                vec3(-1.0,-1.0, 1.0),
             ];
 
             for i in 0..8 {
@@ -160,7 +150,7 @@ impl DeferredRender {
             }
             for i in 0..4 {
                 let dist = frustum_corners[i + 4] - frustum_corners[i];
-                frustum_corners[i + 4] = frustum_corners[i] + (dist * split_dist);
+                frustum_corners[i + 4] = frustum_corners[i] + (dist * *split_dist);
                 frustum_corners[i] = frustum_corners[i] + (dist * last_split_dist);
             }
 
@@ -169,13 +159,12 @@ impl DeferredRender {
                 center += *corner;
             }
             center /= 8.0;
-            center = vec3(center.x.round(), center.y.round(), center.z.round());
 
             let mut radius = 0.0f32;
             for corner in frustum_corners.iter() {
-                radius = radius.max((corner - center).magnitude());
+                radius = radius.max(corner.distance(center));
             }
-            radius = radius.ceil();
+            radius = (radius * 16.0).ceil() / 16.0;
 
             let light_dir = settings::LIGHT_DIR;
             let light_view_matrix = Matrix4::look_at_rh(
@@ -191,10 +180,11 @@ impl DeferredRender {
             light_ortho_matrix[2][2] = -1.0 / r2;
             light_ortho_matrix[3][3] = 1.0;
 
-            self.shadow_matrix[i] = light_ortho_matrix * light_view_matrix;
-            self.uniforms.data.shadow_matrix[i] = self.shadow_matrix[i].into();
-            self.uniforms.data.shadow_split_depth[i] = [viewport.z_near + split_dist * clip_range, 0.0, 0.0, 0.0];
-            last_split_dist = split_dist;
+            let shadow_matrix = light_ortho_matrix * light_view_matrix;
+            self.shadow_matrix[i] = shadow_matrix;
+            self.uniforms.data.shadow_matrix[i] = shadow_matrix.into();
+            self.uniforms.data.shadow_split_depth[i] = [viewport.z_near + *split_dist * clip_range, 0.0, 0.0, 0.0];
+            last_split_dist = *split_dist;
         }
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));

@@ -28,7 +28,7 @@ pub struct Shadow {
 impl Shadow {
     pub fn new(device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         Self {
-            cascades: (0..settings::SHADOW_CASCADE_COUNT)
+            cascades: (0..settings::SHADOW_CASCADE_SPLITS.len())
                 .map(|_| Cascade::new(device, world_data, viewport, root_node))
                 .collect(),
         }
@@ -44,12 +44,11 @@ impl Shadow {
         deferred: &pipelines::deferred::DeferredRender,
         root_node: &node::Node,
     ) {
-        for i in 0..settings::SHADOW_CASCADE_COUNT {
+        for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
             self.cascades[i]
                 .camera
                 .update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[i]);
             self.cascades[i].camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
-
             let nodes = root_node.get_nodes(&self.cascades[i].camera);
             self.cascades[i].models =
                 bundles::Models::new_shadow_bundle(device, &self.cascades[i].camera, &world_data.model, &mut world_data.models, &nodes);
@@ -57,13 +56,13 @@ impl Shadow {
     }
 
     pub fn resize(&mut self, viewport: &camera::Viewport) {
-        for i in 0..settings::SHADOW_CASCADE_COUNT {
+        for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
             self.cascades[i].camera.resize(viewport.width, viewport.height);
         }
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender) {
-        for i in 0..settings::SHADOW_CASCADE_COUNT {
+        for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
             encoder
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: Some("shadow_render_pass"),

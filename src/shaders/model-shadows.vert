@@ -18,7 +18,7 @@ layout(location=0) out vec4 v_position;
 layout(location=1) out vec2 v_tex_coords;
 
 void main() {
-    mat3(transpose(inverse(model_matrix))); // TODO: Why is this needed?
+    inverse(model_matrix); // TODO: Why is this needed? Get error if I remove it
     v_tex_coords = a_tex_coords;
     v_position = u_view_proj * model_matrix * vec4(a_position, 1.0);
     gl_Position = v_position;

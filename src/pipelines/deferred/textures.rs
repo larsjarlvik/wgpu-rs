@@ -18,7 +18,7 @@ impl Textures {
         let normals_texture_view = texture::create_view(&device, width, height, settings::COLOR_TEXTURE_FORMAT);
         let base_color_texture_view = texture::create_view(&device, width, height, settings::COLOR_TEXTURE_FORMAT);
         let depth_texture_view = texture::create_view(&device, width, height, settings::DEPTH_TEXTURE_FORMAT);
-        let shadow_texture_view = (0..settings::SHADOW_CASCADE_COUNT)
+        let shadow_texture_view = (0..settings::SHADOW_CASCADE_SPLITS.len())
             .map(|_| {
                 texture::create_view(
                     &device,
@@ -46,7 +46,7 @@ impl Textures {
                 texture::create_bind_group_layout(0, wgpu::TextureSampleType::Depth),
                 texture::create_bind_group_layout(1, wgpu::TextureSampleType::Uint),
                 texture::create_bind_group_layout(2, wgpu::TextureSampleType::Uint),
-                texture::create_array_bind_group_layout(3, wgpu::TextureSampleType::Depth, settings::SHADOW_CASCADE_COUNT),
+                texture::create_array_bind_group_layout(3, wgpu::TextureSampleType::Depth, settings::SHADOW_CASCADE_SPLITS.len()),
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
                     visibility: wgpu::ShaderStage::FRAGMENT,
@@ -70,7 +70,7 @@ impl Textures {
     }
 
     pub fn create_bind_group(&self, device: &wgpu::Device, layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
-        let t: &[&wgpu::TextureView; settings::SHADOW_CASCADE_COUNT] =
+        let t: &[&wgpu::TextureView; settings::SHADOW_CASCADE_SPLITS.len()] =
             &self.shadow_texture_view.iter().collect::<Vec<_>>().try_into().unwrap();
 
         device.create_bind_group(&wgpu::BindGroupDescriptor {

@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #define CASCADE_COUNT 4
+#define OFFSET 1.2
 
 layout(location=0) out vec4 f_color;
 
@@ -39,7 +40,7 @@ float linearize_depth(float d) {
 float get_shadow_factor(vec3 position, int cascade_index) {
     vec4 shadow_coords = u_shadow_matrix[cascade_index] * vec4(position, 1.0);
     if (shadow_coords.w <= 0.0) {
-        return 1.0;
+        return 0.0;
     }
 
     const vec2 flip_correction = vec2(0.5, -0.5);
@@ -48,7 +49,18 @@ float get_shadow_factor(vec3 position, int cascade_index) {
         shadow_coords.z / shadow_coords.w
     );
 
-    return texture(sampler2DShadow(t_shadow[cascade_index], t_shadow_sampler), light_local);
+    vec2 texel_size = 1.0 / textureSize(sampler2DShadow(t_shadow[cascade_index], t_shadow_sampler), 0);
+    float total = 0.0;
+
+    for (float y = -OFFSET; y <= OFFSET; y += OFFSET) {
+        for (float x = -OFFSET; x <= OFFSET; x += OFFSET) {
+            vec2 offset = vec2(x, y) * texel_size;
+            vec3 uvc = vec3(light_local.xy + offset, light_local.z);
+            total += texture(sampler2DShadow(t_shadow[cascade_index], t_shadow_sampler), uvc);
+        }
+    }
+
+    return total / 9.0;
 }
 
 float get_shadow(vec3 position) {
@@ -57,6 +69,7 @@ float get_shadow(vec3 position) {
             return get_shadow_factor(position, i);
         }
     }
+    return 1.0;
 }
 
 vec3 world_pos_from_depth(float depth, vec2 uv, mat4 inv_matrix) {

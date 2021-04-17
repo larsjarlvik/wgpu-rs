@@ -4,6 +4,7 @@ use cgmath::*;
 mod eye;
 mod reflection;
 mod refraction;
+mod renderer;
 mod shadow;
 
 pub struct Views {

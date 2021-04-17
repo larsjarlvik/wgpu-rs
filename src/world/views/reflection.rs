@@ -1,3 +1,4 @@
+use super::renderer;
 use crate::{
     camera, pipelines,
     world::{bundles, node, WorldData},
@@ -70,13 +71,34 @@ impl Reflection {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
-        deferred.render_to(encoder, vec![&self.terrain.render_bundle, &self.models_bundle]);
-        deferred.render(
+        renderer::render(
+            "deferred_render_pass",
             encoder,
-            &world_data.sky.texture_view,
-            &world_data.sky.depth_texture_view,
-            &self.deferred,
+            &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
+            Some(&deferred.target.depth_texture_view),
+            true,
+            true,
+            vec![&self.terrain.render_bundle, &self.models_bundle],
         );
-        self.sky.render(encoder, &world_data.water.reflection_texture_view);
+
+        renderer::render(
+            "deferred",
+            encoder,
+            &[&world_data.sky.texture_view],
+            Some(&world_data.sky.depth_texture_view),
+            true,
+            true,
+            vec![&self.deferred],
+        );
+
+        renderer::render(
+            "sky",
+            encoder,
+            &[&world_data.water.reflection_texture_view],
+            None,
+            true,
+            false,
+            vec![&self.sky.render_bundle],
+        );
     }
 }

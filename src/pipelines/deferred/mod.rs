@@ -93,39 +93,6 @@ impl DeferredRender {
         }
     }
 
-    pub fn render_to(&self, encoder: &mut wgpu::CommandEncoder, bundles: Vec<&wgpu::RenderBundle>) {
-        let ops = wgpu::Operations {
-            load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-            store: true,
-        };
-
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("deferred_render_pass"),
-                color_attachments: &[
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &self.target.normals_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &self.target.base_color_texture_view,
-                        resolve_target: None,
-                        ops,
-                    },
-                ],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.target.depth_texture_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(bundles.into_iter());
-    }
-
     pub fn update(&mut self, queue: &wgpu::Queue, viewport: &camera::Viewport, view: Matrix4<f32>) {
         let inv_cam = (viewport.proj * view).inverse_transform().unwrap();
         let clip_range = viewport.z_far - viewport.z_near;
@@ -188,36 +155,6 @@ impl DeferredRender {
         }
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
-    }
-
-    pub fn render(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        color_target: &wgpu::TextureView,
-        depth_target: &wgpu::TextureView,
-        render_bundle: &wgpu::RenderBundle,
-    ) {
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: color_target,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: depth_target,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(std::iter::once(render_bundle));
     }
 
     pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Instance, bundle_name: &str) -> wgpu::RenderBundle {

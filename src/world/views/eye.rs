@@ -2,6 +2,7 @@ use crate::{
     camera, pipelines,
     world::{bundles, node, WorldData},
 };
+use super::renderer;
 use cgmath::*;
 use pipelines::*;
 
@@ -76,16 +77,36 @@ impl Eye {
         world_data: &WorldData,
         target: &wgpu::TextureView,
     ) {
-        deferred.render_to(encoder, vec![&self.terrain.render_bundle, &self.models_bundle]);
-        deferred.render(
+        renderer::render(
+            "environment",
             encoder,
-            &world_data.sky.texture_view,
-            &world_data.sky.depth_texture_view,
-            &self.deferred,
+            &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
+            Some(&deferred.target.depth_texture_view),
+            true,
+            true,
+            vec![&self.terrain.render_bundle, &self.models_bundle],
         );
-        self.water
-            .render(encoder, &world_data.sky.texture_view, &world_data.sky.depth_texture_view);
 
-        self.sky.render(encoder, target);
+        renderer::render(
+            "deferred",
+            encoder,
+            &[&world_data.sky.texture_view],
+            Some(&world_data.sky.depth_texture_view),
+            true,
+            true,
+            vec![&self.deferred],
+        );
+
+        renderer::render(
+            "water",
+            encoder,
+            &[&world_data.sky.texture_view],
+            Some(&world_data.sky.depth_texture_view),
+            false,
+            false,
+            vec![&self.water.render_bundle],
+        );
+
+        renderer::render("sky", encoder, &[&target], None, true, false, vec![&self.sky.render_bundle]);
     }
 }

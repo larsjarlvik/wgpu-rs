@@ -5,7 +5,7 @@ use crate::{
 use cgmath::*;
 
 pub struct Water {
-    render_bundle: wgpu::RenderBundle,
+    pub render_bundle: wgpu::RenderBundle,
 }
 
 impl Water {
@@ -52,30 +52,6 @@ impl Water {
 
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("water") });
         Self { render_bundle }
-    }
-
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("water_render_pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &target,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &depth_target,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            })
-            .execute_bundles(std::iter::once(&self.render_bundle));
     }
 }
 

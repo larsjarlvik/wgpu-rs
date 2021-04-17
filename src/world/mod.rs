@@ -68,13 +68,13 @@ impl World {
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, time: Instant) {
         self.root_node.update(device, &mut self.data, viewport);
         self.data.water.update(queue, time);
-        self.views.update(device, queue, &mut self.data, viewport, &self.root_node);
+        self.views.update(device, queue, &self.data, viewport, &self.root_node);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
         self.data.water = pipelines::water::Water::new(device, viewport, &self.data.noise);
         self.data.sky = pipelines::sky::Sky::new(device, viewport);
-        self.views.resize(device, &mut self.data, viewport);
+        self.views.resize(device, &self.data, viewport);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {

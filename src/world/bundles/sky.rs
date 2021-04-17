@@ -1,7 +1,7 @@
 use crate::{camera, pipelines, settings};
 
 pub struct Sky {
-    render_bundle: wgpu::RenderBundle,
+    pub render_bundle: wgpu::RenderBundle,
 }
 
 impl Sky {
@@ -21,22 +21,5 @@ impl Sky {
 
         let render_bundle = encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("sky") });
         Self { render_bundle }
-    }
-
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        encoder
-            .begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: target,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            })
-            .execute_bundles(std::iter::once(&self.render_bundle));
     }
 }

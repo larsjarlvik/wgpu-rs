@@ -1,3 +1,4 @@
+use super::renderer;
 use crate::{
     camera, pipelines,
     world::{bundles, node, WorldData},
@@ -50,12 +51,24 @@ impl Refraction {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
-        deferred.render_to(encoder, vec![&self.terrain.render_bundle]);
-        deferred.render(
+        renderer::render(
+            "deferred_render_pass",
             encoder,
-            &world_data.water.refraction_texture_view,
-            &world_data.water.refraction_depth_texture_view,
-            &self.deferred,
+            &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
+            Some(&deferred.target.depth_texture_view),
+            true,
+            true,
+            vec![&self.terrain.render_bundle],
+        );
+
+        renderer::render(
+            "deferred",
+            encoder,
+            &[&world_data.water.refraction_texture_view],
+            Some(&world_data.water.refraction_depth_texture_view),
+            true,
+            true,
+            vec![&self.deferred],
         );
     }
 }

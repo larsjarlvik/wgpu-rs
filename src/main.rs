@@ -65,7 +65,13 @@ fn main() {
         }
         Event::WindowEvent { ref event, window_id } if window_id == window.id() => match event {
             WindowEvent::CloseRequested => exit(control_flow),
-            WindowEvent::MouseInput { button, state: mouse_state , .. } => { &state.input.process_mouse_button(button, mouse_state); }
+            WindowEvent::MouseInput {
+                button,
+                state: mouse_state,
+                ..
+            } => {
+                &state.input.process_mouse_button(button, mouse_state);
+            }
             WindowEvent::KeyboardInput { input, .. } => match input {
                 KeyboardInput {
                     state: ElementState::Pressed,
@@ -83,7 +89,7 @@ fn main() {
                         let fullscreen = Some(Fullscreen::Borderless(window.current_monitor()));
                         window.set_fullscreen(fullscreen.clone());
                     }
-                },
+                }
                 input => {
                     &state.input.process_key(input);
                 }

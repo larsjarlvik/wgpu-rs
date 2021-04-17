@@ -71,11 +71,13 @@ impl Shadow {
             renderer::render(
                 "shadows",
                 encoder,
-                &[],
-                Some(&deferred.target.shadow_texture_view[i]),
-                true,
-                true,
-                vec![&self.cascades[i].models_bundle],
+                renderer::Args {
+                    bundles: vec![&self.cascades[i].models_bundle],
+                    color_targets: &[],
+                    depth_target: Some(&deferred.target.shadow_texture_view[i]),
+                    clear_color: false,
+                    clear_depth: true,
+                },
             );
         }
     }

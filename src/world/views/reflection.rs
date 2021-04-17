@@ -72,33 +72,37 @@ impl Reflection {
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
         renderer::render(
-            "deferred_render_pass",
+            "environment",
             encoder,
-            &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
-            Some(&deferred.target.depth_texture_view),
-            true,
-            true,
-            vec![&self.terrain.render_bundle, &self.models_bundle],
+            renderer::Args {
+                bundles: vec![&self.terrain.render_bundle, &self.models_bundle],
+                color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
+                depth_target: Some(&deferred.target.depth_texture_view),
+                clear_color: true,
+                clear_depth: true,
+            },
         );
-
         renderer::render(
             "deferred",
             encoder,
-            &[&world_data.sky.texture_view],
-            Some(&world_data.sky.depth_texture_view),
-            true,
-            true,
-            vec![&self.deferred],
+            renderer::Args {
+                bundles: vec![&self.deferred],
+                color_targets: &[&world_data.sky.texture_view],
+                depth_target: Some(&world_data.sky.depth_texture_view),
+                clear_color: true,
+                clear_depth: true,
+            },
         );
-
         renderer::render(
             "sky",
             encoder,
-            &[&world_data.water.reflection_texture_view],
-            None,
-            true,
-            false,
-            vec![&self.sky.render_bundle],
+            renderer::Args {
+                bundles: vec![&self.sky.render_bundle],
+                color_targets: &[&world_data.water.reflection_texture_view],
+                depth_target: None,
+                clear_color: true,
+                clear_depth: false,
+            },
         );
     }
 }

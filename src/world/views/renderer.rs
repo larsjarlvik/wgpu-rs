@@ -1,27 +1,26 @@
 use crate::settings;
+pub struct Args<'t> {
+    pub color_targets: &'t [&'t wgpu::TextureView],
+    pub depth_target: Option<&'t wgpu::TextureView>,
+    pub clear_color: bool,
+    pub clear_depth: bool,
+    pub bundles: Vec<&'t wgpu::RenderBundle>,
+}
 
-pub fn render(
-    label: &str,
-    encoder: &mut wgpu::CommandEncoder,
-    color_targets: &[&wgpu::TextureView],
-    depth_target: Option<&wgpu::TextureView>,
-    clear_color: bool,
-    clear_depth: bool,
-    bundles: Vec<&wgpu::RenderBundle>,
-) {
+pub fn render(label: &str, encoder: &mut wgpu::CommandEncoder, args: Args) {
     let ops = wgpu::Operations {
-        load: match clear_color {
+        load: match args.clear_color {
             true => wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
             false => wgpu::LoadOp::Load,
         },
         store: true,
     };
 
-    let depth_stencil_attachment = match depth_target {
+    let depth_stencil_attachment = match args.depth_target {
         Some(attachment) => Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
             attachment,
             depth_ops: Some(wgpu::Operations {
-                load: match clear_depth {
+                load: match args.clear_depth {
                     true => wgpu::LoadOp::Clear(1.0),
                     false => wgpu::LoadOp::Load,
                 },
@@ -35,7 +34,8 @@ pub fn render(
     encoder
         .begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some(label),
-            color_attachments: color_targets
+            color_attachments: args
+                .color_targets
                 .iter()
                 .map(|attachment| wgpu::RenderPassColorAttachmentDescriptor {
                     attachment,
@@ -46,5 +46,5 @@ pub fn render(
                 .as_slice(),
             depth_stencil_attachment,
         })
-        .execute_bundles(bundles.into_iter());
+        .execute_bundles(args.bundles.into_iter());
 }

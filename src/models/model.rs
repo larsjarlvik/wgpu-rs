@@ -1,4 +1,4 @@
-use crate::{camera, pipelines};
+use crate::camera;
 
 pub struct PrimitiveBuffers {
     pub texture_bind_group: wgpu::BindGroup,
@@ -9,6 +9,5 @@ pub struct PrimitiveBuffers {
 
 pub struct Model {
     pub primitives: Vec<PrimitiveBuffers>,
-    pub instances: pipelines::model::InstanceBuffer,
     pub bounding_box: camera::BoundingBox,
 }

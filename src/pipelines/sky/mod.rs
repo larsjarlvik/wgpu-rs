@@ -108,9 +108,9 @@ impl Sky {
             &device,
             &uniform_bind_group_layout,
             data::Uniforms {
-                light_dir: settings::LIGHT_DIR,
+                light_dir: settings::LIGHT_DIR.into(),
                 not_used: 0.0,
-                sky_color: settings::SKY_COLOR,
+                sky_color: settings::SKY_COLOR.into(),
             },
         );
 

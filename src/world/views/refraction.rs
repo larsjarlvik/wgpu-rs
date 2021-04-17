@@ -13,17 +13,17 @@ pub struct Refraction {
 impl Refraction {
     pub fn new(
         device: &wgpu::Device,
-        deferred_render: &pipelines::deferred::DeferredRender,
-        world_data: &mut WorldData,
+        deferred: &pipelines::deferred::DeferredRender,
+        world_data: &WorldData,
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, -1.0, 0.0, 1.0]);
-        let deferred = deferred_render.get_render_bundle(device, &camera);
+        let deferred = deferred.get_render_bundle(device, &camera, "refraction");
         let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::Terrain::new(device, &camera, &mut world_data.terrain, &nodes),
+            terrain: bundles::Terrain::new(device, &camera, &world_data.terrain, &nodes),
             camera,
             deferred,
         }
@@ -33,30 +33,25 @@ impl Refraction {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        world_data: &mut WorldData,
+        world_data: &WorldData,
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
-        let nodes = root_node.get_nodes(&self.camera);
-
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
-        self.terrain = bundles::Terrain::new(device, &self.camera, &mut world_data.terrain, &nodes);
+
+        let nodes = root_node.get_nodes(&self.camera);
+        self.terrain = bundles::Terrain::new(device, &self.camera, &world_data.terrain, &nodes);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, deferred_render: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {
+    pub fn resize(&mut self, device: &wgpu::Device, deferred: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {
         self.camera.resize(viewport.width, viewport.height);
-        self.deferred = deferred_render.get_render_bundle(device, &self.camera);
+        self.deferred = deferred.get_render_bundle(device, &self.camera, "refraction");
     }
 
-    pub fn render(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        deferred_render: &pipelines::deferred::DeferredRender,
-        world_data: &WorldData,
-    ) {
-        deferred_render.render_to(encoder, vec![&self.terrain.render_bundle]);
-        deferred_render.render(
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
+        deferred.render_to(encoder, vec![&self.terrain.render_bundle]);
+        deferred.render(
             encoder,
             &world_data.water.refraction_texture_view,
             &world_data.water.refraction_depth_texture_view,

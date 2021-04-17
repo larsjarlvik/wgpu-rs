@@ -1,5 +1,5 @@
 
-vec3 calculate_light(vec3 position, vec3 normal, float shininess, float intensity) {
+vec3 calculate_light(vec3 position, vec3 normal, float shininess, float intensity, float shadow_factor) {
     vec3 ambient_color = u_light_color * u_ambient_strength;
     vec3 inverse_light_dir = -u_light_dir;
 
@@ -12,5 +12,5 @@ vec3 calculate_light(vec3 position, vec3 normal, float shininess, float intensit
     float specular_strength = pow(max(dot(normal, half_dir), 0.0), shininess);
     vec3 specular_color = specular_strength * u_light_color * intensity;
 
-    return ambient_color + (diffuse_color + specular_color) * u_light_intensity;
+    return ambient_color + (diffuse_color + specular_color) * u_light_intensity * shadow_factor;
 }

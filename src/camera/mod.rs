@@ -9,7 +9,6 @@ mod uniforms;
 
 pub use self::bounding_box::BoundingBox;
 pub use self::frustum::FrustumCuller;
-pub use self::frustum::Intersection;
 pub use self::instance::Instance;
 
 pub struct Viewport {

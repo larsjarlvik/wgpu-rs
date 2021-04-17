@@ -51,14 +51,6 @@ impl Models {
             }
         }
 
-        let instances = pipelines::model::InstanceBuffer::new(&device);
-        self.models.insert(
-            name.to_string(),
-            model::Model {
-                primitives,
-                instances,
-                bounding_box,
-            },
-        );
+        self.models.insert(name.to_string(), model::Model { primitives, bounding_box });
     }
 }

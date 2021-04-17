@@ -1,11 +1,11 @@
 use crate::*;
 mod data;
-
-pub use {self::data::Instance, self::data::InstanceBuffer, self::data::Vertex};
+pub use {self::data::Instance, self::data::Vertex};
 
 pub struct Model {
     pub sampler: wgpu::Sampler,
     pub render_pipeline: wgpu::RenderPipeline,
+    pub shadow_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
 }
 
@@ -46,17 +46,17 @@ impl Model {
             ],
         });
 
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("model_pipeline_layout"),
             bind_group_layouts: &[&texture_bind_group_layout, &viewport.bind_group_layout],
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/default.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/default.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_pipeline"),
-            layout: Some(&render_pipeline_layout),
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vs_module,
                 entry_point: "main",
@@ -84,9 +84,42 @@ impl Model {
             multisample: wgpu::MultisampleState::default(),
         });
 
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model-shadows.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model-shadows.frag.spv"));
+        let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("model_shadow_pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &vs_module,
+                entry_point: "main",
+                buffers: &[data::Vertex::desc(), data::Instance::desc()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &fs_module,
+                entry_point: "main",
+                targets: &[],
+            }),
+            primitive: wgpu::PrimitiveState {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: settings::DEPTH_TEXTURE_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+                clamp_depth: true,
+            }),
+            multisample: wgpu::MultisampleState::default(),
+        });
+
         Self {
             sampler,
             render_pipeline,
+            shadow_pipeline,
             texture_bind_group_layout,
         }
     }

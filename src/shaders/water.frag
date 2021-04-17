@@ -71,7 +71,7 @@ void main() {
     vec3 reflection = texture(sampler2D(t_reflection, t_sampler), vec2(1.0 - fragCoord.x, fragCoord.y)).rgb;
     vec3 refraction = mix(mix(ground, SURFACE_COLOR, clamp(depth / 2.0, 0.0, 1.0)), DEPTH_COLOR, clamp(depth / EXTINCTION, 0.0, 1.0));
 
-    vec3 light = calculate_light(v_position.xyz, normal, 200.0, 2.0);
+    vec3 light = calculate_light(v_position.xyz, normal, 200.0, 2.0, 1.0);
     vec3 view_dir = normalize(u_eye_pos - v_position.xyz);
 
     float fresnel = pow(dot(view_dir, vec3(0.0, 1.0, 0.0)), 1.2);

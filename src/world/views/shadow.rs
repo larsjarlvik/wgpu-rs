@@ -3,20 +3,27 @@ use crate::{
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 pub struct Cascade {
     pub models: bundles::Models,
+    pub models_bundle: wgpu::RenderBundle,
     pub camera: camera::Instance,
+    pub i: usize,
 }
 
 impl Cascade {
-    fn new(device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
+    fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node, i: usize) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let nodes = root_node.get_nodes(&camera);
+        let mut models = bundles::Models::new(device, &world_data.models);
+        let models_bundle = models.get_shadow_bundle(device, &camera, &world_data.model, &world_data.models, &nodes);
 
         Self {
-            models: bundles::Models::new_shadow_bundle(device, &camera, &world_data.model, &mut world_data.models, &nodes),
+            models,
+            models_bundle,
             camera,
+            i,
         }
     }
 }
@@ -26,10 +33,10 @@ pub struct Shadow {
 }
 
 impl Shadow {
-    pub fn new(device: &wgpu::Device, world_data: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
+    pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         Self {
             cascades: (0..settings::SHADOW_CASCADE_SPLITS.len())
-                .map(|_| Cascade::new(device, world_data, viewport, root_node))
+                .map(|i| Cascade::new(device, world_data, viewport, root_node, i))
                 .collect(),
         }
     }
@@ -38,21 +45,20 @@ impl Shadow {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        world_data: &mut WorldData,
+        world_data: &WorldData,
         viewport: &camera::Viewport,
         view: Matrix4<f32>,
         deferred: &pipelines::deferred::DeferredRender,
         root_node: &node::Node,
     ) {
-        for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
-            self.cascades[i]
-                .camera
-                .update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[i]);
-            self.cascades[i].camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
-            let nodes = root_node.get_nodes(&self.cascades[i].camera);
-            self.cascades[i].models =
-                bundles::Models::new_shadow_bundle(device, &self.cascades[i].camera, &world_data.model, &mut world_data.models, &nodes);
-        }
+        self.cascades.par_iter_mut().for_each(|c| {
+            c.camera.update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[c.i]);
+            c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
+            let nodes = root_node.get_nodes(&c.camera);
+            c.models_bundle = c
+                .models
+                .get_shadow_bundle(device, &c.camera, &world_data.model, &world_data.models, &nodes);
+        });
     }
 
     pub fn resize(&mut self, viewport: &camera::Viewport) {
@@ -76,7 +82,7 @@ impl Shadow {
                         stencil_ops: None,
                     }),
                 })
-                .execute_bundles(std::iter::once(&self.cascades[i].models.render_bundle));
+                .execute_bundles(std::iter::once(&self.cascades[i].models_bundle));
         }
     }
 }

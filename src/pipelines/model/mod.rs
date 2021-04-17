@@ -1,7 +1,6 @@
 use crate::*;
 mod data;
-
-pub use {self::data::Instance, self::data::InstanceBuffer, self::data::Vertex};
+pub use {self::data::Instance, self::data::Vertex};
 
 pub struct Model {
     pub sampler: wgpu::Sampler,

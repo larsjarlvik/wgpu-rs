@@ -27,25 +27,44 @@ impl FrustumCuller {
     }
 
     pub fn test_bounding_box(&self, aab: &bounding_box::BoundingBox) -> bool {
-        let v1 = aab.min;
-        let v2 = aab.max;
-
-        for p in 0..6 {
-            if self.f[p].x * v1.x + self.f[p].y * v1.y + self.f[p].z * v1.z + self.f[p].w > -1.0
-                || self.f[p].x * v2.x + self.f[p].y * v1.y + self.f[p].z * v1.z + self.f[p].w > -1.0
-                || self.f[p].x * v1.x + self.f[p].y * v2.y + self.f[p].z * v1.z + self.f[p].w > -1.0
-                || self.f[p].x * v2.x + self.f[p].y * v2.y + self.f[p].z * v1.z + self.f[p].w > -1.0
-                || self.f[p].x * v1.x + self.f[p].y * v1.y + self.f[p].z * v2.z + self.f[p].w > -1.0
-                || self.f[p].x * v2.x + self.f[p].y * v1.y + self.f[p].z * v2.z + self.f[p].w > -1.0
-                || self.f[p].x * v1.x + self.f[p].y * v2.y + self.f[p].z * v2.z + self.f[p].w > -1.0
-                || self.f[p].x * v2.x + self.f[p].y * v2.y + self.f[p].z * v2.z + self.f[p].w > -1.0
+        if self.f[0].x * if self.f[0].x < 0.0 { aab.min.x } else { aab.max.x }
+            + self.f[0].y * if self.f[0].y < 0.0 { aab.min.y } else { aab.max.y }
+            + self.f[0].z * if self.f[0].z < 0.0 { aab.min.z } else { aab.max.z }
+            >= -self.f[0].w
+        {
+            if self.f[1].x * if self.f[1].x < 0.0 { aab.min.x } else { aab.max.x }
+                + self.f[1].y * if self.f[1].y < 0.0 { aab.min.y } else { aab.max.y }
+                + self.f[1].z * if self.f[1].z < 0.0 { aab.min.z } else { aab.max.z }
+                >= -self.f[1].w
             {
-                continue;
+                if self.f[2].x * if self.f[2].x < 0.0 { aab.min.x } else { aab.max.x }
+                    + self.f[2].y * if self.f[2].y < 0.0 { aab.min.y } else { aab.max.y }
+                    + self.f[2].z * if self.f[2].z < 0.0 { aab.min.z } else { aab.max.z }
+                    >= -self.f[2].w
+                {
+                    if self.f[3].x * if self.f[3].x < 0.0 { aab.min.x } else { aab.max.x }
+                        + self.f[3].y * if self.f[3].y < 0.0 { aab.min.y } else { aab.max.y }
+                        + self.f[3].z * if self.f[3].z < 0.0 { aab.min.z } else { aab.max.z }
+                        >= -self.f[3].w
+                    {
+                        if self.f[4].x * if self.f[4].x < 0.0 { aab.min.x } else { aab.max.x }
+                            + self.f[4].y * if self.f[4].y < 0.0 { aab.min.y } else { aab.max.y }
+                            + self.f[4].z * if self.f[4].z < 0.0 { aab.min.z } else { aab.max.z }
+                            >= -self.f[4].w
+                        {
+                            if self.f[5].x * if self.f[5].x < 0.0 { aab.min.x } else { aab.max.x }
+                                + self.f[5].y * if self.f[5].y < 0.0 { aab.min.y } else { aab.max.y }
+                                + self.f[5].z * if self.f[5].z < 0.0 { aab.min.z } else { aab.max.z }
+                                >= -self.f[5].w
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
             }
-
-            return false;
         }
 
-        true
+        false
     }
 }

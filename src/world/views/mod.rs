@@ -15,7 +15,7 @@ pub struct Views {
 }
 
 impl Views {
-    pub fn new(device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Views {
+    pub fn new(device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Views {
         let deferred = pipelines::deferred::DeferredRender::new(&device, &viewport);
         Self {
             eye: eye::Eye::new(device, &deferred, world, viewport, root_node),
@@ -30,7 +30,7 @@ impl Views {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        world: &mut WorldData,
+        world: &WorldData,
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
@@ -43,7 +43,7 @@ impl Views {
         self.shadow.update(device, queue, world, viewport, view, &self.deferred, root_node);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
+    pub fn resize(&mut self, device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport) {
         self.deferred = pipelines::deferred::DeferredRender::new(&device, &viewport);
         self.eye.resize(device, &self.deferred, world, viewport);
         self.reflection.resize(device, &self.deferred, world, viewport);

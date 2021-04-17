@@ -17,7 +17,7 @@ impl Cascade {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let nodes = root_node.get_nodes(&camera);
         let mut models = bundles::Models::new(device, &world_data.models);
-        let models_bundle = models.get_shadow_bundle(device, &camera, &world_data.model, &world_data.models, &nodes);
+        let models_bundle = models.get_shadow_bundle(device, &camera, &world_data, &nodes);
 
         Self {
             models,
@@ -55,9 +55,7 @@ impl Shadow {
             c.camera.update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[c.i]);
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
             let nodes = root_node.get_nodes(&c.camera);
-            c.models_bundle = c
-                .models
-                .get_shadow_bundle(device, &c.camera, &world_data.model, &world_data.models, &nodes);
+            c.models_bundle = c.models.get_shadow_bundle(device, &c.camera, &world_data, &nodes);
         });
     }
 

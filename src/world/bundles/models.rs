@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
-use wgpu::util::DeviceExt;
-
 use crate::{
     camera, models,
-    pipelines::{self, model},
-    settings,
+    pipelines::model,
+    settings, world,
     world::node::{Node, NodeData},
 };
+use std::collections::HashMap;
+use wgpu::util::DeviceExt;
 
 pub struct Instance {
     buffer: wgpu::Buffer,
@@ -38,8 +36,7 @@ impl Models {
         &mut self,
         device: &wgpu::Device,
         camera: &camera::Instance,
-        pipeline: &pipelines::model::Model,
-        models: &models::Models,
+        world_data: &world::WorldData,
         nodes: &Vec<(&Node, &NodeData)>,
     ) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -49,7 +46,7 @@ impl Models {
             sample_count: 1,
         });
 
-        encoder.set_pipeline(&pipeline.render_pipeline);
+        encoder.set_pipeline(&world_data.model.render_pipeline);
         encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
         for (key, model_instances) in self.model_instances.iter_mut() {
@@ -65,7 +62,7 @@ impl Models {
                 usage: wgpu::BufferUsage::VERTEX,
             });
 
-            let model = models.models.get(key).unwrap();
+            let model = world_data.models.models.get(key).unwrap();
             for mesh in &model.primitives {
                 encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
@@ -82,8 +79,7 @@ impl Models {
         &mut self,
         device: &wgpu::Device,
         camera: &camera::Instance,
-        pipeline: &pipelines::model::Model,
-        models: &models::Models,
+        world_data: &world::WorldData,
         nodes: &Vec<(&Node, &NodeData)>,
     ) -> wgpu::RenderBundle {
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -93,7 +89,7 @@ impl Models {
             sample_count: 1,
         });
 
-        encoder.set_pipeline(&pipeline.shadow_pipeline);
+        encoder.set_pipeline(&world_data.model.shadow_pipeline);
         encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
         for (key, model_instances) in self.model_instances.iter_mut() {
@@ -109,7 +105,7 @@ impl Models {
                 usage: wgpu::BufferUsage::VERTEX,
             });
 
-            let model = models.models.get(key).unwrap();
+            let model = world_data.models.models.get(key).unwrap();
             for mesh in &model.primitives {
                 encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));

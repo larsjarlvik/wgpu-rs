@@ -25,7 +25,7 @@ impl Reflection {
         let deferred = deferred.get_render_bundle(device, &camera, "reflection");
         let nodes = root_node.get_nodes(&camera);
         let mut models = bundles::Models::new(device, &world_data.models);
-        let models_bundle = models.get_bundle(device, &camera, &world_data.model, &world_data.models, &nodes);
+        let models_bundle = models.get_bundle(device, &camera, &world_data, &nodes);
 
         Self {
             terrain: bundles::Terrain::new(device, &camera, &world_data.terrain, &nodes),
@@ -54,9 +54,7 @@ impl Reflection {
 
         let nodes = root_node.get_nodes(&self.camera);
         self.terrain = bundles::Terrain::new(device, &self.camera, &world_data.terrain, &nodes);
-        self.models_bundle = self
-            .models
-            .get_bundle(device, &self.camera, &world_data.model, &world_data.models, &nodes);
+        self.models_bundle = self.models.get_bundle(device, &self.camera, &world_data, &nodes);
     }
 
     pub fn resize(

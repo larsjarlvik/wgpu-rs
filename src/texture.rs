@@ -1,5 +1,4 @@
 use std::num::NonZeroU32;
-
 use wgpu::util::DeviceExt;
 use wgpu_mipmap::{MipmapGenerator, RecommendedMipmapGenerator};
 

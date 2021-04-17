@@ -1,6 +1,5 @@
-use std::convert::TryInto;
-
 use crate::{settings, texture};
+use std::convert::TryInto;
 
 pub struct Textures {
     pub normals_texture_view: wgpu::TextureView,

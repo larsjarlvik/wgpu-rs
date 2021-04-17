@@ -13,7 +13,7 @@ void main() {
       float depth = v_position.z / v_position.w;
       float dx = dFdx(depth);
       float dy = dFdx(depth);
-      const float bias = max(abs(dx), abs(dy)) * 2.0;
+      const float bias = max(abs(dx), abs(dy)) * 4.0;
 
       gl_FragDepth = depth + bias;
    } else {

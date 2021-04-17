@@ -35,11 +35,11 @@ impl Views {
         root_node: &node::Node,
     ) {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
+        self.deferred.update(queue, viewport, view);
 
         self.eye.update(device, queue, world, viewport, view, root_node);
         self.reflection.update(device, queue, world, viewport, root_node);
         self.refraction.update(device, queue, world, viewport, root_node);
-        self.deferred.update(queue, viewport, view);
         self.shadow.update(device, queue, world, viewport, view, &self.deferred, root_node);
     }
 

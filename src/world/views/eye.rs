@@ -7,11 +7,11 @@ use cgmath::*;
 use pipelines::*;
 
 pub struct Eye {
-    pub terrain: bundles::Terrain,
-    pub water: bundles::Water,
-    pub models: bundles::Models,
+    pub terrain_bundle: wgpu::RenderBundle,
+    pub water_bundle: wgpu::RenderBundle,
     pub models_bundle: wgpu::RenderBundle,
-    pub sky: bundles::Sky,
+    pub sky_bundle: wgpu::RenderBundle,
+    pub model_instances: bundles::ModelInstances,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -27,15 +27,14 @@ impl Eye {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred.get_render_bundle(device, &camera, "eye");
         let nodes = root_node.get_nodes(&camera);
-        let mut models = bundles::Models::new(device, &world_data.models);
-        let models_bundle = models.get_bundle(device, &camera, &world_data, &nodes);
+        let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
-            terrain: bundles::Terrain::new(device, &camera, &world_data.terrain, &nodes),
-            water: bundles::Water::new(device, &camera, &world_data.water, &nodes),
-            models,
-            models_bundle,
-            sky: bundles::Sky::new(device, &camera, &world_data.sky),
+            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data.terrain, &nodes),
+            water_bundle: bundles::get_water_bundle(device, &camera, &world_data.water, &nodes),
+            sky_bundle: bundles::get_sky_bundle(device, &camera, &world_data.sky),
+            models_bundle: bundles::get_models_bundle(device, &camera, world_data, &mut model_instances, &nodes),
+            model_instances,
             camera,
             deferred,
         }
@@ -53,9 +52,9 @@ impl Eye {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         let nodes = root_node.get_nodes(&self.camera);
-        self.terrain = bundles::Terrain::new(device, &self.camera, &world_data.terrain, &nodes);
-        self.water = bundles::Water::new(device, &self.camera, &world_data.water, &nodes);
-        self.models_bundle = self.models.get_bundle(device, &self.camera, &world_data, &nodes);
+        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data.terrain, &nodes);
+        self.water_bundle = bundles::get_water_bundle(device, &self.camera, &world_data.water, &nodes);
+        self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 
     pub fn resize(
@@ -67,7 +66,7 @@ impl Eye {
     ) {
         self.camera.resize(viewport.width, viewport.height);
         self.deferred = deferred_render.get_render_bundle(device, &self.camera, "eye");
-        self.sky = bundles::Sky::new(device, &self.camera, &world_data.sky);
+        self.sky_bundle = bundles::get_sky_bundle(device, &self.camera, &world_data.sky);
     }
 
     pub fn render(
@@ -81,7 +80,7 @@ impl Eye {
             "environment",
             encoder,
             renderer::Args {
-                bundles: vec![&self.terrain.render_bundle, &self.models_bundle],
+                bundles: vec![&self.terrain_bundle, &self.models_bundle],
                 color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
                 depth_target: Some(&deferred.target.depth_texture_view),
                 clear_color: true,
@@ -103,7 +102,7 @@ impl Eye {
             "water",
             encoder,
             renderer::Args {
-                bundles: vec![&self.water.render_bundle],
+                bundles: vec![&self.water_bundle],
                 color_targets: &[&world_data.sky.texture_view],
                 depth_target: Some(&world_data.sky.depth_texture_view),
                 clear_color: false,
@@ -114,7 +113,7 @@ impl Eye {
             "sky",
             encoder,
             renderer::Args {
-                bundles: vec![&self.sky.render_bundle],
+                bundles: vec![&self.sky_bundle],
                 color_targets: &[&target],
                 depth_target: None,
                 clear_color: true,

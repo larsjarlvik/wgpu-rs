@@ -6,7 +6,7 @@ use crate::{
 use cgmath::*;
 
 pub struct Refraction {
-    pub terrain: bundles::Terrain,
+    pub terrain_bundle: wgpu::RenderBundle,
     pub camera: camera::Instance,
     pub deferred: wgpu::RenderBundle,
 }
@@ -24,7 +24,7 @@ impl Refraction {
         let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain: bundles::Terrain::new(device, &camera, &world_data.terrain, &nodes),
+            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data.terrain, &nodes),
             camera,
             deferred,
         }
@@ -42,7 +42,7 @@ impl Refraction {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         let nodes = root_node.get_nodes(&self.camera);
-        self.terrain = bundles::Terrain::new(device, &self.camera, &world_data.terrain, &nodes);
+        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data.terrain, &nodes);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, deferred: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {
@@ -55,7 +55,7 @@ impl Refraction {
             "environment",
             encoder,
             renderer::Args {
-                bundles: vec![&self.terrain.render_bundle],
+                bundles: vec![&self.terrain_bundle],
                 color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
                 depth_target: Some(&deferred.target.depth_texture_view),
                 clear_color: true,

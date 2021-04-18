@@ -11,11 +11,11 @@ pub struct Instance {
     buffer: wgpu::Buffer,
 }
 
-pub struct Models {
+pub struct ModelInstances {
     pub model_instances: HashMap<String, Instance>,
 }
 
-impl Models {
+impl ModelInstances {
     pub fn new(device: &wgpu::Device, models: &models::Models) -> Self {
         let mut model_instances = HashMap::new();
 
@@ -31,92 +31,92 @@ impl Models {
 
         Self { model_instances }
     }
+}
 
-    pub fn get_bundle(
-        &mut self,
-        device: &wgpu::Device,
-        camera: &camera::Instance,
-        world_data: &world::WorldData,
-        nodes: &Vec<(&Node, &NodeData)>,
-    ) -> wgpu::RenderBundle {
-        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-            label: None,
-            color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
-            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-            sample_count: 1,
-        });
+pub fn get_models_bundle(
+    device: &wgpu::Device,
+    camera: &camera::Instance,
+    world_data: &world::WorldData,
+    model_instances: &mut ModelInstances,
+    nodes: &Vec<(&Node, &NodeData)>,
+) -> wgpu::RenderBundle {
+    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+        label: None,
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+        sample_count: 1,
+    });
 
-        encoder.set_pipeline(&world_data.model.render_pipeline);
-        encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
+    encoder.set_pipeline(&world_data.model.render_pipeline);
+    encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
-        for (key, model_instances) in self.model_instances.iter_mut() {
-            let mut instances: Vec<model::Instance> = vec![];
-            for (_, data) in nodes {
-                let node_instances = data.model_instances.get(key).expect("Could not find model instance!");
-                instances.extend(node_instances);
-            }
-
-            model_instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("instance_buffer"),
-                contents: bytemuck::cast_slice(&instances),
-                usage: wgpu::BufferUsage::VERTEX,
-            });
-
-            let model = world_data.models.models.get(key).unwrap();
-            for mesh in &model.primitives {
-                encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
-                encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
-                encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..mesh.num_elements, 0, 0..instances.len() as _);
-            }
+    for (key, model_instances) in model_instances.model_instances.iter_mut() {
+        let mut instances: Vec<model::Instance> = vec![];
+        for (_, data) in nodes {
+            let node_instances = data.model_instances.get(key).expect("Could not find model instance!");
+            instances.extend(node_instances);
         }
 
-        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
-    }
-
-    pub fn get_shadow_bundle(
-        &mut self,
-        device: &wgpu::Device,
-        camera: &camera::Instance,
-        world_data: &world::WorldData,
-        nodes: &Vec<(&Node, &NodeData)>,
-    ) -> wgpu::RenderBundle {
-        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-            label: None,
-            color_formats: &[],
-            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-            sample_count: 1,
+        model_instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("instance_buffer"),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsage::VERTEX,
         });
 
-        encoder.set_pipeline(&world_data.model.shadow_pipeline);
-        encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
+        let model = world_data.models.models.get(key).unwrap();
+        for mesh in &model.primitives {
+            encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
+            encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
+            encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            encoder.draw_indexed(0..mesh.num_elements, 0, 0..instances.len() as _);
+        }
+    }
 
-        for (key, model_instances) in self.model_instances.iter_mut() {
-            let mut instances: Vec<model::Instance> = vec![];
-            for (_, data) in nodes {
-                let node_instances = data.model_instances.get(key).expect("Could not find model instance!");
-                instances.extend(node_instances);
-            }
+    encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
+}
 
-            model_instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("instance_buffer"),
-                contents: bytemuck::cast_slice(&instances),
-                usage: wgpu::BufferUsage::VERTEX,
-            });
+pub fn get_models_shadow_bundle(
+    device: &wgpu::Device,
+    camera: &camera::Instance,
+    world_data: &world::WorldData,
+    model_instances: &mut ModelInstances,
+    nodes: &Vec<(&Node, &NodeData)>,
+) -> wgpu::RenderBundle {
+    let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+        label: None,
+        color_formats: &[],
+        depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+        sample_count: 1,
+    });
 
-            let model = world_data.models.models.get(key).unwrap();
-            for mesh in &model.primitives {
-                encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
-                encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-                encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
-                encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..mesh.num_elements, 0, 0..instances.len() as _);
-            }
+    encoder.set_pipeline(&world_data.model.shadow_pipeline);
+    encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
+
+    for (key, model_instances) in model_instances.model_instances.iter_mut() {
+        let mut instances: Vec<model::Instance> = vec![];
+        for (_, data) in nodes {
+            let node_instances = data.model_instances.get(key).expect("Could not find model instance!");
+            instances.extend(node_instances);
         }
 
-        encoder.finish(&wgpu::RenderBundleDescriptor {
-            label: Some("models_shadow"),
-        })
+        model_instances.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("instance_buffer"),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
+        let model = world_data.models.models.get(key).unwrap();
+        for mesh in &model.primitives {
+            encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
+            encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+            encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
+            encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            encoder.draw_indexed(0..mesh.num_elements, 0, 0..instances.len() as _);
+        }
     }
+
+    encoder.finish(&wgpu::RenderBundleDescriptor {
+        label: Some("models_shadow"),
+    })
 }

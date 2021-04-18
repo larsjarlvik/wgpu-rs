@@ -7,7 +7,7 @@ use cgmath::*;
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 pub struct Cascade {
-    pub models: bundles::Models,
+    pub model_instances: bundles::ModelInstances,
     pub models_bundle: wgpu::RenderBundle,
     pub camera: camera::Instance,
     pub i: usize,
@@ -17,12 +17,11 @@ impl Cascade {
     fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node, i: usize) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let nodes = root_node.get_nodes(&camera);
-        let mut models = bundles::Models::new(device, &world_data.models);
-        let models_bundle = models.get_shadow_bundle(device, &camera, &world_data, &nodes);
+        let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
-            models,
-            models_bundle,
+            models_bundle: bundles::get_models_shadow_bundle(device, &camera, world_data, &mut model_instances, &nodes),
+            model_instances,
             camera,
             i,
         }
@@ -56,7 +55,7 @@ impl Shadow {
             c.camera.update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[c.i]);
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
             let nodes = root_node.get_nodes(&c.camera);
-            c.models_bundle = c.models.get_shadow_bundle(device, &c.camera, &world_data, &nodes);
+            c.models_bundle = bundles::get_models_shadow_bundle(device, &c.camera, world_data, &mut c.model_instances, &nodes);
         });
     }
 

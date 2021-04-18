@@ -1,5 +1,8 @@
 use super::{node, WorldData};
-use crate::{camera, pipelines};
+use crate::{
+    camera,
+    pipelines::{self, render_targets},
+};
 use cgmath::*;
 mod eye;
 mod reflection;
@@ -16,8 +19,14 @@ pub struct Views {
 }
 
 impl Views {
-    pub fn new(device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Views {
-        let deferred = pipelines::deferred::DeferredRender::new(&device, &viewport);
+    pub fn new(
+        device: &wgpu::Device,
+        world: &WorldData,
+        viewport: &camera::Viewport,
+        root_node: &node::Node,
+        render_targets: &mut render_targets::RenderTargets,
+    ) -> Views {
+        let deferred = pipelines::deferred::DeferredRender::new(&device, &viewport, render_targets);
         Self {
             eye: eye::Eye::new(device, &deferred, world, viewport, root_node),
             refraction: refraction::Refraction::new(device, &deferred, world, viewport, root_node),
@@ -44,18 +53,30 @@ impl Views {
         self.shadow.update(device, queue, world, viewport, view, &self.deferred, root_node);
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport) {
-        self.deferred = pipelines::deferred::DeferredRender::new(&device, &viewport);
+    pub fn resize(
+        &mut self,
+        device: &wgpu::Device,
+        world: &WorldData,
+        viewport: &camera::Viewport,
+        render_targets: &mut render_targets::RenderTargets,
+    ) {
+        self.deferred = pipelines::deferred::DeferredRender::new(&device, &viewport, render_targets);
         self.eye.resize(device, &self.deferred, world, viewport);
         self.reflection.resize(device, &self.deferred, world, viewport);
         self.refraction.resize(device, &self.deferred, viewport);
         self.shadow.resize(viewport);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world: &WorldData, target: &wgpu::TextureView) {
-        self.shadow.render(encoder, &self.deferred);
-        self.reflection.render(encoder, &self.deferred, world);
-        self.refraction.render(encoder, &self.deferred, world);
-        self.eye.render(encoder, &self.deferred, world, target);
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        world: &WorldData,
+        render_targets: &render_targets::RenderTargets,
+        target: &wgpu::TextureView,
+    ) {
+        self.shadow.render(encoder, &self.deferred, render_targets);
+        self.reflection.render(encoder, &self.deferred, world, render_targets);
+        self.refraction.render(encoder, &self.deferred, world, render_targets);
+        self.eye.render(encoder, &self.deferred, world, render_targets, target);
     }
 }

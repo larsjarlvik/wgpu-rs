@@ -1,5 +1,6 @@
 use crate::{camera, models, noise, pipelines, plane, settings};
 use cgmath::*;
+use pipelines::render_targets;
 use std::{time::Instant, usize};
 mod assets;
 mod bundles;
@@ -20,13 +21,15 @@ pub struct World {
     root_node: node::Node,
     pub data: WorldData,
     pub views: views::Views,
+    pub render_targets: render_targets::RenderTargets,
 }
 
 impl World {
     pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
+        let mut render_targets = render_targets::RenderTargets::new();
         let noise = noise::Noise::new(&device, &queue).await;
-        let water = pipelines::water::Water::new(device, &viewport, &noise);
-        let sky = pipelines::sky::Sky::new(device, &viewport);
+        let water = pipelines::water::Water::new(device, &viewport, &noise, &mut render_targets);
+        let sky = pipelines::sky::Sky::new(device, &viewport, &mut render_targets);
         let model = pipelines::model::Model::new(device, &viewport);
         let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
 
@@ -56,12 +59,13 @@ impl World {
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
-        let bundles = views::Views::new(device, &mut data, viewport, &root_node);
+        let bundles = views::Views::new(device, &mut data, viewport, &root_node, &mut render_targets);
 
         Self {
             data,
             views: bundles,
             root_node,
+            render_targets,
         }
     }
 
@@ -72,13 +76,13 @@ impl World {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
-        self.data.water = pipelines::water::Water::new(device, viewport, &self.data.noise);
-        self.data.sky = pipelines::sky::Sky::new(device, viewport);
-        self.views.resize(device, &self.data, viewport);
+        self.data.water = pipelines::water::Water::new(device, viewport, &self.data.noise, &mut self.render_targets);
+        self.data.sky = pipelines::sky::Sky::new(device, viewport, &mut self.render_targets);
+        self.views.resize(device, &self.data, viewport, &mut self.render_targets);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        self.views.render(encoder, &self.data, target);
+        self.views.render(encoder, &self.data, &self.render_targets, target);
     }
 }
 

@@ -72,21 +72,6 @@ pub fn create_array_bind_group_layout(binding: u32, sample_type: wgpu::TextureSa
     }
 }
 
-pub fn create_view(device: &wgpu::Device, width: u32, height: u32, format: wgpu::TextureFormat) -> wgpu::TextureView {
-    let texture_extent = wgpu::Extent3d { width, height, depth: 1 };
-    let frame_descriptor = &wgpu::TextureDescriptor {
-        label: None,
-        size: texture_extent,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format,
-        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
-    };
-    let texture = device.create_texture(frame_descriptor);
-    texture.create_view(&wgpu::TextureViewDescriptor::default())
-}
-
 pub fn create_sampler(device: &wgpu::Device, address_mode: wgpu::AddressMode, filter_mode: wgpu::FilterMode) -> wgpu::Sampler {
     device.create_sampler(&wgpu::SamplerDescriptor {
         label: Some("sampler"),

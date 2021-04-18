@@ -1,6 +1,8 @@
 use super::renderer;
 use crate::{
-    camera, pipelines, settings,
+    camera,
+    pipelines::{self, render_targets},
+    settings,
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
@@ -65,11 +67,17 @@ impl Shadow {
         }
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        deferred: &pipelines::deferred::DeferredRender,
+        render_targets: &render_targets::RenderTargets,
+    ) {
         for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
             renderer::render(
                 "shadows",
                 encoder,
+                render_targets,
                 renderer::Args {
                     bundles: vec![&self.cascades[i].models_bundle],
                     color_targets: &[],

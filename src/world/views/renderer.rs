@@ -1,13 +1,13 @@
-use crate::settings;
+use crate::{pipelines::render_targets, settings};
 pub struct Args<'t> {
-    pub color_targets: &'t [&'t wgpu::TextureView],
-    pub depth_target: Option<&'t wgpu::TextureView>,
+    pub color_targets: &'t [&'t String],
+    pub depth_target: Option<&'t String>,
     pub clear_color: bool,
     pub clear_depth: bool,
     pub bundles: Vec<&'t wgpu::RenderBundle>,
 }
 
-pub fn render(label: &str, encoder: &mut wgpu::CommandEncoder, args: Args) {
+pub fn render(label: &str, encoder: &mut wgpu::CommandEncoder, render_targets: &render_targets::RenderTargets, args: Args) {
     let ops = wgpu::Operations {
         load: match args.clear_color {
             true => wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
@@ -18,7 +18,7 @@ pub fn render(label: &str, encoder: &mut wgpu::CommandEncoder, args: Args) {
 
     let depth_stencil_attachment = match args.depth_target {
         Some(attachment) => Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-            attachment,
+            attachment: render_targets.get(attachment),
             depth_ops: Some(wgpu::Operations {
                 load: match args.clear_depth {
                     true => wgpu::LoadOp::Clear(1.0),
@@ -38,7 +38,7 @@ pub fn render(label: &str, encoder: &mut wgpu::CommandEncoder, args: Args) {
                 .color_targets
                 .iter()
                 .map(|attachment| wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment,
+                    attachment: render_targets.get(attachment),
                     resolve_target: None,
                     ops,
                 })

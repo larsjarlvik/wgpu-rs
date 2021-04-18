@@ -3,6 +3,8 @@ mod textures;
 mod uniforms;
 use cgmath::*;
 
+use super::render_targets;
+
 pub struct DeferredRender {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
@@ -12,11 +14,11 @@ pub struct DeferredRender {
 }
 
 impl DeferredRender {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
+    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, render_targets: &mut render_targets::RenderTargets) -> Self {
         // Textures
-        let target = textures::Textures::new(device, viewport.width, viewport.height);
+        let target = textures::Textures::new(device, viewport.width, viewport.height, render_targets);
         let texture_bind_group_layout = target.create_bind_group_layout(device);
-        let texture_bind_group = target.create_bind_group(device, &texture_bind_group_layout);
+        let texture_bind_group = target.create_bind_group(device, &texture_bind_group_layout, render_targets);
 
         // Uniforms
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

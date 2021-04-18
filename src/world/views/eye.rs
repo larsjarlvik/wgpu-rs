@@ -1,6 +1,6 @@
 use super::renderer;
 use crate::{
-    camera, pipelines,
+    camera, pipelines, settings,
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
@@ -74,11 +74,13 @@ impl Eye {
         encoder: &mut wgpu::CommandEncoder,
         deferred: &deferred::DeferredRender,
         world_data: &WorldData,
+        render_targets: &render_targets::RenderTargets,
         target: &wgpu::TextureView,
     ) {
         renderer::render(
             "environment",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.terrain_bundle, &self.models_bundle],
                 color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
@@ -90,6 +92,7 @@ impl Eye {
         renderer::render(
             "deferred",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.deferred],
                 color_targets: &[&world_data.sky.texture_view],
@@ -101,6 +104,7 @@ impl Eye {
         renderer::render(
             "water",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.water_bundle],
                 color_targets: &[&world_data.sky.texture_view],
@@ -109,16 +113,20 @@ impl Eye {
                 clear_depth: false,
             },
         );
-        renderer::render(
-            "sky",
-            encoder,
-            renderer::Args {
-                bundles: vec![&self.sky_bundle],
-                color_targets: &[&target],
-                depth_target: None,
-                clear_color: true,
-                clear_depth: false,
-            },
-        );
+
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("sky"),
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(settings::CLEAR_COLOR),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            })
+            .execute_bundles(vec![&self.sky_bundle].into_iter());
     }
 }

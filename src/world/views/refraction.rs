@@ -1,6 +1,7 @@
 use super::renderer;
 use crate::{
-    camera, pipelines,
+    camera,
+    pipelines::{self, render_targets},
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
@@ -50,10 +51,17 @@ impl Refraction {
         self.deferred = deferred.get_render_bundle(device, &self.camera, "refraction");
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        deferred: &pipelines::deferred::DeferredRender,
+        world_data: &WorldData,
+        render_targets: &render_targets::RenderTargets,
+    ) {
         renderer::render(
             "environment",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.terrain_bundle],
                 color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
@@ -65,6 +73,7 @@ impl Refraction {
         renderer::render(
             "deferred",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.deferred],
                 color_targets: &[&world_data.water.refraction_texture_view],

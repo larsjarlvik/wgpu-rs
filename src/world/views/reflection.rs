@@ -1,6 +1,7 @@
 use super::renderer;
 use crate::{
-    camera, pipelines,
+    camera,
+    pipelines::{self, render_targets},
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
@@ -69,10 +70,17 @@ impl Reflection {
         self.sky_bundle = bundles::get_sky_bundle(device, &self.camera, &world_data.sky);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        deferred: &pipelines::deferred::DeferredRender,
+        world_data: &WorldData,
+        render_targets: &render_targets::RenderTargets,
+    ) {
         renderer::render(
             "environment",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.terrain_bundle, &self.models_bundle],
                 color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
@@ -84,6 +92,7 @@ impl Reflection {
         renderer::render(
             "deferred",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.deferred],
                 color_targets: &[&world_data.sky.texture_view],
@@ -95,6 +104,7 @@ impl Reflection {
         renderer::render(
             "sky",
             encoder,
+            render_targets,
             renderer::Args {
                 bundles: vec![&self.sky_bundle],
                 color_targets: &[&world_data.water.reflection_texture_view],

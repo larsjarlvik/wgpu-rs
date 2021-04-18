@@ -1,3 +1,4 @@
+use super::render_targets;
 use crate::{camera, noise, plane, settings, texture};
 use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
@@ -9,15 +10,20 @@ pub struct Water {
     pub uniforms: uniforms::UniformBuffer,
     pub render_pipeline: wgpu::RenderPipeline,
     pub noise_bindings: noise::NoiseBindings,
-    pub refraction_texture_view: wgpu::TextureView,
-    pub refraction_depth_texture_view: wgpu::TextureView,
-    pub reflection_texture_view: wgpu::TextureView,
-    pub reflection_depth_texture_view: wgpu::TextureView,
+    pub refraction_texture_view: String,
+    pub refraction_depth_texture_view: String,
+    pub reflection_texture_view: String,
+    pub reflection_depth_texture_view: String,
     pub texture_bind_group: wgpu::BindGroup,
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, noise: &noise::Noise) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        viewport: &camera::Viewport,
+        noise: &noise::Noise,
+        render_targets: &mut render_targets::RenderTargets,
+    ) -> Self {
         let noise_bindings = noise.create_bindings(device);
         let uniforms = uniforms::UniformBuffer::new(
             &device,
@@ -39,10 +45,10 @@ impl Water {
 
         // Textures
         let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
-        let refraction_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::COLOR_TEXTURE_FORMAT);
-        let refraction_depth_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
-        let reflection_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::COLOR_TEXTURE_FORMAT);
-        let reflection_depth_texture_view = texture::create_view(&device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
+        let refraction_texture_view = render_targets.create(&device, viewport.width, viewport.height, settings::COLOR_TEXTURE_FORMAT);
+        let refraction_depth_texture_view = render_targets.create(&device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
+        let reflection_texture_view = render_targets.create(&device, viewport.width, viewport.height, settings::COLOR_TEXTURE_FORMAT);
+        let reflection_depth_texture_view = render_targets.create(&device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("water_texture_bind_group_layout"),
@@ -66,9 +72,9 @@ impl Water {
             label: Some("deferred_textures"),
             layout: &texture_bind_group_layout,
             entries: &[
-                texture::create_bind_group_entry(0, &refraction_depth_texture_view),
-                texture::create_bind_group_entry(1, &refraction_texture_view),
-                texture::create_bind_group_entry(2, &reflection_texture_view),
+                texture::create_bind_group_entry(0, render_targets.get(&refraction_depth_texture_view)),
+                texture::create_bind_group_entry(1, render_targets.get(&refraction_texture_view)),
+                texture::create_bind_group_entry(2, render_targets.get(&reflection_texture_view)),
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::Sampler(&sampler),

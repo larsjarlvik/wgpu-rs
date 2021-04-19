@@ -18,6 +18,8 @@ strum = "0.20"
 strum_macros = "0.20"
 bytemuck = { version = "1.5.1", features = [ "derive" ] }
 once_cell = "1.7.2"
+crossbeam-utils = "0.8.3"
+crossbeam-channel = "0.5.1"
 
 [dependencies.gltf]
 version = "0.15.0"

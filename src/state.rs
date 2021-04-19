@@ -101,11 +101,13 @@ impl State {
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
 
+        self.queue
+            .submit(std::iter::once(self.world.render(&self.device, &self.fxaa.texture_view)));
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
         {
-            self.world.render(&mut encoder, &self.fxaa.texture_view);
             self.fxaa.render(&mut encoder, &frame.view);
         }
         self.queue.submit(std::iter::once(encoder.finish()));

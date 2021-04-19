@@ -77,8 +77,8 @@ impl World {
         self.views.resize(device, &self.data, viewport);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        self.views.render(encoder, &self.data, target);
+    pub fn render(&self, device: &wgpu::Device, target: &wgpu::TextureView) -> wgpu::CommandBuffer {
+        self.views.render(device, &self.data, target)
     }
 }
 

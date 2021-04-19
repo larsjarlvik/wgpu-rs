@@ -52,7 +52,7 @@ fn main() {
             });
 
             fps += 1;
-            if last_update.elapsed().as_millis() > 1000 {
+            if last_update.elapsed().as_millis() >= 1000 {
                 window.set_title(format!("WGPU-RS: {} FPS", fps).as_str());
                 last_update = Instant::now();
                 fps = 0;

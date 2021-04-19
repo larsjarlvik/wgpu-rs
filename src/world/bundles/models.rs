@@ -4,7 +4,7 @@ use crate::{
     settings, world,
     world::node::{Node, NodeData},
 };
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 

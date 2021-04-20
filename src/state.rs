@@ -1,16 +1,16 @@
-use crate::{camera, input::Input, pipelines, world};
+use crate::{anti_aliasing, camera, input::Input, world};
 use std::time::Instant;
 use winit::window::Window;
 
 pub struct State {
     pub viewport: camera::Viewport,
     pub input: Input,
+    pub anti_aliasing: anti_aliasing::AntiAliasing,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     swap_chain: wgpu::SwapChain,
     world: world::World,
-    fxaa: pipelines::fxaa::Fxaa,
     start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
@@ -50,14 +50,14 @@ impl State {
 
         // Drawing
         let world = world::World::new(&device, &queue, &viewport).await;
-        let fxaa = pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height);
+        let anti_aliasing = anti_aliasing::AntiAliasing::new(&device, &queue, &viewport);
 
         Self {
             surface,
             device,
+            anti_aliasing,
             queue,
             swap_chain,
-            fxaa,
             viewport,
             world,
             input: Input::new(),
@@ -76,7 +76,7 @@ impl State {
         self.viewport.valid = true;
         self.viewport.resize(new_size.width, new_size.height);
         self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
-        self.fxaa = pipelines::fxaa::Fxaa::new(&self.device, self.viewport.width, self.viewport.height);
+        self.anti_aliasing = anti_aliasing::AntiAliasing::new(&self.device, &self.queue, &self.viewport);
         self.world.resize(&self.device, &self.viewport);
     }
 
@@ -101,14 +101,15 @@ impl State {
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
-        {
-            self.world.render(&mut encoder, &self.fxaa.texture_view);
-            self.fxaa.render(&mut encoder, &frame.view);
-        }
-        self.queue.submit(std::iter::once(encoder.finish()));
+        let device = &mut self.device;
+        let world = &mut self.world;
+        let queue = &mut self.queue;
+        self.anti_aliasing.execute(&device, &queue, &frame.view, |target| {
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
+            world.render(&mut encoder, &target);
+            queue.submit(std::iter::once(encoder.finish()));
+        });
+
         Ok(())
     }
 }

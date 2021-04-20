@@ -6,6 +6,7 @@ use winit::{
     window::Fullscreen,
     window::WindowBuilder,
 };
+mod anti_aliasing;
 mod camera;
 mod input;
 mod logger;
@@ -52,8 +53,8 @@ fn main() {
             });
 
             fps += 1;
-            if last_update.elapsed().as_millis() > 1000 {
-                window.set_title(format!("WGPU-RS: {} FPS", fps).as_str());
+            if last_update.elapsed().as_millis() >= 1000 {
+                window.set_title(format!("WGPU-RS: {} FPS, AA: {}", fps, state.anti_aliasing.display()).as_str());
                 last_update = Instant::now();
                 fps = 0;
             }
@@ -89,6 +90,13 @@ fn main() {
                         let fullscreen = Some(Fullscreen::Borderless(window.current_monitor()));
                         window.set_fullscreen(fullscreen.clone());
                     }
+                }
+                KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::G),
+                    ..
+                } => {
+                    state.anti_aliasing.toggle();
                 }
                 input => {
                     &state.input.process_key(input);

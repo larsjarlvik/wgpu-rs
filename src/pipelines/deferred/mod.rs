@@ -39,8 +39,8 @@ impl DeferredRender {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/deferred.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/deferred.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/deferred.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/deferred.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("deferred_pipeline"),
             layout: Some(&render_pipeline_layout),

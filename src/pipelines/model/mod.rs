@@ -52,8 +52,8 @@ impl Model {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_pipeline"),
             layout: Some(&pipeline_layout),
@@ -84,8 +84,8 @@ impl Model {
             multisample: wgpu::MultisampleState::default(),
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model-shadows.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/model-shadows.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model-shadows.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model-shadows.frag.spv"));
         let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_shadow_pipeline"),
             layout: Some(&pipeline_layout),

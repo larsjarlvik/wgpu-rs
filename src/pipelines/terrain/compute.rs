@@ -56,16 +56,16 @@ impl Compute {
             push_constant_ranges: &[],
         });
 
-        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-elev.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-elev.comp.spv"));
         let elevation_pipeline = create_pipeline(device, &layout, &module, "elevation");
 
-        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-norm.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-norm.comp.spv"));
         let normal_pipeline = create_pipeline(device, &layout, &module, "normal");
 
-        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-erosion.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-erosion.comp.spv"));
         let erosion_pipeline = create_pipeline(device, &layout, &module, "erosion");
 
-        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/terrain-smooth.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-smooth.comp.spv"));
         let smooth_pipeline = create_pipeline(device, &layout, &module, "smooth");
 
         Self {

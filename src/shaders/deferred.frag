@@ -1,5 +1,4 @@
 #version 450
-#extension GL_GOOGLE_include_directive : require
 #define CASCADE_COUNT 4
 #define OFFSET 1.2
 

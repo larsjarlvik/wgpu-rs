@@ -58,7 +58,7 @@ impl Noise {
             push_constant_ranges: &[],
         });
 
-        let module = device.create_shader_module(&wgpu::include_spirv!("./shaders-compiled/noise.comp.spv"));
+        let module = device.create_shader_module(&wgpu::include_spirv!("./shaders/compiled/noise.comp.spv"));
         let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("terrain_compute_pipeline"),
             layout: Some(&layout),

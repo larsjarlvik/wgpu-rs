@@ -1,12 +1,9 @@
-mod compute;
 use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::convert::TryInto;
-mod uniforms;
 
 pub struct Terrain {
-    pub compute: compute::Compute,
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
     pub noise_bindings: noise::NoiseBindings,
@@ -15,7 +12,6 @@ pub struct Terrain {
 impl Terrain {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, noise: &noise::Noise) -> Terrain {
         let noise_bindings = noise.create_bindings(device);
-        let compute = compute::Compute::new(device, noise);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -80,7 +76,6 @@ impl Terrain {
         Terrain {
             texture_bind_group,
             render_pipeline,
-            compute,
             noise_bindings,
         }
     }

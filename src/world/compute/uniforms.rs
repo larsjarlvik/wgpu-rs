@@ -8,6 +8,8 @@ pub struct Uniforms {
     pub vertical_scale: f32,
     pub size: u32,
     pub octaves: u32,
+    pub current_stage: u32,
+    pub stage_count: u32,
 }
 
 pub struct UniformBuffer {

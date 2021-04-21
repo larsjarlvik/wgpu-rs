@@ -1,8 +1,10 @@
-use super::uniforms;
+pub use self::task::Task;
 use crate::{noise, plane, settings};
 use plane::Vertex;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
+pub mod task;
+mod uniforms;
 
 pub struct Compute {
     pub elevation_pipeline: wgpu::ComputePipeline,
@@ -79,11 +81,11 @@ impl Compute {
         }
     }
 
-    pub async fn compute(
+    pub async fn compute<'a>(
         &self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        pipelines: Vec<&wgpu::ComputePipeline>,
+        tasks: Vec<&'a Task<'a>>,
         plane: &plane::Plane,
     ) -> plane::Plane {
         let now = Instant::now();
@@ -113,54 +115,59 @@ impl Compute {
             }],
         });
 
-        let uniforms = uniforms::UniformBuffer::new(
-            device,
-            &self.uniform_bind_group_layout,
-            uniforms::Uniforms {
-                size: plane.size + 1,
-                octaves: settings::TERRAIN_OCTAVES,
-                sea_level: settings::SEA_LEVEL,
-                horizontal_scale: settings::HORIZONTAL_SCALE,
-                vertical_scale: settings::VERTICAL_SCALE,
-            },
-        );
+        tasks.iter().for_each(|task| {
+            let now = Instant::now();
+            for _ in 0..task.run_times {
+                for i in 0..task.stage_count {
+                    let uniforms = uniforms::UniformBuffer::new(
+                        device,
+                        &self.uniform_bind_group_layout,
+                        uniforms::Uniforms {
+                            size: plane.size + 1,
+                            octaves: settings::TERRAIN_OCTAVES,
+                            sea_level: settings::SEA_LEVEL,
+                            horizontal_scale: settings::HORIZONTAL_SCALE,
+                            vertical_scale: settings::VERTICAL_SCALE,
+                            current_stage: i as u32,
+                            stage_count: task.stage_count,
+                        },
+                    );
 
-        let mut encoders: Vec<wgpu::CommandBuffer> = pipelines
-            .iter()
-            .map(|&p| {
-                self.run_compute(device, p, &vertex_bind_group, &uniforms.bind_group, plane.length)
-                    .finish()
-            })
-            .collect();
+                    let encoder = self.run_compute(device, &task, &vertex_bind_group, &uniforms.bind_group, plane.length);
+                    queue.submit(std::iter::once(encoder.finish()));
+                    device.poll(wgpu::Maintain::Wait);
+                }
+            }
+            println!("{}: {} ms", task.label, now.elapsed().as_millis());
+        });
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("compute_terrain"),
+            label: Some("read_compute_terrain"),
         });
         encoder.copy_buffer_to_buffer(&vertex_buffer, 0, &staging_buffer, 0, size);
-        encoders.push(encoder.finish());
-        queue.submit(encoders);
+        queue.submit(std::iter::once(encoder.finish()));
 
         let plane = self.get_result(device, &staging_buffer, plane.size).await;
         staging_buffer.unmap();
 
-        println!("Compute: {} ms", now.elapsed().as_millis());
+        println!("Total compute: {} ms", now.elapsed().as_millis());
         plane
     }
 
     fn run_compute(
         &self,
         device: &wgpu::Device,
-        compute_pipeline: &wgpu::ComputePipeline,
+        task: &Task,
         vertex_bind_group: &wgpu::BindGroup,
         uniform_bind_group: &wgpu::BindGroup,
         length: u32,
     ) -> wgpu::CommandEncoder {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("compute_terrain"),
+            label: Some(format!("compute_{}", task.label.to_lowercase()).as_str()),
         });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
-            pass.set_pipeline(&compute_pipeline);
+            pass.set_pipeline(&task.pipeline);
             pass.set_bind_group(0, &vertex_bind_group, &[]);
             pass.set_bind_group(1, &uniform_bind_group, &[]);
             pass.set_bind_group(2, &self.noise_bindings.bind_group, &[]);

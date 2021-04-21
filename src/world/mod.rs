@@ -3,6 +3,7 @@ use cgmath::*;
 use std::{time::Instant, usize};
 mod assets;
 mod bundles;
+mod compute;
 mod node;
 mod views;
 
@@ -30,15 +31,15 @@ impl World {
         let model = pipelines::model::Model::new(device, &viewport);
         let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise);
 
-        let mut heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
-        let pipelines = vec![
-            &terrain.compute.elevation_pipeline,
-            &terrain.compute.erosion_pipeline,
-            &terrain.compute.smooth_pipeline,
-            &terrain.compute.smooth_pipeline,
-            &terrain.compute.normal_pipeline,
-        ];
-        heightmap = terrain.compute.compute(device, queue, pipelines, &heightmap).await;
+        let compute = compute::Compute::new(device, &noise);
+        let heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
+        let elevation_task = &compute::Task::new("Elevation", &compute.elevation_pipeline, 1, 1);
+        let erosion_task = &compute::Task::new("Erosion", &compute.erosion_pipeline, 1, 4);
+        let smooth_task = &compute::Task::new("Smooth", &compute.smooth_pipeline, 2, 1);
+        let normal_task = &compute::Task::new("Normals", &compute.normal_pipeline, 1, 1);
+
+        let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
+        let heightmap = compute.compute(device, queue, tasks, &heightmap).await;
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {

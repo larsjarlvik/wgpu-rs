@@ -6,6 +6,8 @@ use crate::{
 };
 use cgmath::*;
 use rand::Rng;
+use rand_pcg::Pcg64;
+use rand_seeder::Seeder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
@@ -142,8 +144,9 @@ impl Node {
 
         (0..count)
             .into_par_iter()
-            .map(|_| {
-                let mut rng = rand::thread_rng();
+            .map(|i| {
+                let seed = format!("{}_NODE_{}_{}_{}_{}", settings::MAP_SEED, self.x, self.z, asset.name, i);
+                let mut rng: Pcg64 = Seeder::from(seed).make_rng();
                 let m = vec2(
                     self.x + (rng.gen::<f32>() - 0.5) * self.size,
                     self.z + (rng.gen::<f32>() - 0.5) * self.size,

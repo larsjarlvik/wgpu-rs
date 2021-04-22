@@ -26,3 +26,5 @@ pub const LIGHT_AMBIENT: f32 = 0.3;
 pub const LIGHT_INTENSITY: f32 = 1.0;
 pub const SHADOW_CASCADE_SPLITS: [f32; 4] = [0.05, 0.15, 0.3, 1.0];
 pub const SHADOW_RESOLUTION: u32 = 4096;
+
+pub const MAP_SEED: &str = "RANDOM_SEED";

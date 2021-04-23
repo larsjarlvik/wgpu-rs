@@ -87,8 +87,8 @@ impl Water {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/water.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders-compiled/water.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/water.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/water.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("water_pipeline"),
             layout: Some(&render_pipeline_layout),

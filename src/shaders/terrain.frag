@@ -1,5 +1,4 @@
 #version 450
-#extension GL_GOOGLE_include_directive : require
 
 #define NOISE_SET 2
 #include "include/noise.glsl"

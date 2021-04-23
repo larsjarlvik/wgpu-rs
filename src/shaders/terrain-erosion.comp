@@ -1,8 +1,8 @@
 #version 450
 
 #define NOISE_SET 2
-#extension GL_GOOGLE_include_directive : require
 #include "include/noise.glsl"
+#include "include/compute.glsl"
 
 #define MAX_ITERATIONS 100
 #define DEPOSITION_RATE 0.03
@@ -13,24 +13,6 @@
 #define RADIUS 0.8
 #define RESOLUTION 0.1
 #define SCALE 4.0
-
-layout(local_size_x = 16, local_size_y = 1) in;
-
-struct Vertex {
-    float x; float y; float z;
-    float nx; float ny; float nz;
-};
-
-layout(std430, set=0, binding=0) buffer Src {
-    Vertex comp_vertices[];
-};
-layout(set=1, binding=0) uniform ComputeData {
-    float u_sea_level;
-    float u_horizontal_scale;
-    float u_vertical_scale;
-    uint u_size;
-    uint u_octaves;
-};
 
 float sample_height(vec2 pos) {
     float size = float(u_size);
@@ -77,6 +59,10 @@ void change(vec2 pos, float delta) {
 }
 
 void main() {
+    if (uint(gl_GlobalInvocationID.x) % u_stage_count != u_current_stage) {
+        return;
+    }
+
     Vertex vert = comp_vertices[gl_GlobalInvocationID.x];
     vec2 pos = vec2(vert.x + (random(vec2(vert.x, vert.z)) * 15.0), vert.z + (random(vec2(vert.x, vert.z)) * 15.0));
 

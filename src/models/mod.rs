@@ -1,33 +1,44 @@
-use crate::{camera, pipelines};
+use crate::{assets, camera, pipelines};
 use cgmath::*;
 use model::PrimitiveBuffers;
 use std::collections::HashMap;
+mod material;
 mod mesh;
 mod model;
 mod primitive;
 
 pub struct Models {
-    pub models: HashMap<String, model::Model>,
+    pub meshes: HashMap<String, model::Model>,
 }
 
 impl Models {
     pub fn new() -> Self {
-        let models = HashMap::new();
-        Self { models }
+        let meshes = HashMap::new();
+        Self { meshes }
     }
 
-    pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, pipeline: &pipelines::model::Model, name: &str, path: &str) {
-        let (gltf, buffers, images) = gltf::import(format!("./res/models/{}", path)).expect("Failed to import GLTF!");
-        let mut primitives: Vec<PrimitiveBuffers> = vec![];
-        let mut bounding_box = camera::BoundingBox {
-            min: Point3::new(0.0, 0.0, 0.0),
-            max: Point3::new(0.0, 0.0, 0.0),
-        };
+    pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, pipeline: &pipelines::model::Model, asset: &assets::Asset) {
+        let (gltf, buffers, images) = gltf::import(format!("./res/models/{}.glb", asset.model)).expect("Failed to import GLTF!");
 
-        for gltf_mesh in gltf.meshes() {
-            let mesh = mesh::Mesh::new(&device, &queue, gltf_mesh, &buffers, &images);
+        let materials = gltf
+            .materials()
+            .map(|material| material::Material::new(&device, &queue, &material, &images))
+            .collect();
 
-            for primitive in mesh.primitives {
+        for mesh in asset.meshes {
+            let gltf_mesh = gltf
+                .meshes()
+                .nth(mesh.mesh_index)
+                .expect(format!("Could not load mesh {} from {}", &mesh.mesh_index, &mesh.name).as_str());
+
+            let gltf_mesh = mesh::Mesh::new(gltf_mesh, &buffers);
+            let mut primitives: Vec<PrimitiveBuffers> = vec![];
+            let mut bounding_box = camera::BoundingBox {
+                min: Point3::new(0.0, 0.0, 0.0),
+                max: Point3::new(0.0, 0.0, 0.0),
+            };
+
+            for primitive in gltf_mesh.primitives {
                 if primitive.bounding_box.min[0] < bounding_box.min.x {
                     bounding_box.min.x = primitive.bounding_box.min[0];
                 }
@@ -46,11 +57,10 @@ impl Models {
                 if primitive.bounding_box.max[2] > bounding_box.max.z {
                     bounding_box.max.z = primitive.bounding_box.max[2];
                 }
-
-                &primitives.push(primitive.to_buffers(&device, &pipeline.sampler, &pipeline));
+                &primitives.push(primitive.to_buffers(&device, &pipeline.sampler, &pipeline, &materials));
             }
-        }
 
-        self.models.insert(name.to_string(), model::Model { primitives, bounding_box });
+            self.meshes.insert(mesh.name.to_string(), model::Model { primitives, bounding_box });
+        }
     }
 }

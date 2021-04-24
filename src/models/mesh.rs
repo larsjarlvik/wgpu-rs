@@ -1,23 +1,17 @@
-use super::primitive::Primitive;
+use super::primitive;
 
 pub struct Mesh {
     pub name: String,
-    pub primitives: Vec<Primitive>,
+    pub primitives: Vec<primitive::Primitive>,
 }
 
 impl Mesh {
-    pub fn new<'a>(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        mesh: gltf::Mesh<'_>,
-        buffers: &Vec<gltf::buffer::Data>,
-        images: &Vec<gltf::image::Data>,
-    ) -> Self {
+    pub fn new<'a>(mesh: gltf::Mesh<'_>, buffers: &Vec<gltf::buffer::Data>) -> Self {
         let mut primitives = vec![];
         let name = String::from(mesh.name().unwrap());
 
         for primitive in mesh.primitives() {
-            primitives.push(Primitive::new(device, queue, buffers, images, &primitive));
+            primitives.push(primitive::Primitive::new(buffers, &primitive));
         }
 
         Mesh { name, primitives }

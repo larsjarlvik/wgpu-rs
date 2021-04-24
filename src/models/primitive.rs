@@ -1,26 +1,17 @@
-use crate::{camera, pipelines, texture};
+use super::material;
+use crate::{camera, pipelines};
 use cgmath::*;
 use wgpu::util::DeviceExt;
-
-struct Material {
-    base_color_texture: wgpu::TextureView,
-}
 
 pub struct Primitive {
     pub bounding_box: camera::BoundingBox,
     vertices: Vec<pipelines::model::Vertex>,
     indices: Vec<u32>,
-    material: Material,
+    material_index: usize,
 }
 
 impl Primitive {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        buffers: &Vec<gltf::buffer::Data>,
-        images: &Vec<gltf::image::Data>,
-        primitive: &gltf::Primitive,
-    ) -> Self {
+    pub fn new(buffers: &Vec<gltf::buffer::Data>, primitive: &gltf::Primitive) -> Self {
         let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
         let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<_>>();
@@ -37,9 +28,7 @@ impl Primitive {
             });
         }
 
-        let image = images.iter().nth(0).unwrap();
-        let base_color_texture = texture::create_mipmapped_view(&device, &queue, &image.pixels, image.width, image.height);
-        let material = Material { base_color_texture };
+        let material_index = primitive.material().index().unwrap();
 
         let bounding_box = camera::BoundingBox {
             min: Point3::from(primitive.bounding_box().min),
@@ -49,7 +38,7 @@ impl Primitive {
         Self {
             vertices,
             indices,
-            material,
+            material_index,
             bounding_box,
         }
     }
@@ -59,6 +48,7 @@ impl Primitive {
         device: &wgpu::Device,
         sampler: &wgpu::Sampler,
         render_pipeline: &pipelines::model::Model,
+        materials: &Vec<material::Material>,
     ) -> super::PrimitiveBuffers {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -72,19 +62,28 @@ impl Primitive {
         });
         let num_elements = self.indices.len() as u32;
 
+        let mut entries = vec![];
+        let material = materials.get(self.material_index).unwrap();
+
+        match &material.base_color_texture {
+            Some(base_color) => {
+                entries.push(wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&base_color),
+                });
+            }
+            None => (),
+        }
+
+        entries.push(wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::Sampler(&sampler),
+        });
+
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Diffuse Texture"),
             layout: &render_pipeline.texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.material.base_color_texture),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-            ],
+            entries: &entries,
         });
 
         super::PrimitiveBuffers {

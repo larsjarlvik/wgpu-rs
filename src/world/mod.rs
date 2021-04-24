@@ -1,7 +1,6 @@
-use crate::{camera, models, noise, pipelines, plane, settings};
+use crate::{assets, camera, models, noise, pipelines, plane, settings};
 use cgmath::*;
 use std::{time::Instant, usize};
-mod assets;
 mod bundles;
 mod compute;
 mod node;
@@ -43,7 +42,7 @@ impl World {
 
         let mut models = models::Models::new();
         for asset in assets::ASSETS {
-            models.load_model(&device, &queue, &model, asset.name, format!("{}.glb", asset.name).as_str());
+            models.load_model(&device, &queue, &model, &asset);
         }
 
         let mut data = WorldData {

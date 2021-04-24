@@ -1,0 +1,83 @@
+pub struct Asset {
+    pub model: &'static str,
+    pub meshes: &'static [Mesh],
+}
+
+pub struct Mesh {
+    pub name: &'static str,
+    pub density: f32,
+    pub min_size: f32,
+    pub max_size: f32,
+    pub max_slope: f32,
+    pub mesh_index: usize,
+}
+
+pub static ASSETS: &'static [Asset] = &[Asset {
+    model: "trees",
+    meshes: &[
+        Mesh {
+            name: "tree-1",
+            density: 0.001,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 0,
+        },
+        Mesh {
+            name: "tree-2",
+            density: 0.001,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 1,
+        },
+        Mesh {
+            name: "tree-3",
+            density: 0.001,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 2,
+        },
+        Mesh {
+            name: "tree-4",
+            density: 0.001,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 3,
+        },
+        Mesh {
+            name: "tree-5",
+            density: 0.001,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 4,
+        },
+        Mesh {
+            name: "tree-6",
+            density: 0.001,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 5,
+        },
+        Mesh {
+            name: "tree-7",
+            density: 0.0005,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 6,
+        },
+        Mesh {
+            name: "tree-8",
+            density: 0.0005,
+            min_size: 1.5,
+            max_size: 2.5,
+            max_slope: 0.8,
+            mesh_index: 7,
+        },
+    ],
+}];

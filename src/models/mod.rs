@@ -28,8 +28,9 @@ impl Models {
         for mesh in asset.meshes {
             let gltf_mesh = gltf
                 .meshes()
-                .nth(mesh.mesh_index)
-                .expect(format!("Could not load mesh {} from {}", &mesh.mesh_index, &mesh.name).as_str());
+                .filter(|m| m.name().unwrap() == mesh.name)
+                .nth(0)
+                .expect(format!("Could not load mesh {} from {}", &mesh.name, &asset.model).as_str());
 
             let gltf_mesh = mesh::Mesh::new(gltf_mesh, &buffers);
             let mut primitives: Vec<PrimitiveBuffers> = vec![];

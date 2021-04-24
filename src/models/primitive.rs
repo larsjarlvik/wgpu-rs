@@ -1,5 +1,5 @@
 use super::material;
-use crate::{camera, pipelines};
+use crate::{camera, pipelines, texture};
 use cgmath::*;
 use wgpu::util::DeviceExt;
 
@@ -17,6 +17,7 @@ impl Primitive {
         let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<_>>();
         let positions = reader.read_positions().unwrap().collect::<Vec<_>>();
         let normals = reader.read_normals().unwrap().collect::<Vec<_>>();
+        let tangents = reader.read_tangents().unwrap().collect::<Vec<_>>();
         let tex_coords = reader.read_tex_coords(0).unwrap().into_f32().collect::<Vec<_>>();
 
         let mut vertices = vec![];
@@ -24,6 +25,7 @@ impl Primitive {
             vertices.push(pipelines::model::Vertex {
                 position: positions[i],
                 normals: normals[i],
+                tangents: tangents[i],
                 tex_coords: tex_coords[i],
             });
         }
@@ -67,16 +69,19 @@ impl Primitive {
 
         match &material.base_color_texture {
             Some(base_color) => {
-                entries.push(wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&base_color),
-                });
+                entries.push(texture::create_bind_group_entry(0, &base_color));
+            }
+            None => (),
+        }
+        match &material.normal_texture {
+            Some(normal) => {
+                entries.push(texture::create_bind_group_entry(1, &normal));
             }
             None => (),
         }
 
         entries.push(wgpu::BindGroupEntry {
-            binding: 1,
+            binding: 2,
             resource: wgpu::BindingResource::Sampler(&sampler),
         });
 

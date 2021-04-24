@@ -3,6 +3,7 @@
 pub struct Vertex {
     pub position: [f32; 3],
     pub normals: [f32; 3],
+    pub tangents: [f32; 4],
     pub tex_coords: [f32; 2],
 }
 
@@ -25,6 +26,11 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
                     shader_location: 2,
+                    format: wgpu::VertexFormat::Float4,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 10]>() as wgpu::BufferAddress,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float2,
                 },
             ],

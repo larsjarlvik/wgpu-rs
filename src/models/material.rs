@@ -2,6 +2,7 @@ use crate::texture;
 
 pub struct Material {
     pub base_color_texture: Option<wgpu::TextureView>,
+    pub normal_texture: Option<wgpu::TextureView>,
 }
 
 impl Material {
@@ -21,6 +22,23 @@ impl Material {
             None => None,
         };
 
-        Self { base_color_texture }
+        let normal_texture = match material.normal_texture() {
+            Some(texture) => {
+                let image = images.iter().nth(texture.texture().index()).unwrap();
+                Some(texture::create_mipmapped_view(
+                    &device,
+                    &queue,
+                    &image.pixels,
+                    image.width,
+                    image.height,
+                ))
+            }
+            None => None,
+        };
+
+        Self {
+            base_color_texture,
+            normal_texture,
+        }
     }
 }

@@ -38,10 +38,27 @@ impl Views {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
         self.deferred.update(queue, viewport, view);
 
-        self.eye.update(device, queue, world, viewport, view, root_node);
-        self.reflection.update(device, queue, world, viewport, root_node);
-        self.refraction.update(device, queue, world, viewport, root_node);
-        self.shadow.update(device, queue, world, viewport, view, &self.deferred, root_node);
+        crossbeam_utils::thread::scope(|scope| {
+            let eye = &mut self.eye;
+            let reflection = &mut self.reflection;
+            let refraction = &mut self.refraction;
+            let shadow = &mut self.shadow;
+            let deferred = &self.deferred;
+
+            scope.spawn(move |_| {
+                eye.update(device, queue, world, viewport, view, root_node);
+            });
+            scope.spawn(move |_| {
+                reflection.update(device, queue, world, viewport, root_node);
+            });
+            scope.spawn(move |_| {
+                refraction.update(device, queue, world, viewport, root_node);
+            });
+            scope.spawn(move |_| {
+                shadow.update(device, queue, world, viewport, view, deferred, root_node);
+            });
+        })
+        .unwrap();
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport) {

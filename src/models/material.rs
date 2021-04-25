@@ -1,6 +1,7 @@
 use crate::texture;
 
 pub struct Material {
+    pub index: usize,
     pub base_color_texture: Option<wgpu::TextureView>,
     pub normal_texture: Option<wgpu::TextureView>,
 }
@@ -37,6 +38,7 @@ impl Material {
         };
 
         Self {
+            index: material.index().unwrap(),
             base_color_texture,
             normal_texture,
         }

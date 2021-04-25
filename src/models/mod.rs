@@ -1,6 +1,7 @@
 use crate::{assets, camera, pipelines};
 use cgmath::*;
 use model::PrimitiveBuffers;
+use rayon::prelude::*;
 use std::collections::HashMap;
 mod material;
 mod mesh;
@@ -18,10 +19,12 @@ impl Models {
     }
 
     pub fn load_model(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, pipeline: &pipelines::model::Model, asset: &assets::Asset) {
-        let (gltf, buffers, images) = gltf::import(format!("./res/models/{}.glb", asset.model)).expect("Failed to import GLTF!");
+        let (gltf, buffers, images) = gltf::import(format!("./res/assets/{}.glb", asset.model)).expect("Failed to import GLTF!");
 
         let materials = gltf
             .materials()
+            .into_iter()
+            .par_bridge()
             .map(|material| material::Material::new(&device, &queue, &material, &images))
             .collect();
 

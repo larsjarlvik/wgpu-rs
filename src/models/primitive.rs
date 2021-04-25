@@ -65,7 +65,7 @@ impl Primitive {
         let num_elements = self.indices.len() as u32;
 
         let mut entries = vec![];
-        let material = materials.get(self.material_index).unwrap();
+        let material = materials.iter().filter(|m| m.index == self.material_index).nth(0).unwrap();
 
         match &material.base_color_texture {
             Some(base_color) => {

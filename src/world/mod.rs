@@ -40,10 +40,12 @@ impl World {
         let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
         let heightmap = compute.compute(device, queue, tasks, &heightmap).await;
 
+        let now = Instant::now();
         let mut models = models::Models::new();
         for asset in assets::ASSETS {
             models.load_model(&device, &queue, &model, &asset);
         }
+        println!("Assets: {} ms", now.elapsed().as_millis());
 
         let mut data = WorldData {
             terrain,

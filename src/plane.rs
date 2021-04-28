@@ -267,8 +267,3 @@ pub fn get_lod(a: Vector3<f32>, b: Vector3<f32>, z_far: f32) -> u32 {
 
     settings::LODS.len() as u32
 }
-
-pub fn from_data(vertices: Vec<Vertex>, size: u32) -> Plane {
-    let length = vertices.len() as u32;
-    Plane { vertices, length, size }
-}

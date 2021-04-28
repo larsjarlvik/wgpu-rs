@@ -19,6 +19,7 @@ impl Terrain {
         viewport: &camera::Viewport,
         noise: &noise::Noise,
         tile: &plane::Plane,
+        map_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Terrain {
         let noise_bindings = noise.create_bindings(device);
 
@@ -59,6 +60,7 @@ impl Terrain {
                 &texture_bind_group_layout,
                 &noise_bindings.bind_group_layout,
                 &node_uniform_bind_group_layout,
+                &map_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });

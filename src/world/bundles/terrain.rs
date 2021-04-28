@@ -23,6 +23,7 @@ pub fn get_terrain_bundle(
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
     encoder.set_bind_group(1, &world_data.terrain.texture_bind_group, &[]);
     encoder.set_bind_group(2, &world_data.terrain.noise_bindings.bind_group, &[]);
+    encoder.set_bind_group(4, &world_data.map.bind_group, &[]);
     encoder.set_vertex_buffer(0, world_data.terrain.vertex_buffer.slice(..));
 
     let direction = camera.uniforms.data.clip[1];

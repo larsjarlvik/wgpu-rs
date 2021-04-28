@@ -1,6 +1,5 @@
 use crate::{assets, camera, models, noise, pipelines, plane, settings};
-use cgmath::*;
-use std::{collections::HashMap, time::Instant, usize};
+use std::{collections::HashMap, time::Instant};
 mod bundles;
 mod compute;
 mod node;
@@ -14,8 +13,8 @@ pub struct WorldData {
     pub sky: pipelines::sky::Sky,
     pub noise: noise::Noise,
     pub models: models::Models,
-    pub heightmap: plane::Plane,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
+    pub map: compute::ComputeBindings,
 }
 
 pub struct World {
@@ -33,20 +32,23 @@ impl World {
             .collect();
 
         let noise = noise::Noise::new(&device, &queue).await;
+
+        let compute = compute::Compute::new(device, &noise);
+        let elevation_task = &compute::Task::new("Elevation", &compute.elevation_pipeline, 1, 1);
+        // let erosion_task = &compute::Task::new("Erosion", &compute.erosion_pipeline, 1, 4);
+        // let smooth_task = &compute::Task::new("Smooth", &compute.smooth_pipeline, 2, 1);
+        // let normal_task = &compute::Task::new("Normals", &compute.normal_pipeline, 1, 1);
+
+        // let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
+        let tasks = vec![elevation_task];
+        compute.compute(device, queue, tasks).await;
+
+        let map = compute.create_bindings(device);
+
         let water = pipelines::water::Water::new(device, &viewport, &noise, &tile);
         let sky = pipelines::sky::Sky::new(device, &viewport);
         let model = pipelines::model::Model::new(device, &viewport);
-        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise, &tile);
-
-        let compute = compute::Compute::new(device, &noise);
-        let heightmap = plane::Plane::new(settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH));
-        let elevation_task = &compute::Task::new("Elevation", &compute.elevation_pipeline, 1, 1);
-        let erosion_task = &compute::Task::new("Erosion", &compute.erosion_pipeline, 1, 4);
-        let smooth_task = &compute::Task::new("Smooth", &compute.smooth_pipeline, 2, 1);
-        let normal_task = &compute::Task::new("Normals", &compute.normal_pipeline, 1, 1);
-
-        let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
-        let heightmap = compute.compute(device, queue, tasks, &heightmap).await;
+        let terrain = pipelines::terrain::Terrain::new(device, queue, &viewport, &noise, &tile, &map.bind_group_layout);
 
         let now = Instant::now();
         let mut models = models::Models::new();
@@ -62,8 +64,8 @@ impl World {
             model,
             sky,
             models,
-            heightmap,
             lods,
+            map,
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
@@ -91,18 +93,5 @@ impl World {
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         self.views.render(encoder, &self.data, target);
-    }
-}
-
-impl WorldData {
-    pub fn get_vertex(&self, p: Vector2<f32>) -> &plane::Vertex {
-        let half_size = self.heightmap.size as f32 / 2.0;
-        let a = self.heightmap.get_index((p.x + half_size) as u32, (p.y + half_size) as u32) as usize;
-        let v = self.heightmap.vertices.get(a).unwrap();
-        v
-    }
-
-    pub fn get_elevation(&self, v: &plane::Vertex, p: Vector2<f32>) -> f32 {
-        0.0
     }
 }

@@ -18,16 +18,22 @@ layout(set=0, binding=0) uniform Camera {
 
 layout(set=3, binding=0) uniform Node {
     vec2 u_translation;
+    float u_size;
 };
 
+layout(set = 4, binding = 0) uniform texture2D t_elvation_normal;
+layout(set = 4, binding = 1) uniform sampler t_compute_sampler;
+
 void main() {
-    vec3 normal = vec3(0.0, 1.0, 0.0); // TODO
+    vec2 pos = a_position + u_translation;
+    vec4 elevation_normal = texture(sampler2D(t_elvation_normal, t_compute_sampler), (pos / u_size) * 0.5 + 0.5);
+    float elev = elevation_normal.x;
+    vec3 normal = elevation_normal.yzw;
 
     vec3 bitangent = normalize(cross(vec3(0.0, 0.0, 1.0), normal));
     vec3 tangent = normalize(cross(normal, bitangent));
-    vec2 pos = a_position + u_translation;
 
-    v_position = vec4(a_position.x + u_translation.x, 0.0, a_position.y + u_translation.y, 1.0);
+    v_position = vec4(a_position.x + u_translation.x, elev, a_position.y + u_translation.y, 1.0);
     v_tbn = mat3(tangent, bitangent, normal);
     v_normal = normal;
 

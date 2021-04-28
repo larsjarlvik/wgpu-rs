@@ -121,18 +121,20 @@ impl Node {
             }
         }
 
+        let size = (settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH)) as f32;
         let uniforms = node_uniforms::UniformBuffer::new(
             device,
             &world.terrain.node_uniform_bind_group_layout,
             node_uniforms::Uniforms {
                 translation: [self.x, self.z],
+                size,
             },
         );
 
         self.data = Some(NodeData { model_instances, uniforms });
     }
 
-    fn create_assets(&self, world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
+    fn create_assets(&self, _world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
         let count = (self.size * self.size * mesh.density) as u32;
 
         (0..count)
@@ -144,8 +146,7 @@ impl Node {
                     self.x + (rng.gen::<f32>() - 0.5) * self.size,
                     self.z + (rng.gen::<f32>() - 0.5) * self.size,
                 );
-                let v = world.get_vertex(m);
-                let elev = world.get_elevation(v, m) - 0.25;
+                let elev = 0.0; // TODO
                 let normal = vec3(0.0, 1.0, 0.0); // TODO
                 (
                     elev,

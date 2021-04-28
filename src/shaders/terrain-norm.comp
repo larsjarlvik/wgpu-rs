@@ -2,32 +2,37 @@
 
 #define NOISE_SET 2
 #include "include/noise.glsl"
-#include "include/compute.glsl"
 
-float read_elevation(uint i, vec2 offset) {
-    Vertex v = comp_vertices[i];
-    float half_size = float(u_size) / 2.0;
-    uint rx = uint(v.x + half_size + offset.x);
-    uint rz = uint(v.z + half_size + offset.y);
+layout (set = 0, binding = 0, r32f) uniform image2D elevation_normal_texture;
 
-    if (rx < 0 || rx >= u_size ||
-        rz < 0 || rz >= u_size) {
-        return get_elevation(vec2(v.x + offset.x, v.z + offset.y), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
-    }
+layout(set=1, binding=0) uniform ComputeData {
+    float u_sea_level;
+    float u_horizontal_scale;
+    float u_vertical_scale;
+    uint u_size;
+    uint u_octaves;
+    uint u_current_stage;
+    uint u_stage_count;
+};
 
-    return comp_vertices[rz * u_size + rx].y;
+float read_elevation(ivec2 xz, ivec2 offset) {
+    // if (xz < 0 || xz >= u_size ||
+    //     xz < 0 || xz >= u_size) {
+    //     return get_elevation(vec2(v.x + offset.x, v.z + offset.y), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
+    // }
+
+    return imageLoad(elevation_normal_texture, ivec2(xz + offset)).r;
 }
 
 void main() {
-    uint i = gl_GlobalInvocationID.x;
+    ivec2 xz = ivec2(gl_GlobalInvocationID.xy);
+    vec4 elevation_normal = imageLoad(elevation_normal_texture, ivec2(xz));
 
     vec3 norm = normalize(vec3(
-        read_elevation(i, vec2(-1.0, 0.0)) - read_elevation(i, vec2(1.0, 0.0)),
+        read_elevation(xz, ivec2(-1, 0)) - read_elevation(xz, ivec2(1, 0)),
         2.0,
-        read_elevation(i, vec2(0.0, -1.0)) - read_elevation(i, vec2(0.0, 1.0))
+        read_elevation(xz, ivec2(0, -1)) - read_elevation(xz, ivec2(0, 1))
     ));
 
-    comp_vertices[i].nx = norm.x;
-    comp_vertices[i].ny = norm.y;
-    comp_vertices[i].nz = norm.z;
+    imageStore(elevation_normal_texture, xz, vec4(elevation_normal.x, norm));
 }

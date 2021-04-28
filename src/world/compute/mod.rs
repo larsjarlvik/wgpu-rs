@@ -6,7 +6,7 @@ mod uniforms;
 
 pub struct Compute {
     pub elevation_pipeline: wgpu::ComputePipeline,
-    // pub normal_pipeline: wgpu::ComputePipeline,
+    pub normal_pipeline: wgpu::ComputePipeline,
     // pub erosion_pipeline: wgpu::ComputePipeline,
     // pub smooth_pipeline: wgpu::ComputePipeline,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
@@ -88,8 +88,8 @@ impl Compute {
         let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-elev.comp.spv"));
         let elevation_pipeline = create_pipeline(device, &layout, &module, "elevation");
 
-        // let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-norm.comp.spv"));
-        // let normal_pipeline = create_pipeline(device, &layout, &module, "normal");
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-norm.comp.spv"));
+        let normal_pipeline = create_pipeline(device, &layout, &module, "normal");
 
         // let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-erosion.comp.spv"));
         // let erosion_pipeline = create_pipeline(device, &layout, &module, "erosion");
@@ -99,7 +99,7 @@ impl Compute {
 
         Self {
             elevation_pipeline,
-            // normal_pipeline,
+            normal_pipeline,
             // erosion_pipeline,
             // smooth_pipeline,
             uniform_bind_group_layout,
@@ -168,7 +168,7 @@ impl Compute {
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("noise_texture_bind_group_layout"),
+            label: Some("compute_texture_bind_group_layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -192,7 +192,7 @@ impl Compute {
             ],
         });
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("noise_texture"),
+            label: Some("compute_texture"),
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {

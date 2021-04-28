@@ -37,10 +37,10 @@ impl World {
         let elevation_task = &compute::Task::new("Elevation", &compute.elevation_pipeline, 1, 1);
         // let erosion_task = &compute::Task::new("Erosion", &compute.erosion_pipeline, 1, 4);
         // let smooth_task = &compute::Task::new("Smooth", &compute.smooth_pipeline, 2, 1);
-        // let normal_task = &compute::Task::new("Normals", &compute.normal_pipeline, 1, 1);
+        let normal_task = &compute::Task::new("Normals", &compute.normal_pipeline, 1, 1);
 
         // let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
-        let tasks = vec![elevation_task];
+        let tasks = vec![elevation_task, normal_task];
         compute.compute(device, queue, tasks).await;
 
         let map = compute.create_bindings(device);

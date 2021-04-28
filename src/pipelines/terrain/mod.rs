@@ -2,15 +2,24 @@ use crate::{camera, noise, plane, settings, texture};
 use image::GenericImageView;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::convert::TryInto;
+use wgpu::util::DeviceExt;
 
 pub struct Terrain {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
     pub noise_bindings: noise::NoiseBindings,
+    pub vertex_buffer: wgpu::Buffer,
+    pub node_uniform_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl Terrain {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, noise: &noise::Noise) -> Terrain {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        viewport: &camera::Viewport,
+        noise: &noise::Noise,
+        tile: &plane::Plane,
+    ) -> Terrain {
         let noise_bindings = noise.create_bindings(device);
 
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -29,12 +38,27 @@ impl Terrain {
             ],
         });
 
+        let node_uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("uniform_bind_group_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_pipeline_layout"),
             bind_group_layouts: &[
                 &viewport.bind_group_layout,
                 &texture_bind_group_layout,
                 &noise_bindings.bind_group_layout,
+                &node_uniform_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -73,10 +97,18 @@ impl Terrain {
 
         let texture_bind_group = build_textures(device, queue, &texture_bind_group_layout);
 
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("terrain_vertex_buffer"),
+            contents: bytemuck::cast_slice(&tile.vertices),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
         Terrain {
             texture_bind_group,
             render_pipeline,
             noise_bindings,
+            vertex_buffer,
+            node_uniform_bind_group_layout,
         }
     }
 }

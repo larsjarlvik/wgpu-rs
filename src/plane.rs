@@ -9,8 +9,7 @@ use crate::settings;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
+    pub position: [f32; 2],
 }
 
 impl Vertex {
@@ -18,18 +17,11 @@ impl Vertex {
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
-                },
-            ],
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 0,
+                format: wgpu::VertexFormat::Float2,
+            }],
         }
     }
 }
@@ -66,8 +58,7 @@ impl Plane {
         for z in 0..size + 1 {
             for x in 0..size + 1 {
                 vertices.push(Vertex {
-                    position: [(x as f32) - half_size, 0.0, (z as f32) - half_size],
-                    normal: [0.0, 1.0, 0.0],
+                    position: [(x as f32) - half_size, (z as f32) - half_size],
                 });
             }
         }

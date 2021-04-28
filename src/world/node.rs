@@ -1,4 +1,4 @@
-use super::WorldData;
+use super::{node_uniforms, WorldData};
 use crate::{
     assets, camera,
     pipelines::{self, model},
@@ -10,13 +10,11 @@ use rand_pcg::Pcg64;
 use rand_seeder::Seeder;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
-use wgpu::util::DeviceExt;
 
 pub struct NodeData {
-    pub terrain_buffer: wgpu::Buffer,
-    pub water_buffer: wgpu::Buffer,
     pub model_instances: HashMap<String, Vec<model::Instance>>,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
+    pub uniforms: node_uniforms::UniformBuffer,
 }
 
 pub struct Node {
@@ -114,12 +112,6 @@ impl Node {
             .map(|lod| plane.create_indices(&device, lod as u32 + 1))
             .collect();
 
-        let terrain_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("terrain_vertex_buffer"),
-            contents: bytemuck::cast_slice(&plane.vertices),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
-
         for asset in assets::ASSETS {
             for mesh in asset.meshes {
                 let model = world
@@ -137,11 +129,18 @@ impl Node {
             }
         }
 
+        let uniforms = node_uniforms::UniformBuffer::new(
+            device,
+            &world.terrain.node_uniform_bind_group_layout,
+            node_uniforms::Uniforms {
+                translation: [self.x, self.z],
+            },
+        );
+
         self.data = Some(NodeData {
-            terrain_buffer,
-            water_buffer: world.water.create_buffer(&device, self.x, self.z),
             model_instances,
             lods,
+            uniforms,
         });
     }
 
@@ -159,9 +158,10 @@ impl Node {
                 );
                 let v = world.get_vertex(m);
                 let elev = world.get_elevation(v, m) - 0.25;
+                let normal = vec3(0.0, 1.0, 0.0); // TODO
                 (
                     elev,
-                    v.normal,
+                    normal,
                     m.x,
                     m.y,
                     rng.gen::<f32>(),

@@ -21,6 +21,7 @@ pub fn get_water_bundle(
     encoder.set_bind_group(1, &pipeline.uniforms.bind_group, &[]);
     encoder.set_bind_group(2, &pipeline.noise_bindings.bind_group, &[]);
     encoder.set_bind_group(3, &pipeline.texture_bind_group, &[]);
+    encoder.set_vertex_buffer(0, pipeline.vertex_buffer.slice(..));
 
     let plane = camera.uniforms.data.clip[3];
     let eye = vec3(
@@ -38,7 +39,7 @@ pub fn get_water_bundle(
             {
                 let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
                 let lod_buffer = water_lod.get(&ct).unwrap();
-                encoder.set_vertex_buffer(0, data.water_buffer.slice(..));
+                encoder.set_bind_group(4, &data.uniforms.bind_group, &[]);
                 encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
             }

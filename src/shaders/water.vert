@@ -4,7 +4,7 @@
 #include "include/noise.glsl"
 #include "include/waves.glsl"
 
-layout(location=0) in vec3 a_position;
+layout(location=0) in vec2 a_position;
 
 layout(location=0) out vec4 v_position;
 
@@ -18,8 +18,13 @@ layout(set=0, binding=0) uniform Camera {
     vec2 u_viewport_size;
 };
 
+layout(set=4, binding=0) uniform Node {
+    vec2 u_translation;
+};
+
 void main() {
-    v_position = vec4(a_position, 1.0);
+    vec2 pos = a_position + u_translation;
+    v_position = vec4(pos.x, 0.0, pos.y, 1.0);
     v_position.y = get_wave(v_position.xz);
     gl_Position = u_view_proj * v_position;
 }

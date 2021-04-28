@@ -4,7 +4,6 @@ use wgpu::util::DeviceExt;
 mod uniforms;
 
 pub struct Water {
-    pub plane: plane::Plane,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
     pub uniforms: uniforms::UniformBuffer,
     pub render_pipeline: wgpu::RenderPipeline,
@@ -14,10 +13,12 @@ pub struct Water {
     pub reflection_texture_view: wgpu::TextureView,
     pub reflection_depth_texture_view: wgpu::TextureView,
     pub texture_bind_group: wgpu::BindGroup,
+    pub vertex_buffer: wgpu::Buffer,
+    pub node_uniform_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, noise: &noise::Noise) -> Self {
+    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, noise: &noise::Noise, tile: &plane::Plane) -> Self {
         let noise_bindings = noise.create_bindings(device);
         let uniforms = uniforms::UniformBuffer::new(
             &device,
@@ -29,11 +30,10 @@ impl Water {
                 time: 0.0,
             },
         );
-        let plane = plane::Plane::new(settings::TILE_SIZE);
         let mut lods = vec![];
 
         for lod in 0..=settings::LODS.len() {
-            let indices_lod = plane.create_indices(&device, lod as u32 + 1);
+            let indices_lod = tile.create_indices(&device, lod as u32 + 1);
             lods.push(indices_lod);
         }
 
@@ -76,6 +76,20 @@ impl Water {
             ],
         });
 
+        let node_uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("uniform_bind_group_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("water_pipeline_layout"),
             bind_group_layouts: &[
@@ -83,6 +97,7 @@ impl Water {
                 &uniforms.bind_group_layout,
                 &noise_bindings.bind_group_layout,
                 &texture_bind_group_layout,
+                &node_uniform_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -119,8 +134,13 @@ impl Water {
             multisample: wgpu::MultisampleState::default(),
         });
 
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("water_vertex_buffer"),
+            contents: bytemuck::cast_slice(&tile.vertices),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+
         Self {
-            plane,
             lods,
             uniforms,
             render_pipeline,
@@ -130,22 +150,9 @@ impl Water {
             refraction_depth_texture_view,
             texture_bind_group,
             reflection_depth_texture_view,
+            vertex_buffer,
+            node_uniform_bind_group_layout,
         }
-    }
-
-    pub fn create_buffer(&self, device: &wgpu::Device, x: f32, z: f32) -> wgpu::Buffer {
-        let mut vertices = self.plane.vertices.clone();
-        for v in vertices.iter_mut() {
-            v.position[0] += x;
-            v.position[2] += z;
-        }
-
-        let contents: &[u8] = bytemuck::cast_slice(&vertices);
-        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("water_vertex_buffer"),
-            contents,
-            usage: wgpu::BufferUsage::VERTEX,
-        })
     }
 
     pub fn update(&mut self, queue: &wgpu::Queue, time: Instant) {

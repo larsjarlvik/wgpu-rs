@@ -37,7 +37,10 @@ impl State {
                     features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY
                         | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
                         | wgpu::Features::DEPTH_CLAMPING,
-                    limits: wgpu::Limits::default(),
+                    limits: wgpu::Limits {
+                        max_bind_groups: 5,
+                        ..Default::default()
+                    },
                 },
                 None,
             )

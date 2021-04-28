@@ -24,7 +24,7 @@ impl Refraction {
         let nodes = root_node.get_nodes(&camera);
 
         Self {
-            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data.terrain, &nodes),
+            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data, &nodes),
             camera,
             deferred,
         }
@@ -42,7 +42,7 @@ impl Refraction {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         let nodes = root_node.get_nodes(&self.camera);
-        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data.terrain, &nodes);
+        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, deferred: &pipelines::deferred::DeferredRender, viewport: &camera::Viewport) {

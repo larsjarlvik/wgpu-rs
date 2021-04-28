@@ -18,6 +18,7 @@ pub struct Views {
 impl Views {
     pub fn new(device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Views {
         let deferred = pipelines::deferred::DeferredRender::new(&device, &viewport);
+
         Self {
             eye: eye::Eye::new(device, &deferred, world, viewport, root_node),
             refraction: refraction::Refraction::new(device, &deferred, world, viewport, root_node),

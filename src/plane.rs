@@ -67,27 +67,6 @@ impl Plane {
         Self { vertices, length, size }
     }
 
-    pub fn sub(&self, x: f32, z: f32, size: u32) -> (Self, f32, f32) {
-        let mut vertices = Vec::new();
-        let x = (x + (self.size as f32 / 2.0)) as u32 - size / 2;
-        let z = (z + (self.size as f32 / 2.0)) as u32 - size / 2;
-        let first = self.vertices.get(0).unwrap();
-        let mut y_min = first.position[1];
-        let mut y_max = first.position[1];
-
-        for z in z..=(z + size) {
-            for x in x..=(x + size) {
-                let vertex = self.vertices.get(self.get_index(x, z) as usize).unwrap();
-                y_min = y_min.min(vertex.position[1]);
-                y_max = y_max.max(vertex.position[1]);
-                vertices.push(*vertex);
-            }
-        }
-
-        let length = vertices.len() as u32;
-        (Self { vertices, length, size }, y_min, y_max)
-    }
-
     pub fn create_indices(&self, device: &wgpu::Device, lod: u32) -> HashMap<ConnectType, LodBuffer> {
         let mut lod_buffers: HashMap<ConnectType, LodBuffer> = HashMap::new();
         let n_lod = 2u32.pow(lod as u32 - 1) / 2;

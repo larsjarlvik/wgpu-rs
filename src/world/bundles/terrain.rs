@@ -1,13 +1,16 @@
 use crate::{
-    camera, pipelines, plane, settings,
-    world::node::{Node, NodeData},
+    camera, plane, settings,
+    world::{
+        self,
+        node::{Node, NodeData},
+    },
 };
 use cgmath::*;
 
 pub fn get_terrain_bundle(
     device: &wgpu::Device,
     camera: &camera::Instance,
-    pipeline: &pipelines::terrain::Terrain,
+    world_data: &world::WorldData,
     nodes: &Vec<(&Node, &NodeData)>,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -16,11 +19,11 @@ pub fn get_terrain_bundle(
         depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
         sample_count: 1,
     });
-    encoder.set_pipeline(&pipeline.render_pipeline);
+    encoder.set_pipeline(&world_data.terrain.render_pipeline);
     encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
-    encoder.set_bind_group(1, &pipeline.texture_bind_group, &[]);
-    encoder.set_bind_group(2, &pipeline.noise_bindings.bind_group, &[]);
-    encoder.set_vertex_buffer(0, pipeline.vertex_buffer.slice(..));
+    encoder.set_bind_group(1, &world_data.terrain.texture_bind_group, &[]);
+    encoder.set_bind_group(2, &world_data.terrain.noise_bindings.bind_group, &[]);
+    encoder.set_vertex_buffer(0, world_data.terrain.vertex_buffer.slice(..));
 
     let direction = camera.uniforms.data.clip[1];
     let plane = camera.uniforms.data.clip[3];
@@ -32,7 +35,7 @@ pub fn get_terrain_bundle(
 
     for (node, data) in nodes {
         for lod in 0..=settings::LODS.len() {
-            let terrain_lod = data.lods.get(lod).expect("Could not get LOD!");
+            let terrain_lod = world_data.lods.get(lod).expect("Could not get LOD!");
 
             if check_clip(direction, plane, &node.bounding_box)
                 && plane::get_lod(eye, vec3(node.x, 0.0, node.z), camera.uniforms.data.z_far) == lod as u32

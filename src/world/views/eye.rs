@@ -30,8 +30,8 @@ impl Eye {
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
-            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data.terrain, &nodes),
-            water_bundle: bundles::get_water_bundle(device, &camera, &world_data.water, &nodes),
+            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data, &nodes),
+            water_bundle: bundles::get_water_bundle(device, &camera, &world_data, &nodes),
             sky_bundle: bundles::get_sky_bundle(device, &camera, &world_data.sky),
             models_bundle: bundles::get_models_bundle(device, &camera, world_data, &mut model_instances, &nodes),
             model_instances,
@@ -52,8 +52,8 @@ impl Eye {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
         let nodes = root_node.get_nodes(&self.camera);
-        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data.terrain, &nodes);
-        self.water_bundle = bundles::get_water_bundle(device, &self.camera, &world_data.water, &nodes);
+        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
+        self.water_bundle = bundles::get_water_bundle(device, &self.camera, &world_data, &nodes);
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 

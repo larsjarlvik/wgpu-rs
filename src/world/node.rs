@@ -2,7 +2,7 @@ use super::{node_uniforms, WorldData};
 use crate::{
     assets, camera,
     pipelines::{self, model},
-    plane, settings,
+    settings,
 };
 use cgmath::*;
 use rand::Rng;
@@ -13,7 +13,6 @@ use std::collections::HashMap;
 
 pub struct NodeData {
     pub model_instances: HashMap<String, Vec<model::Instance>>,
-    pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
     pub uniforms: node_uniforms::UniformBuffer,
 }
 
@@ -104,13 +103,6 @@ impl Node {
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
         let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
-        let (plane, y_min, y_max) = world.heightmap.sub(self.x, self.z, settings::TILE_SIZE);
-        self.bounding_box.min.y = y_min;
-        self.bounding_box.max.y = y_max.max(0.0);
-
-        let lods = (0..=settings::LODS.len())
-            .map(|lod| plane.create_indices(&device, lod as u32 + 1))
-            .collect();
 
         for asset in assets::ASSETS {
             for mesh in asset.meshes {
@@ -137,11 +129,7 @@ impl Node {
             },
         );
 
-        self.data = Some(NodeData {
-            model_instances,
-            lods,
-            uniforms,
-        });
+        self.data = Some(NodeData { model_instances, uniforms });
     }
 
     fn create_assets(&self, world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {

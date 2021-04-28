@@ -1,6 +1,6 @@
 use crate::{assets, camera, models, noise, pipelines, plane, settings};
 use cgmath::*;
-use std::{time::Instant, usize};
+use std::{collections::HashMap, time::Instant, usize};
 mod bundles;
 mod compute;
 mod node;
@@ -15,6 +15,7 @@ pub struct WorldData {
     pub noise: noise::Noise,
     pub models: models::Models,
     pub heightmap: plane::Plane,
+    pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
 }
 
 pub struct World {
@@ -27,6 +28,10 @@ pub struct World {
 impl World {
     pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
         let tile = plane::Plane::new(settings::TILE_SIZE);
+        let lods = (0..=settings::LODS.len())
+            .map(|lod| tile.create_indices(&device, lod as u32 + 1))
+            .collect();
+
         let noise = noise::Noise::new(&device, &queue).await;
         let water = pipelines::water::Water::new(device, &viewport, &noise, &tile);
         let sky = pipelines::sky::Sky::new(device, &viewport);
@@ -58,6 +63,7 @@ impl World {
             sky,
             models,
             heightmap,
+            lods,
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);

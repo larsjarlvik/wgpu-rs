@@ -21,7 +21,7 @@ impl ModelInstances {
     pub fn new(device: &wgpu::Device, models: &models::Models) -> Self {
         let mut model_instances = HashMap::new();
 
-        for (key, _) in models.models.iter() {
+        for (key, _) in models.meshes.iter() {
             let instances: Vec<model::Instance> = vec![];
             let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("instance_buffer"),
@@ -55,7 +55,7 @@ pub fn get_models_bundle(
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
     for (key, model_instances) in model_instances.model_instances.iter_mut() {
-        let model = world_data.models.models.get(key).unwrap();
+        let model = world_data.models.meshes.get(key).unwrap();
         for mesh in &model.primitives {
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
@@ -88,7 +88,7 @@ pub fn get_models_shadow_bundle(
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
     for (key, model_instances) in model_instances.model_instances.iter_mut() {
-        let model = world_data.models.models.get(key).unwrap();
+        let model = world_data.models.meshes.get(key).unwrap();
         for mesh in &model.primitives {
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));

@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::{settings, texture};
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 use rand_seeder::Seeder;
@@ -102,10 +102,7 @@ impl Noise {
             label: Some("noise_texture"),
             layout: &bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.texture_view),
-                },
+                texture::create_bind_group_entry(0, &self.texture_view),
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),

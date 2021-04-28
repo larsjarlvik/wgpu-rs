@@ -1,6 +1,6 @@
-use super::{assets, WorldData};
+use super::WorldData;
 use crate::{
-    camera,
+    assets, camera,
     pipelines::{self, model},
     plane, settings,
 };
@@ -121,14 +121,20 @@ impl Node {
         });
 
         for asset in assets::ASSETS {
-            let model = world.models.models.get(&asset.name.to_string()).expect("Model not found!");
-            let assets = self.create_assets(world, asset);
-            for asset in &assets {
-                let asset_bb = model.bounding_box.transform(asset.transform);
-                self.bounding_box = self.bounding_box.grow(&asset_bb);
-            }
+            for mesh in asset.meshes {
+                let model = world
+                    .models
+                    .meshes
+                    .get(&mesh.name.to_string())
+                    .expect(format!("Mesh {} not found!", mesh.name).as_str());
+                let assets = self.create_assets(world, &mesh);
+                for asset in &assets {
+                    let asset_bb = model.bounding_box.transform(asset.transform);
+                    self.bounding_box = self.bounding_box.grow(&asset_bb);
+                }
 
-            model_instances.insert(asset.name.to_string(), assets);
+                model_instances.insert(mesh.name.to_string(), assets);
+            }
         }
 
         self.data = Some(NodeData {
@@ -139,13 +145,13 @@ impl Node {
         });
     }
 
-    fn create_assets(&self, world: &WorldData, asset: &assets::Asset) -> Vec<pipelines::model::Instance> {
-        let count = (self.size * self.size * asset.density) as u32;
+    fn create_assets(&self, world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
+        let count = (self.size * self.size * mesh.density) as u32;
 
         (0..count)
             .into_par_iter()
             .map(|i| {
-                let seed = format!("{}_NODE_{}_{}_{}_{}", settings::MAP_SEED, self.x, self.z, asset.name, i);
+                let seed = format!("{}_NODE_{}_{}_{}_{}", settings::MAP_SEED, self.x, self.z, mesh.name, i);
                 let mut rng: Pcg64 = Seeder::from(seed).make_rng();
                 let m = vec2(
                     self.x + (rng.gen::<f32>() - 0.5) * self.size,
@@ -159,10 +165,10 @@ impl Node {
                     m.x,
                     m.y,
                     rng.gen::<f32>(),
-                    rng.gen_range(asset.min_size..asset.max_size),
+                    rng.gen_range(mesh.min_size..mesh.max_size),
                 )
             })
-            .filter(|(my, normal, ..)| *my > 0.0 && normal[1] > asset.max_slope)
+            .filter(|(my, normal, ..)| *my > 0.0 && normal[1] > mesh.max_slope)
             .map(|(my, _, mx, mz, rot, scale)| {
                 let t = Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale);
                 pipelines::model::Instance { transform: t.into() }

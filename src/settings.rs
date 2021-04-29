@@ -12,7 +12,7 @@ pub const CAMERA_ACCELERATION: f32 = 10.0;
 pub const CAMERA_FRICTION: f32 = 1.0;
 pub const CAMERA_SENSITIVITY: f32 = 10.0;
 pub const HORIZONTAL_SCALE: f32 = 0.005;
-pub const VERTICAL_SCALE: f32 = 0.007;
+pub const VERTICAL_SCALE: f32 = 0.004;
 pub const SEA_LEVEL: f32 = 0.4;
 pub const TERRAIN_OCTAVES: u32 = 4;
 pub const TILE_SIZE: u32 = 40;
@@ -26,6 +26,6 @@ pub const LIGHT_AMBIENT: f32 = 0.3;
 pub const LIGHT_INTENSITY: f32 = 1.0;
 pub const SHADOW_CASCADE_SPLITS: [f32; 4] = [0.05, 0.15, 0.3, 1.0];
 pub const SHADOW_RESOLUTION: u32 = 4096;
-pub const MAP_DETAIL: u32 = 2048;
+pub const MAP_DETAIL: u32 = 2560;
 
 pub const MAP_SEED: &str = "RANDOM_SEED";

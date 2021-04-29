@@ -7,8 +7,8 @@ mod uniforms;
 pub struct Compute {
     pub elevation_pipeline: wgpu::ComputePipeline,
     pub normal_pipeline: wgpu::ComputePipeline,
-    // pub erosion_pipeline: wgpu::ComputePipeline,
-    // pub smooth_pipeline: wgpu::ComputePipeline,
+    pub erosion_pipeline: wgpu::ComputePipeline,
+    pub smooth_pipeline: wgpu::ComputePipeline,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     noise_bindings: noise::NoiseBindings,
     compute_texture_bind_group: wgpu::BindGroup,
@@ -28,7 +28,7 @@ impl Compute {
             label: Some("texture_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                visibility: wgpu::ShaderStage::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     view_dimension: wgpu::TextureViewDimension::D2,
                     format: wgpu::TextureFormat::Rgba32Float,
@@ -91,17 +91,17 @@ impl Compute {
         let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-norm.comp.spv"));
         let normal_pipeline = create_pipeline(device, &layout, &module, "normal");
 
-        // let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-erosion.comp.spv"));
-        // let erosion_pipeline = create_pipeline(device, &layout, &module, "erosion");
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-erosion.comp.spv"));
+        let erosion_pipeline = create_pipeline(device, &layout, &module, "erosion");
 
-        // let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-smooth.comp.spv"));
-        // let smooth_pipeline = create_pipeline(device, &layout, &module, "smooth");
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-smooth.comp.spv"));
+        let smooth_pipeline = create_pipeline(device, &layout, &module, "smooth");
 
         Self {
             elevation_pipeline,
             normal_pipeline,
-            // erosion_pipeline,
-            // smooth_pipeline,
+            erosion_pipeline,
+            smooth_pipeline,
             uniform_bind_group_layout,
             noise_bindings,
             compute_texture_bind_group,

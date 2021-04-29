@@ -5,25 +5,22 @@
 #include "include/compute.glsl"
 
 #define MAX_ITERATIONS 100
-#define DEPOSITION_RATE 0.03
-#define EROSION_RATE 0.04
+#define DEPOSITION_RATE 0.5
+#define EROSION_RATE 0.8
 #define SPEED 0.15
 #define FRICTION 0.7
 #define ITERATION_SCALE 0.04
 #define RADIUS 0.8
-#define RESOLUTION 0.1
-#define SCALE 4.0
+#define RESOLUTION 2.0
 
-float sample_height(vec2 pos) {
-    float size = float(u_size);
-    vec2 s = pos * SCALE;
+float sample_height(vec2 s) {
     vec2 n = floor(s);
     vec2 f = s - n;
 
-    float ylu = comp_vertices[uint(n.x + n.y * size)].y;
-    float yld = comp_vertices[uint(n.x + (n.y + 1.0) * size)].y;
-    float yru = comp_vertices[uint(n.x + 1.0 + n.y * size)].y;
-    float yrd = comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].y;
+    float ylu = imageLoad(elevation_normal_texture, ivec2(n)).x;
+    float yld = imageLoad(elevation_normal_texture, ivec2(n.x, n.y + 1.0)).x;
+    float yru = imageLoad(elevation_normal_texture, ivec2(n.x + 1.0, n.y)).x;
+    float yrd = imageLoad(elevation_normal_texture, ivec2(n.x + 1.0, n.y + 1.0)).x;
     float yl = ylu + (yld - ylu) * f.y;
     float yr = yru + (yrd - yru) * f.y;
 
@@ -46,37 +43,42 @@ vec3 sample_normal(vec2 pos) {
     return normalize(normal);
 }
 
-void change(vec2 pos, float delta) {
-    float size = float(u_size);
-    vec2 s = pos * SCALE;
+void update_val(vec2 pos, float val) {
+    vec4 current = imageLoad(elevation_normal_texture, ivec2(pos));
+    current.x += val;
+    imageStore(elevation_normal_texture, ivec2(pos), current);
+}
+
+void change(vec2 s, float delta) {
     vec2 n = floor(s);
     vec2 f = s - n;
 
-    comp_vertices[uint(n.x + n.y * size)].y += f.x * f.y * delta;
-    comp_vertices[uint(n.x + 1.0 + n.y * size)].y += (1.0 - f.x) * f.y * delta;
-    comp_vertices[uint(n.x + (n.y + 1.0) * size)].y += f.x * (1.0 - f.y) * delta;
-    comp_vertices[uint(n.x + 1.0 + (n.y + 1.0) * size)].y += (1.0 - f.x) * (1.0 - f.y) * delta;
+    update_val(vec2(n.x, n.y), f.x * f.y * delta);
+    update_val(vec2(n.x + 1.0, n.y), (1.0 - f.x) * f.y * delta);
+    update_val(vec2(n.x, n.y + 1.0), f.x * (1.0 - f.y) * delta);
+    update_val(vec2(n.x + 1.0, n.y + 1.0), (1.0 - f.x) * (1.0 - f.y) * delta);
 }
 
 void main() {
-    if (uint(gl_GlobalInvocationID.x) % u_stage_count != u_current_stage) {
+    uint execution_count = gl_GlobalInvocationID.y * u_size + gl_GlobalInvocationID.x;
+    if (execution_count % u_stage_count != u_current_stage) {
         return;
     }
 
-    Vertex vert = comp_vertices[gl_GlobalInvocationID.x];
-    vec2 pos = vec2(vert.x + (random(vec2(vert.x, vert.z)) * 15.0), vert.z + (random(vec2(vert.x, vert.z)) * 15.0));
+    vec2 xz = vec2(gl_GlobalInvocationID);
+    vec2 pos = vec2(xz.x + (random(xz) * 15.0), xz.y + (random(xz) * 15.0));
 
     vec2 o = vec2(
-        (random(vec2(vert.x, vert.z)) * 2.0 - 1.0) * RADIUS * RESOLUTION,
-        (random(vec2(vert.z, vert.x)) * 2.0 - 1.0) * RADIUS * RESOLUTION
+        (random(vec2(xz.x, xz.y)) * 2.0 - 1.0) * RADIUS * RESOLUTION,
+        (random(vec2(xz.y, xz.x)) * 2.0 - 1.0) * RADIUS * RESOLUTION
     );
+
     float sediment = 0.0;
-    vec2 x = pos + (float(u_size) / 2.0);
+    vec2 x = pos;
     vec2 p = x.xy;
     vec2 v = vec2(0.0);
-
     for (int i = 0; i < MAX_ITERATIONS; i++) {
-        vec3 surface_normal = sample_normal(x + o);
+        vec3 surface_normal = sample_normal(pos + o);
         if (surface_normal.y == 1.0) break;
 
         float deposit = sediment * DEPOSITION_RATE * surface_normal.y;

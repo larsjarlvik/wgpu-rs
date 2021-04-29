@@ -2,25 +2,9 @@
 
 #define NOISE_SET 2
 #include "include/noise.glsl"
-
-layout (set = 0, binding = 0, r32f) uniform image2D elevation_normal_texture;
-
-layout(set=1, binding=0) uniform ComputeData {
-    float u_sea_level;
-    float u_horizontal_scale;
-    float u_vertical_scale;
-    uint u_size;
-    uint u_octaves;
-    uint u_current_stage;
-    uint u_stage_count;
-};
+#include "include/compute.glsl"
 
 float read_elevation(ivec2 xz, ivec2 offset) {
-    // if (xz < 0 || xz >= u_size ||
-    //     xz < 0 || xz >= u_size) {
-    //     return get_elevation(vec2(v.x + offset.x, v.z + offset.y), u_sea_level, u_horizontal_scale, u_vertical_scale, u_octaves);
-    // }
-
     return imageLoad(elevation_normal_texture, ivec2(xz + offset)).r;
 }
 

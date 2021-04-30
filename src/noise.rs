@@ -30,7 +30,7 @@ impl Noise {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::R32Float,
-            usage: wgpu::TextureUsage::STORAGE | wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_SRC | wgpu::TextureUsage::COPY_DST,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         };
         let texture = device.create_texture(frame_descriptor);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());

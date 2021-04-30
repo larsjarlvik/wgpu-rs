@@ -26,7 +26,7 @@ layout(set = 4, binding = 1) uniform sampler t_compute_sampler;
 
 void main() {
     vec2 pos = a_position + u_translation;
-    vec4 elevation_normal = texture(sampler2D(t_elvation_normal, t_compute_sampler), (pos / u_size) * 0.5 + 0.5);
+    vec4 elevation_normal = texelFetch(sampler2D(t_elvation_normal, t_compute_sampler), ivec2(pos + (u_size / 2)), 0);
     float elev = elevation_normal.x;
     vec3 normal = elevation_normal.yzw;
 

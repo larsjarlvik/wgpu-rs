@@ -24,39 +24,18 @@ impl Compute {
     pub fn new(device: &wgpu::Device, noise: &noise::Noise) -> Self {
         let noise_bindings = noise.create_bindings(device);
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::COMPUTE,
-                    ty: wgpu::BindingType::StorageTexture {
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        format: wgpu::TextureFormat::Rgba32Float,
-                        access: wgpu::StorageTextureAccess::ReadWrite,
-                    },
-                    count: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::COMPUTE,
+                ty: wgpu::BindingType::StorageTexture {
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    format: wgpu::TextureFormat::R32Float,
+                    access: wgpu::StorageTextureAccess::ReadWrite,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: false,
-                    },
-                    count: None,
-                },
-            ],
+                count: None,
+            }],
         });
 
         let texture_size = settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH);
@@ -80,13 +59,7 @@ impl Compute {
         let compute_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("compute_texture"),
             layout: &texture_bind_group_layout,
-            entries: &[
-                texture::create_bind_group_entry(0, &elevation_normal_view),
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-            ],
+            entries: &[texture::create_bind_group_entry(0, &elevation_normal_view)],
         });
 
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -190,7 +163,7 @@ impl Compute {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()

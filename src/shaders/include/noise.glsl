@@ -38,15 +38,3 @@ float fbm(vec2 st, uint octaves) {
     }
     return v;
 }
-
-float get_elevation(vec2 p, float sea_level, float horizontal_scale, float vertical_scale, uint ocataves) {
-    vec2 xz = p * horizontal_scale;
-    vec2 q = vec2(fbm(xz, ocataves), fbm(xz + vec2(1.0), ocataves));
-
-    vec2 r = vec2(
-        fbm(xz + q + vec2(1.7 + 0.15, 9.2 + 0.15), ocataves),
-        fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), ocataves)
-    );
-
-    return (fbm(xz + r, ocataves) - sea_level) / vertical_scale;
-}

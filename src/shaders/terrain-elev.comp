@@ -2,18 +2,20 @@
 
 #define NOISE_SET 2
 #include "include/noise.glsl"
+#include "include/compute.glsl"
 
-layout(set=1, binding=0) uniform ComputeData {
-    float u_sea_level;
-    float u_horizontal_scale;
-    float u_vertical_scale;
-    uint u_size;
-    uint u_octaves;
-    uint u_current_stage;
-    uint u_stage_count;
-};
 
-layout (set = 0, binding = 0, rgba32f) uniform image2D elevation_normal_texture;
+float get_elevation(vec2 p, float sea_level, float horizontal_scale, float vertical_scale, uint ocataves) {
+    vec2 xz = p * horizontal_scale;
+    vec2 q = vec2(fbm(xz, ocataves), fbm(xz + vec2(1.0), ocataves));
+
+    vec2 r = vec2(
+        fbm(xz + q + vec2(1.7 + 0.15, 9.2 + 0.15), ocataves),
+        fbm(xz + q + vec2(8.3 + 0.126, 2.8 + 0.126), ocataves)
+    );
+
+    return (fbm(xz + r, ocataves) - sea_level) * vertical_scale;
+}
 
 void main() {
     vec2 xz = gl_GlobalInvocationID.xy;

@@ -52,7 +52,7 @@ impl Viewport {
             controller,
             target: Point3::new(0.0, 0.0, 0.0),
             eye: Point3::new(0.0, 0.0, 0.0),
-            rotation: Point2::new(85.0f32.to_radians(), -90.0f32.to_radians()),
+            rotation: Point2::new(45.0f32.to_radians(), -90.0f32.to_radians()),
             distance: 100.0,
             width,
             height,

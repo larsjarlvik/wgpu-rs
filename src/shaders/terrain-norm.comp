@@ -14,9 +14,10 @@ void main() {
 
     vec3 norm = normalize(vec3(
         read_elevation(xz, ivec2(-1, 0)) - read_elevation(xz, ivec2(1, 0)),
-        2.0,
+        1.0,
         read_elevation(xz, ivec2(0, -1)) - read_elevation(xz, ivec2(0, 1))
     ));
 
     imageStore(elevation_normal_texture, xz, vec4(elevation_normal.x, norm));
 }
+

@@ -12,9 +12,10 @@
 #define ITERATION_SCALE 0.04
 #define RADIUS 0.8
 #define RESOLUTION 0.1
+#define SCALE 4.0;
 
 float sample_height(vec2 pos) {
-    vec2 s = pos;
+    vec2 s = pos * SCALE;
     vec2 n = floor(s);
     vec2 f = s - n;
 
@@ -51,7 +52,7 @@ void update_val(vec2 pos, float val) {
 }
 
 void change(vec2 pos, float delta) {
-    vec2 s = pos;
+    vec2 s = pos * SCALE;
     vec2 n = floor(s);
     vec2 f = s - n;
 

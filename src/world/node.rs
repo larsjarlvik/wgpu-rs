@@ -134,7 +134,7 @@ impl Node {
         self.data = Some(NodeData { model_instances, uniforms });
     }
 
-    fn create_assets(&self, _world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
+    fn create_assets(&self, world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
         let count = (self.size * self.size * mesh.density) as u32;
 
         (0..count)
@@ -146,8 +146,9 @@ impl Node {
                     self.x + (rng.gen::<f32>() - 0.5) * self.size,
                     self.z + (rng.gen::<f32>() - 0.5) * self.size,
                 );
-                let elev = 0.0; // TODO
-                let normal = vec3(0.0, 1.0, 0.0); // TODO
+
+                let (pos, normal) = world.map.get_position_normal(m);
+                let elev = world.map.get_smooth_elevation(m, (pos, normal)) - 0.25;
                 (
                     elev,
                     normal,

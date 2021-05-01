@@ -87,8 +87,6 @@ impl Compute {
     }
 
     pub fn run<'a>(&self, device: &wgpu::Device, queue: &wgpu::Queue, tasks: Vec<&'a task::Task<'a>>) {
-        let now = Instant::now();
-
         tasks.iter().for_each(|task| {
             let now = Instant::now();
             for _ in 0..task.run_times {
@@ -114,8 +112,6 @@ impl Compute {
             }
             println!("{}: {} ms", task.label, now.elapsed().as_millis());
         });
-
-        println!("Total compute: {} ms", now.elapsed().as_millis());
     }
 
     fn run_task(&self, device: &wgpu::Device, task: &Task, uniform_bind_group: &wgpu::BindGroup) -> wgpu::CommandEncoder {

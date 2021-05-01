@@ -31,17 +31,8 @@ impl World {
             .map(|lod| tile.create_indices(&device, lod as u32 + 1))
             .collect();
 
-        let noise = noise::Noise::new(&device, &queue).await;
-
-        let mut map = map::Map::new(device, &noise);
-        let elevation_task = &map::Task::new("Elevation", &map.compute.elevation_pipeline, 1, 1);
-        let erosion_task = &map::Task::new("Erosion", &map.compute.erosion_pipeline, 2, 4);
-        let smooth_task = &map::Task::new("Smooth", &map.compute.smooth_pipeline, 3, 1);
-        let normal_task = &map::Task::new("Normals", &map.compute.normal_pipeline, 1, 1);
-
-        let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
-        map.compute.run(device, queue, tasks);
-        map.update_data(device, queue).await;
+        let noise = noise::Noise::new(device, queue).await;
+        let map = map::Map::new(device, queue, &noise).await;
 
         let water = pipelines::water::Water::new(device, &viewport, &noise, &tile);
         let sky = pipelines::sky::Sky::new(device, &viewport);

@@ -84,17 +84,3 @@ impl World {
         self.views.render(encoder, &self.data, target);
     }
 }
-
-// impl WorldData {
-//     pub fn get_vertex(&self, p: Vector2<f32>) -> &plane::Vertex {
-//         let half_size = self.map.size as f32 / 2.0;
-//         let a = self.map.get_index((p.x + half_size) as u32, (p.y + half_size) as u32) as usize;
-//         let v = self.map.vertices.get(a).unwrap();
-//         v
-//     }
-
-//     pub fn get_elevation(&self, v: &plane::Vertex, p: Vector2<f32>) -> f32 {
-//         let d = -(v.position[0] * v.normal[0] + v.position[1] * v.normal[1] + v.position[2] * v.normal[2]);
-//         -(d + v.normal[2] * p.y + v.normal[0] * p.x) / v.normal[1]
-//     }
-// }

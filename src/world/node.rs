@@ -103,6 +103,9 @@ impl Node {
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
         let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
+        let (y_min, y_max) = world.map.min_max_elevation(self.x, self.z, settings::TILE_SIZE);
+        self.bounding_box.min.y = y_min;
+        self.bounding_box.max.y = y_max.max(0.0);
 
         for asset in assets::ASSETS {
             for mesh in asset.meshes {

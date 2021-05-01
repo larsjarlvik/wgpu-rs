@@ -55,12 +55,34 @@ impl Map {
         let (x, z) = ((p.x + half_size) as u32, (p.y + half_size) as u32);
         let a = (z * self.size + x) as usize;
 
-        let v = self.data.elevation_normals[a];
-        (vec3(p.x.floor(), v.x, p.y.floor()), vec3(v.y, v.z, v.w))
+        match self.data.elevation_normals.get(a) {
+            Some(v) => (vec3(p.x.floor(), v.x, p.y.floor()), vec3(v.y, v.z, v.w)),
+            None => (vec3(p.x.floor(), 0.0, p.y.floor()), vec3(0.0, 1.0, 0.0)),
+        }
     }
 
     pub fn get_smooth_elevation(&self, p: Vector2<f32>, (pos, normal): (Vector3<f32>, Vector3<f32>)) -> f32 {
         let d = -(pos.x * normal.x + pos.y * normal.y + pos.z * normal.z);
         -(d + normal.z * p.y + normal.x * p.x) / normal[1]
+    }
+
+    pub fn min_max_elevation(&self, cx: f32, cz: f32, size: u32) -> (f32, f32) {
+        let size = size as i32;
+        let x = cx as i32 - size / 2;
+        let z = cz as i32 - size / 2;
+
+        let (pos, _) = self.get_position_normal(vec2(x as f32, z as f32));
+        let mut y_min = pos.y;
+        let mut y_max = pos.y;
+
+        for z in z..=(z + size) {
+            for x in x..=(x + size) {
+                let (pos, _) = self.get_position_normal(vec2(x as f32, z as f32));
+                y_min = y_min.min(pos.y);
+                y_max = y_max.max(pos.y);
+            }
+        }
+
+        (y_min, y_max)
     }
 }

@@ -86,7 +86,7 @@ impl Primitive {
         });
 
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Diffuse Texture"),
+            label: Some("model_textures"),
             layout: &render_pipeline.texture_bind_group_layout,
             entries: &entries,
         });

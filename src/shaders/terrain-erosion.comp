@@ -12,7 +12,7 @@
 #define ITERATION_SCALE 0.04
 #define RADIUS 0.8
 #define RESOLUTION 0.1
-#define SCALE 4.0;
+#define SCALE 4.0
 
 float sample_height(vec2 pos) {
     vec2 s = pos * SCALE;

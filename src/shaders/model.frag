@@ -12,12 +12,13 @@ layout(set = 0, binding = 2) uniform sampler s_texture;
 
 void main() {
    vec4 base_color = texture(sampler2D(t_diffuse, s_texture), v_tex_coords);
-   vec4 normal = texture(sampler2D(t_normal, s_texture), v_tex_coords);
-
    if (base_color.a < 0.3) {
       discard; return;
    }
 
-   f_normals = vec4(normalize(v_tangent * (normal.xyz * 2.0 - 1.0)), 1.0);
+   vec4 normal = texture(sampler2D(t_normal, s_texture), v_tex_coords);
+   vec3 n = normalize(v_tangent * (2.0 * normal.xyz - 1.0));
+
+   f_normals = vec4(n, 1.0);
    f_base_color = base_color;
 }

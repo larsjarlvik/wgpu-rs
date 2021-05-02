@@ -36,16 +36,25 @@ impl Map {
 
         // Biomes
         let temperature_task = &Task::new("Temperature", &compute.temperature_pipeline, 1, 1);
+        let moisture_task = &Task::new("Moisture", &compute.moisture_pipeline, 1, 1);
 
-        let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task, temperature_task];
-        compute.run(device, queue, tasks);
+        compute.run(
+            device,
+            queue,
+            vec![
+                elevation_task,
+                erosion_task,
+                smooth_task,
+                normal_task,
+                temperature_task,
+                moisture_task,
+            ],
+        );
 
         let parse = Instant::now();
         let elevation_normals = textures.read_texture(device, queue, &textures.elevation_normal_texture, size).await;
         let biome = textures.read_texture(device, queue, &textures.biome_texture, size).await;
         let data = RawData { elevation_normals, biome };
-
-        println!("{} {}", data.elevation_normals[100].x, data.biome[100].x);
 
         println!("Parse data: {} ms", parse.elapsed().as_millis());
         println!("Build map: {} ms", start.elapsed().as_millis());

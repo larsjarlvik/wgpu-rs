@@ -26,7 +26,7 @@ impl Terrain {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
-                texture::create_array_bind_group_layout(0, wgpu::TextureSampleType::Uint, 5),
+                texture::create_array_bind_group_layout(0, wgpu::TextureSampleType::Uint, 10),
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
@@ -130,12 +130,23 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
     let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Linear);
 
     // TODO: Use 3D texture
-    let paths = vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"];
+    let paths = vec![
+        "desert",
+        "desert_normals",
+        "grassland",
+        "grassland_normals",
+        "snow",
+        "snow_normals",
+        "tropical",
+        "tropical_normals",
+        "tundra",
+        "tundra_normals",
+    ];
     let textures = paths
         .par_iter()
         .map(|&t| load_texture(device, queue, t))
         .collect::<Vec<wgpu::TextureView>>();
-    let t: &[&wgpu::TextureView; 5] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
+    let t: &[&wgpu::TextureView; 10] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
 
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("terrain_textures"),

@@ -93,7 +93,7 @@ impl Model {
             }),
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::None,
+                cull_mode: wgpu::CullMode::Back,
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
@@ -102,7 +102,11 @@ impl Model {
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 2,
+                    slope_scale: 2.0,
+                    clamp: 0.0,
+                },
                 clamp_depth: true,
             }),
             multisample: wgpu::MultisampleState::default(),

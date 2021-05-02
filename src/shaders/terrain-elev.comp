@@ -1,7 +1,4 @@
 #version 450
-
-#define NOISE_SET 2
-#include "include/noise.glsl"
 #include "include/compute.glsl"
 
 float get_elevation(vec2 p, float sea_level, float horizontal_scale, float vertical_scale, uint ocataves) {

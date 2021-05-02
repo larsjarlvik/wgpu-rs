@@ -8,6 +8,7 @@ pub struct Compute {
     pub normal_pipeline: wgpu::ComputePipeline,
     pub erosion_pipeline: wgpu::ComputePipeline,
     pub smooth_pipeline: wgpu::ComputePipeline,
+    pub temperature_pipeline: wgpu::ComputePipeline,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     noise_bindings: noise::NoiseBindings,
     compute_texture_bind_group: wgpu::BindGroup,
@@ -16,28 +17,6 @@ pub struct Compute {
 
 impl Compute {
     pub fn new(device: &wgpu::Device, noise: &noise::Noise, textures: &textures::Textures, size: u32) -> Self {
-        let noise_bindings = noise.create_bindings(device);
-
-        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("texture_bind_group_layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::COMPUTE,
-                ty: wgpu::BindingType::StorageTexture {
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    format: wgpu::TextureFormat::R32Float,
-                    access: wgpu::StorageTextureAccess::ReadWrite,
-                },
-                count: None,
-            }],
-        });
-
-        let compute_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("compute_texture"),
-            layout: &texture_bind_group_layout,
-            entries: &[texture::create_bind_group_entry(0, &textures.elevation_normal)],
-        });
-
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -52,16 +31,53 @@ impl Compute {
             }],
         });
 
+        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("texture_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        format: wgpu::TextureFormat::Rgba32Float,
+                        access: wgpu::StorageTextureAccess::ReadWrite,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStage::COMPUTE,
+                    ty: wgpu::BindingType::StorageTexture {
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        format: wgpu::TextureFormat::Rgba32Float,
+                        access: wgpu::StorageTextureAccess::ReadWrite,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let compute_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("compute_textures"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                texture::create_bind_group_entry(0, &textures.elevation_normal),
+                texture::create_bind_group_entry(1, &textures.biome),
+            ],
+        });
+
+        let noise_bindings = noise.create_bindings(device);
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain_compute_layout"),
             bind_group_layouts: &[
-                &texture_bind_group_layout,
                 &uniform_bind_group_layout,
+                &texture_bind_group_layout,
                 &noise_bindings.bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
 
+        // Terrain pipelines
         let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-elev.comp.spv"));
         let elevation_pipeline = create_pipeline(device, &layout, &module, "elevation");
 
@@ -74,11 +90,16 @@ impl Compute {
         let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/terrain-smooth.comp.spv"));
         let smooth_pipeline = create_pipeline(device, &layout, &module, "smooth");
 
+        // Biome pipelines
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/biome-temperature.comp.spv"));
+        let temperature_pipeline = create_pipeline(device, &layout, &module, "temperature");
+
         Self {
             elevation_pipeline,
             normal_pipeline,
             erosion_pipeline,
             smooth_pipeline,
+            temperature_pipeline,
             uniform_bind_group_layout,
             noise_bindings,
             compute_texture_bind_group,
@@ -121,8 +142,8 @@ impl Compute {
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None });
             pass.set_pipeline(&task.pipeline);
-            pass.set_bind_group(0, &self.compute_texture_bind_group, &[]);
-            pass.set_bind_group(1, uniform_bind_group, &[]);
+            pass.set_bind_group(0, uniform_bind_group, &[]);
+            pass.set_bind_group(1, &self.compute_texture_bind_group, &[]);
             pass.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
             pass.dispatch(self.size, self.size, 1);
         }
@@ -132,7 +153,7 @@ impl Compute {
 
 fn create_pipeline(device: &wgpu::Device, layout: &wgpu::PipelineLayout, module: &wgpu::ShaderModule, name: &str) -> wgpu::ComputePipeline {
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(format!("terrain_compute_{}_pipeline", name).as_str()),
+        label: Some(format!("compute_{}_pipeline", name).as_str()),
         layout: Some(&layout),
         module,
         entry_point: "main",

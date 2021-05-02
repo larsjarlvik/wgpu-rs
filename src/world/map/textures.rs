@@ -1,8 +1,12 @@
 use cgmath::*;
 
+use crate::texture;
+
 pub struct Textures {
     pub elevation_normal: wgpu::TextureView,
     pub elevation_normal_texture: wgpu::Texture,
+    pub biome: wgpu::TextureView,
+    pub biome_texture: wgpu::Texture,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
 }
@@ -24,33 +28,19 @@ impl Textures {
         };
 
         let elevation_normal_texture = device.create_texture(texture_descriptor);
-        let elevation_normal = elevation_normal_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let biome_texture = device.create_texture(texture_descriptor);
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
+        let elevation_normal = elevation_normal_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let biome = biome_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("compute_texture_bind_group_layout"),
             entries: &[
+                texture::create_bind_group_layout(0, wgpu::TextureSampleType::Float { filterable: true }),
+                texture::create_bind_group_layout(1, wgpu::TextureSampleType::Float { filterable: true }),
                 wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
+                    binding: 2,
                     visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::Sampler {
                         comparison: false,
@@ -65,12 +55,10 @@ impl Textures {
             label: Some("compute_texture"),
             layout: &bind_group_layout,
             entries: &[
+                texture::create_bind_group_entry(0, &elevation_normal),
+                texture::create_bind_group_entry(1, &biome),
                 wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&elevation_normal),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
+                    binding: 2,
                     resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
@@ -79,6 +67,8 @@ impl Textures {
         Self {
             elevation_normal,
             elevation_normal_texture,
+            biome,
+            biome_texture,
             bind_group_layout,
             bind_group,
         }

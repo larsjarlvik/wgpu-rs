@@ -1,0 +1,7 @@
+#version 450
+#include "include/compute.glsl"
+
+void main() {
+    vec2 xz = gl_GlobalInvocationID.xy;
+    imageStore(biome_texture, ivec2(xz), vec4(0.5, 0.0, 0.0, 0.0));
+}

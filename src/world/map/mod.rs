@@ -17,6 +17,7 @@ pub struct Map {
 
 struct RawData {
     pub elevation_normals: Vec<Vector4<f32>>,
+    pub biome: Vec<Vector4<f32>>,
 }
 
 impl Map {
@@ -27,17 +28,24 @@ impl Map {
         let textures = textures::Textures::new(device, size);
         let compute = compute::Compute::new(device, noise, &textures, size);
 
+        // Terrain
         let elevation_task = &Task::new("Elevation", &compute.elevation_pipeline, 1, 1);
         let erosion_task = &Task::new("Erosion", &compute.erosion_pipeline, 2, 4);
         let smooth_task = &Task::new("Smooth", &compute.smooth_pipeline, 3, 1);
         let normal_task = &Task::new("Normals", &compute.normal_pipeline, 1, 1);
 
-        let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task];
+        // Biomes
+        let temperature_task = &Task::new("Temperature", &compute.temperature_pipeline, 1, 1);
+
+        let tasks = vec![elevation_task, erosion_task, smooth_task, normal_task, temperature_task];
         compute.run(device, queue, tasks);
 
         let parse = Instant::now();
         let elevation_normals = textures.read_texture(device, queue, &textures.elevation_normal_texture, size).await;
-        let data = RawData { elevation_normals };
+        let biome = textures.read_texture(device, queue, &textures.biome_texture, size).await;
+        let data = RawData { elevation_normals, biome };
+
+        println!("{} {}", data.elevation_normals[100].x, data.biome[100].x);
 
         println!("Parse data: {} ms", parse.elapsed().as_millis());
         println!("Build map: {} ms", start.elapsed().as_millis());

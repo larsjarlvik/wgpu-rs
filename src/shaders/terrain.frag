@@ -6,6 +6,7 @@
 layout(location=0) in vec4 v_position;
 layout(location=1) in mat3 v_tbn;
 layout(location=4) in vec3 v_normal;
+layout(location=5) in vec4 v_biome;
 
 layout(location=0) out vec4 f_normals;
 layout(location=1) out vec4 f_base_color;
@@ -52,5 +53,5 @@ Texture get_texture() {
 void main() {
     Texture t = get_texture();
     f_normals = vec4(normalize(v_tbn * (t.normal * 2.0 - 1.0)), 1.0);
-    f_base_color = vec4(t.diffuse, 1.0);
+    f_base_color = vec4(v_biome.xyz, 1.0);
 }

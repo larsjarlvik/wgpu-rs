@@ -127,15 +127,7 @@ fn load_texture(device: &wgpu::Device, queue: &wgpu::Queue, path: &str) -> wgpu:
 }
 
 fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group_layout: &wgpu::BindGroupLayout) -> wgpu::BindGroup {
-    let sampler = &device.create_sampler(&wgpu::SamplerDescriptor {
-        address_mode_u: wgpu::AddressMode::Repeat,
-        address_mode_v: wgpu::AddressMode::Repeat,
-        address_mode_w: wgpu::AddressMode::Repeat,
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        mipmap_filter: wgpu::FilterMode::Linear,
-        ..Default::default()
-    });
+    let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Linear);
 
     // TODO: Use 3D texture
     let paths = vec!["grass", "grass_normals", "cliffwall", "cliffwall_normals", "sand"];

@@ -1,7 +1,4 @@
 #version 450
-
-#define NOISE_SET 2
-#include "include/noise.glsl"
 #include "include/compute.glsl"
 
 #define MAX_ITERATIONS 100

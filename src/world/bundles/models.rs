@@ -2,7 +2,7 @@ use crate::{
     camera, models,
     pipelines::model,
     settings, world,
-    world::node::{Node, NodeData},
+    world::node::{self, Node, NodeData},
 };
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::collections::HashMap;
@@ -107,8 +107,13 @@ fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut ModelInst
     model_instances.model_instances.par_iter_mut().for_each(|(key, instance)| {
         let mut instances: Vec<model::Instance> = vec![];
         for (_, data) in nodes {
-            let node_instances = data.model_instances.get(key).expect("Could not find model instance!");
-            instances.extend(node_instances);
+            let node_instances = data.model_instances.get(key);
+            match node_instances {
+                Some(ni) => {
+                    instances.extend(ni);
+                }
+                None => (),
+            }
         }
 
         instance.length = instances.len() as u32;

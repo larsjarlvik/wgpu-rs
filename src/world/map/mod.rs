@@ -78,6 +78,17 @@ impl Map {
         }
     }
 
+    pub fn get_biome(&self, p: Vector2<f32>) -> (f32, f32) {
+        let half_size = self.size as f32 / 2.0;
+        let (x, z) = ((p.x + half_size) as u32, (p.y + half_size) as u32);
+        let a = (z * self.size + x) as usize;
+
+        match self.data.biome.get(a) {
+            Some(b) => (b.x, b.y),
+            None => (0.0, 0.0),
+        }
+    }
+
     pub fn get_smooth_elevation(&self, p: Vector2<f32>, (pos, normal): (Vector3<f32>, Vector3<f32>)) -> f32 {
         let d = -(pos.x * normal.x + pos.y * normal.y + pos.z * normal.z);
         -(d + normal.z * p.y + normal.x * p.x) / normal[1]

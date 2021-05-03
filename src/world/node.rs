@@ -107,20 +107,27 @@ impl Node {
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max.max(0.0);
 
+        let seed = format!("{}_NODE_{}_{}", settings::MAP_SEED, self.x, self.z);
+        let mut rng: Pcg64 = Seeder::from(seed).make_rng();
+
         for asset in assets::ASSETS {
-            for mesh in asset.meshes {
-                let model = world
-                    .models
-                    .meshes
-                    .get(&mesh.name.to_string())
-                    .expect(format!("Mesh {} not found!", mesh.name).as_str());
-                let assets = self.create_assets(world, &mesh);
-                for asset in &assets {
+            for (i, mesh) in asset.meshes.iter().enumerate() {
+                let assets = self.create_assets(world, mesh, i);
+                for asset in assets {
+                    let name = mesh.variants.get(rng.gen_range(0..mesh.variants.len())).unwrap();
+
+                    let model = world
+                        .models
+                        .meshes
+                        .get(&name.to_string())
+                        .expect(format!("Mesh {} not found!", name).as_str());
+
                     let asset_bb = model.bounding_box.transform(asset.transform);
                     self.bounding_box = self.bounding_box.grow(&asset_bb);
-                }
 
-                model_instances.insert(mesh.name.to_string(), assets);
+                    let instances = model_instances.entry(name.to_string()).or_insert(vec![]);
+                    instances.push(asset);
+                }
             }
         }
 
@@ -137,36 +144,66 @@ impl Node {
         self.data = Some(NodeData { model_instances, uniforms });
     }
 
-    fn create_assets(&self, world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
-        let count = (self.size * self.size * mesh.density) as u32;
+    fn create_assets(&mut self, world: &WorldData, mesh: &assets::Mesh, index: usize) -> Vec<pipelines::model::Instance> {
+        let seed = format!("{}_NODE_{}_{}_{}", settings::MAP_SEED, self.x, self.z, index);
+        let mut rng: Pcg64 = Seeder::from(seed).make_rng();
+        let mut count = (rng.gen::<f32>() * mesh.density.floor()) as usize;
+        if rng.gen::<f32>() < mesh.density.fract() {
+            count += 1;
+        }
 
         (0..count)
-            .into_par_iter()
-            .map(|i| {
-                let seed = format!("{}_NODE_{}_{}_{}_{}", settings::MAP_SEED, self.x, self.z, mesh.name, i);
-                let mut rng: Pcg64 = Seeder::from(seed).make_rng();
+            .map(|_| {
                 let m = vec2(
                     self.x + (rng.gen::<f32>() - 0.5) * self.size,
                     self.z + (rng.gen::<f32>() - 0.5) * self.size,
                 );
 
+                let (temp, moist) = world.map.get_biome(m);
+
+                let temp_probability = if temp < mesh.temp_preferred {
+                    (mesh.temp_preferred - mesh.temp_range[0]).abs() / 1.0 - (mesh.temp_preferred - temp).abs()
+                } else {
+                    (mesh.temp_preferred - mesh.temp_range[1]).abs() / 1.0 - (mesh.temp_preferred - temp).abs()
+                };
+
+                let moist_probability = if moist < mesh.moist_preferred {
+                    (mesh.moist_preferred - mesh.moist_range[0]).abs() / 1.0 - (mesh.moist_preferred - moist).abs()
+                } else {
+                    (mesh.moist_preferred - mesh.moist_range[1]).abs() / 1.0 - (mesh.moist_preferred - moist).abs()
+                };
+
                 let (pos, normal) = world.map.get_position_normal(m);
-                let elev = world.map.get_smooth_elevation(m, (pos, normal)) - 0.25;
-                (
-                    elev,
-                    normal,
-                    m.x,
-                    m.y,
-                    rng.gen::<f32>(),
-                    rng.gen_range(mesh.min_size..mesh.max_size),
-                )
+                (pos, normal, temp_probability, moist_probability)
             })
-            .filter(|(my, normal, ..)| *my > 0.0 && normal[1] > mesh.max_slope)
-            .map(|(my, _, mx, mz, rot, scale)| {
-                let t = Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale);
+            .filter(|(pos, normal, temp_probability, moist_probability)| {
+                let seed = format!("{}_CREATE_{}_{}_{}", settings::MAP_SEED, pos.x, pos.z, index);
+                let mut rng: Pcg64 = Seeder::from(seed).make_rng();
+
+                if 1.0 - normal.y < mesh.slope_range[0] || 1.0 - normal.y > mesh.slope_range[1] {
+                    return false;
+                }
+
+                if *temp_probability < rng.gen() || *moist_probability < rng.gen() {
+                    return false;
+                }
+
+                if pos.y <= 0.0 {
+                    return false;
+                }
+
+                true
+            })
+            .map(|(pos, _, _, _)| {
+                let seed = format!("{}_TRANSFORM_{}_{}_{}", settings::MAP_SEED, pos.x, pos.z, index);
+                let mut rng: Pcg64 = Seeder::from(seed).make_rng();
+
+                let rot = Deg(rng.gen::<f32>() * 360.0);
+                let scale = rng.gen_range(mesh.size_range[0]..mesh.size_range[1]);
+                let t = Matrix4::from_translation(pos) * Matrix4::from_angle_y(rot) * Matrix4::from_scale(scale);
                 pipelines::model::Instance { transform: t.into() }
             })
-            .collect::<Vec<pipelines::model::Instance>>()
+            .collect()
     }
 
     pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<(&Self, &NodeData)> {

@@ -19,7 +19,8 @@ layout(set = 1, binding = 1) uniform sampler s_texture;
 #define SNOW 4
 #define TROPICAL 6
 #define TUNDRA 8
-#define BIOME_COUNT 4
+#define BARREN 10
+#define BIOME_COUNT 5
 #define TEMP_OVERLAP 10.0
 #define MOIST_OVERLAP 0.1
 
@@ -37,8 +38,9 @@ struct Biome {
 
 Biome biomes[BIOME_COUNT] = Biome[BIOME_COUNT](
     Biome(TUNDRA, SNOW, 0.0, 0.5),
+    Biome(BARREN, TUNDRA, 5.0, 0.3),
     Biome(TUNDRA, GRASSLAND, 10.0, 0.3),
-    Biome(GRASSLAND, GRASSLAND, 30.0, -1.0),
+    Biome(BARREN, GRASSLAND, 30.0, 0.3),
     Biome(DESERT, TROPICAL, 50.0, 0.4)
 );
 

@@ -8,7 +8,6 @@ use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
 use rand_seeder::Seeder;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
 pub struct NodeData {
@@ -174,9 +173,9 @@ impl Node {
                 };
 
                 let (pos, normal) = world.map.get_position_normal(m);
-                (pos, normal, temp_probability, moist_probability)
+                (m, pos, normal, temp_probability, moist_probability)
             })
-            .filter(|(pos, normal, temp_probability, moist_probability)| {
+            .filter(|(_, pos, normal, temp_probability, moist_probability)| {
                 let seed = format!("{}_CREATE_{}_{}_{}", settings::MAP_SEED, pos.x, pos.z, index);
                 let mut rng: Pcg64 = Seeder::from(seed).make_rng();
 
@@ -194,13 +193,14 @@ impl Node {
 
                 true
             })
-            .map(|(pos, _, _, _)| {
+            .map(|(m, pos, normal, _, _)| {
                 let seed = format!("{}_TRANSFORM_{}_{}_{}", settings::MAP_SEED, pos.x, pos.z, index);
                 let mut rng: Pcg64 = Seeder::from(seed).make_rng();
 
+                let elev = world.map.get_smooth_elevation(m, (pos, normal)) - 0.25;
                 let rot = Deg(rng.gen::<f32>() * 360.0);
                 let scale = rng.gen_range(mesh.size_range[0]..mesh.size_range[1]);
-                let t = Matrix4::from_translation(pos) * Matrix4::from_angle_y(rot) * Matrix4::from_scale(scale);
+                let t = Matrix4::from_translation(vec3(m.x, elev, m.y)) * Matrix4::from_angle_y(rot) * Matrix4::from_scale(scale);
                 pipelines::model::Instance { transform: t.into() }
             })
             .collect()

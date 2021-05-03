@@ -2,7 +2,7 @@ use crate::{
     camera, models,
     pipelines::model,
     settings, world,
-    world::node::{self, Node, NodeData},
+    world::node::{Node, NodeData},
 };
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::collections::HashMap;

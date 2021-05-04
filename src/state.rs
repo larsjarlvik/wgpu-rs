@@ -39,6 +39,7 @@ impl State {
                         | wgpu::Features::DEPTH_CLAMPING,
                     limits: wgpu::Limits {
                         max_bind_groups: 5,
+                        max_sampled_textures_per_shader_stage: 32,
                         ..Default::default()
                     },
                 },

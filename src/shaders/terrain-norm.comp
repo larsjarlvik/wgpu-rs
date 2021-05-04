@@ -8,6 +8,7 @@ float read_elevation(ivec2 xz, ivec2 offset) {
 void main() {
     ivec2 xz = ivec2(gl_GlobalInvocationID.xy);
     vec4 elevation_normal = imageLoad(elevation_normal_texture, ivec2(xz));
+    vec4 biome = imageLoad(biome_texture, ivec2(xz));
 
     vec3 norm = normalize(vec3(
         read_elevation(xz, ivec2(-1, 0)) - read_elevation(xz, ivec2(1, 0)),
@@ -15,6 +16,16 @@ void main() {
         read_elevation(xz, ivec2(0, -1)) - read_elevation(xz, ivec2(0, 1))
     ));
 
+    float cliff = pow(1.0 - max(dot(norm, vec3(0, 1, 0)), 0.0), 3.0) * 6.0;
+    float beach = pow(1.0 - (elevation_normal.x - 1.0 + (fbm(gl_GlobalInvocationID.xy * 0.1, 4) * 3.0)), 0.5);
+
+    if (cliff > 0.5) {
+        biome.z += clamp(cliff - 0.5, 0.0, 1.0);
+    } else if (cliff < 0.5) {
+        biome.z -= clamp(beach, 0.0, 1.0);
+    }
+
+    imageStore(biome_texture, ivec2(xz), biome);
     imageStore(elevation_normal_texture, xz, vec4(elevation_normal.x, norm));
 }
 

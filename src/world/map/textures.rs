@@ -32,7 +32,7 @@ impl Textures {
 
         let elevation_normal = elevation_normal_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let biome = biome_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Nearest);
+        let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Linear);
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("compute_texture_bind_group_layout"),

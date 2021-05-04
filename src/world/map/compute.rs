@@ -10,6 +10,7 @@ pub struct Compute {
     pub smooth_pipeline: wgpu::ComputePipeline,
     pub temperature_pipeline: wgpu::ComputePipeline,
     pub moisture_pipeline: wgpu::ComputePipeline,
+    pub decoration_pipeline: wgpu::ComputePipeline,
     uniform_bind_group_layout: wgpu::BindGroupLayout,
     noise_bindings: noise::NoiseBindings,
     compute_texture_bind_group: wgpu::BindGroup,
@@ -98,6 +99,9 @@ impl Compute {
         let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/biome-moisture.comp.spv"));
         let moisture_pipeline = create_pipeline(device, &layout, &module, "moisture");
 
+        let module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/biome-decoration.comp.spv"));
+        let decoration_pipeline = create_pipeline(device, &layout, &module, "decoration");
+
         Self {
             elevation_pipeline,
             normal_pipeline,
@@ -105,6 +109,7 @@ impl Compute {
             smooth_pipeline,
             temperature_pipeline,
             moisture_pipeline,
+            decoration_pipeline,
             uniform_bind_group_layout,
             noise_bindings,
             compute_texture_bind_group,

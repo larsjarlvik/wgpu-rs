@@ -1,0 +1,21 @@
+#version 450
+#include "include/compute.glsl"
+
+#define RARITY 0.4
+
+void main() {
+    vec2 xz = gl_GlobalInvocationID.xy;
+    vec4 biome = imageLoad(biome_texture, ivec2(xz));
+    vec4 elevation_normal = imageLoad(elevation_normal_texture, ivec2(xz));
+
+    if (elevation_normal.z > 0.75) {
+        float x = fbm(xz * 0.4, 4) * 2.0 - 1.0;
+        if (x > RARITY) {
+            biome.w = 1.0;
+        } else if (x < -RARITY) {
+            biome.w = -1.0;
+        }
+
+        imageStore(biome_texture, ivec2(xz), biome);
+    }
+}

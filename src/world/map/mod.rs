@@ -37,6 +37,7 @@ impl Map {
         // Biomes
         let temperature_task = &Task::new("Temperature", &compute.temperature_pipeline, 1, 1);
         let moisture_task = &Task::new("Moisture", &compute.moisture_pipeline, 1, 1);
+        let decoration_task = &Task::new("Decoration", &compute.decoration_pipeline, 1, 1);
 
         compute.run(
             device,
@@ -48,6 +49,7 @@ impl Map {
                 normal_task,
                 temperature_task,
                 moisture_task,
+                decoration_task,
             ],
         );
 

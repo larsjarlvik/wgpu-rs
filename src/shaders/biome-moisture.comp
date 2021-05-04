@@ -1,7 +1,6 @@
 #version 450
 #include "include/compute.glsl"
 
-
 void main() {
     vec2 xz = gl_GlobalInvocationID.xy;
     vec4 biome = imageLoad(biome_texture, ivec2(xz));

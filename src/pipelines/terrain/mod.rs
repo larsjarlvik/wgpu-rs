@@ -26,7 +26,7 @@ impl Terrain {
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[
-                texture::create_array_bind_group_layout(0, wgpu::TextureSampleType::Uint, 22),
+                texture::create_array_bind_group_layout(0, wgpu::TextureSampleType::Uint, 26),
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStage::FRAGMENT,
@@ -153,12 +153,16 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
         "flowers_normals",
         "mud",
         "mud_normals",
+        "pebbles_grass",
+        "pebbles_grass_normals",
+        "pebbles_desert",
+        "pebbles_desert_normals",
     ];
     let textures = paths
         .par_iter()
         .map(|&t| load_texture(device, queue, t))
         .collect::<Vec<wgpu::TextureView>>();
-    let t: &[&wgpu::TextureView; 22] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
+    let t: &[&wgpu::TextureView; 26] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
 
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("terrain_textures"),

@@ -11,7 +11,7 @@ pub struct Model {
 
 impl Model {
     pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
-        let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Linear);
+        let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Linear);
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
             entries: &[

@@ -14,11 +14,11 @@ impl Primitive {
     pub fn new(buffers: &Vec<gltf::buffer::Data>, primitive: &gltf::Primitive) -> Self {
         let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
-        let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<_>>();
-        let positions = reader.read_positions().unwrap().collect::<Vec<_>>();
-        let normals = reader.read_normals().unwrap().collect::<Vec<_>>();
-        let tangents = reader.read_tangents().unwrap().collect::<Vec<_>>();
-        let tex_coords = reader.read_tex_coords(0).unwrap().into_f32().collect::<Vec<_>>();
+        let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<u32>>();
+        let positions = reader.read_positions().unwrap().collect::<Vec<[f32; 3]>>();
+        let normals = reader.read_normals().unwrap().collect::<Vec<[f32; 3]>>();
+        let tangents = reader.read_tangents().unwrap().collect::<Vec<[f32; 4]>>();
+        let tex_coords = reader.read_tex_coords(0).unwrap().into_f32().collect::<Vec<[f32; 2]>>();
 
         let mut vertices = vec![];
         for i in 0..positions.len() {

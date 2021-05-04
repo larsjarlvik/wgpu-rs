@@ -82,13 +82,13 @@ void main() {
     float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
 
     vec3 position = world_pos_from_depth(depth, gl_FragCoord.xy / u_viewport_size, inverse(u_view_proj));
-    vec4 normal = normalize(texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0));
+    vec4 normal = texelFetch(sampler2D(t_normal, t_sampler), fragCoord, 0);
     vec4 base_color = texelFetch(sampler2D(t_base_color, t_sampler), fragCoord, 0);
 
     vec3 color;
     if (depth < 1.0) {
         float shadow_factor = get_shadow(position);
-        color = base_color.rgb * calculate_light(position, normalize(normal.xyz), 16.0, 1.0, shadow_factor);
+        color = base_color.rgb * calculate_light(position, normal.xyz, 16.0, 1.0, shadow_factor);
     }
 
     f_color = vec4(color, 1.0);

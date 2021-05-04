@@ -25,7 +25,7 @@ void main() {
         biome.z -= clamp(beach, 0.0, 1.0);
     }
 
-    imageStore(biome_texture, ivec2(xz), biome);
+    imageStore(biome_texture, ivec2(xz), clamp(biome, -1.0, 1.0));
     imageStore(elevation_normal_texture, xz, vec4(elevation_normal.x, norm));
 }
 

@@ -43,9 +43,12 @@ vec3 sample_normal(vec2 pos) {
 }
 
 void update_val(vec2 pos, float val) {
-    vec4 current = imageLoad(elevation_normal_texture, ivec2(pos));
-    current.x += val;
-    imageStore(elevation_normal_texture, ivec2(pos), current);
+    vec4 current_elev = imageLoad(elevation_normal_texture, ivec2(pos));
+    vec4 current_biome = imageLoad(biome_texture, ivec2(pos));
+    current_elev.x += val;
+    current_biome.z -= val * 0.5;
+    imageStore(elevation_normal_texture, ivec2(pos), current_elev);
+    imageStore(biome_texture, ivec2(pos), current_biome);
 }
 
 void change(vec2 pos, float delta) {

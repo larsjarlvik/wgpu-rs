@@ -11,7 +11,7 @@ pub struct Primitive {
 }
 
 impl Primitive {
-    pub fn new(buffers: &Vec<gltf::buffer::Data>, primitive: &gltf::Primitive) -> Self {
+    pub fn new(buffers: &Vec<gltf::buffer::Data>, primitive: &gltf::Primitive, mesh_name: &String) -> Self {
         let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
 
         let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<u32>>();
@@ -30,7 +30,7 @@ impl Primitive {
             });
         }
 
-        let material_index = primitive.material().index().unwrap();
+        let material_index = primitive.material().index().expect(&format!("No material found! {}", mesh_name));
 
         let bounding_box = camera::BoundingBox {
             min: Point3::from(primitive.bounding_box().min),

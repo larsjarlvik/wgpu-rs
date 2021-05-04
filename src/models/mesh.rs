@@ -11,7 +11,7 @@ impl Mesh {
         let name = String::from(mesh.name().unwrap());
 
         for primitive in mesh.primitives() {
-            primitives.push(primitive::Primitive::new(buffers, &primitive));
+            primitives.push(primitive::Primitive::new(buffers, &primitive, &name));
         }
 
         Mesh { name, primitives }

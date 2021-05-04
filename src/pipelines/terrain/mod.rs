@@ -132,35 +132,27 @@ fn build_textures(device: &wgpu::Device, queue: &wgpu::Queue, texture_bind_group
     // TODO: Use 3D texture
     let paths = vec![
         "desert",
-        "desert_normals",
         "grassland",
-        "grassland_normals",
         "snow",
-        "snow_normals",
         "tropical",
-        "tropical_normals",
         "tundra",
-        "tundra_normals",
         "barren",
-        "barren_normals",
         "rock",
-        "rock_normals",
         "cliff",
-        "cliff_normals",
         "sand",
-        "sand_normals",
         "flowers",
-        "flowers_normals",
         "mud",
-        "mud_normals",
         "pebbles_grass",
-        "pebbles_grass_normals",
         "pebbles_desert",
-        "pebbles_desert_normals",
     ];
     let textures = paths
         .par_iter()
-        .map(|&t| load_texture(device, queue, t))
+        .flat_map(|&t| {
+            vec![
+                load_texture(device, queue, t),
+                load_texture(device, queue, &format!("{}_normals", t)),
+            ]
+        })
         .collect::<Vec<wgpu::TextureView>>();
     let t: &[&wgpu::TextureView; 26] = &textures.iter().collect::<Vec<_>>().try_into().unwrap();
 

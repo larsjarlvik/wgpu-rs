@@ -56,8 +56,8 @@ struct BiomeRange {
     float moist_split;
 };
 
-const Biome tundra = Biome(TUNDRA, TUNDRA, TUNDRA, ROCK, MUD);
 const Biome snow = Biome(SNOW, SNOW, SNOW, ROCK, SNOW);
+const Biome tundra = Biome(TUNDRA, TUNDRA, TUNDRA, ROCK, MUD);
 const Biome barren = Biome(BARREN, BARREN, BARREN, CLIFF, MUD);
 const Biome grassland = Biome(GRASSLAND, FLOWERS, PEBBLES_GRASS, CLIFF, SAND);
 const Biome desert = Biome(DESERT, PEBBLES_DESERT, PEBBLES_DESERT, CLIFF, DESERT);

@@ -3,6 +3,7 @@ use std::{collections::HashMap, time::Instant};
 mod bundles;
 mod map;
 mod node;
+mod node_assets;
 mod node_uniforms;
 mod views;
 

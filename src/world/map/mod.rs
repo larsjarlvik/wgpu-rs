@@ -96,6 +96,18 @@ impl Map {
         -(d + normal.z * p.y + normal.x * p.x) / normal[1]
     }
 
+    pub fn get_smooth_normal(&self, p: Vector2<f32>) -> Vector3<f32> {
+        let n00 = self.get_position_normal(vec2(p.x.floor(), p.y.ceil())).1;
+        let n01 = self.get_position_normal(vec2(p.x.ceil(), p.y.ceil())).1;
+
+        let n10 = self.get_position_normal(vec2(p.x.floor(), p.y.floor())).1;
+        let n11 = self.get_position_normal(vec2(p.x.ceil(), p.y.floor())).1;
+
+        let top = n00.lerp(n01, p.x.fract());
+        let bottom = n10.lerp(n11, p.x.fract());
+        top.lerp(bottom, p.y.fract())
+    }
+
     pub fn min_max_elevation(&self, cx: f32, cz: f32, size: u32) -> (f32, f32) {
         let size = size as i32;
         let x = cx as i32 - size / 2;

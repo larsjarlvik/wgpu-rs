@@ -26,7 +26,7 @@ impl Eye {
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred.get_render_bundle(device, &camera, "eye");
-        let nodes = root_node.get_nodes(&camera);
+        let nodes = node::filter_nodes(root_node.get_nodes(&camera.frustum), viewport);
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
@@ -51,9 +51,11 @@ impl Eye {
     ) {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
-        let nodes = root_node.get_nodes(&self.camera);
+        let nodes = root_node.get_nodes(&self.camera.frustum);
         self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
         self.water_bundle = bundles::get_water_bundle(device, &self.camera, &world_data, &nodes);
+
+        let nodes = node::filter_nodes(nodes, viewport);
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 

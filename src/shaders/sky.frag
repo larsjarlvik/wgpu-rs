@@ -10,6 +10,7 @@ layout(set=1, binding=0) uniform Uniforms {
     vec3 u_light_dir;
     float u_not_used;
     vec3 u_sky_color;
+    float u_sky_fade_distance;
 };
 
 layout(set=2, binding=0) uniform Camera {
@@ -49,7 +50,7 @@ void main() {
     vec4 color = texelFetch(sampler2D(t_texture, t_sampler), fragCoord, 0);
 
     if (depth < 1.0) {
-        float fog = smoothstep(z_far / 4.0, z_far, linearize_depth(depth));
+        float fog = smoothstep(z_far / 4.0 * u_sky_fade_distance, z_far * u_sky_fade_distance, linearize_depth(depth));
         f_color = mix(color, vec4(u_sky_color, 1.0), fog);
     } else {
         f_color = vec4(sky(), 1.0);

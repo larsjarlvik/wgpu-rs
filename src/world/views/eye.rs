@@ -67,10 +67,10 @@ impl Eye {
             },
         );
         renderer::render(
-            "environment",
+            "water",
             encoder,
             renderer::Args {
-                bundles: vec![&self.terrain_bundle, &self.models_bundle],
+                bundles: vec![&self.water_bundle],
                 color_targets: &[&color_target],
                 depth_target: Some(&depth_target),
                 clear_color: false,
@@ -78,10 +78,10 @@ impl Eye {
             },
         );
         renderer::render(
-            "water",
+            "environment",
             encoder,
             renderer::Args {
-                bundles: vec![&self.water_bundle],
+                bundles: vec![&self.terrain_bundle, &self.models_bundle],
                 color_targets: &[&color_target],
                 depth_target: Some(&depth_target),
                 clear_color: false,

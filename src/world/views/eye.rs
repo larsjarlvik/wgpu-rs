@@ -54,15 +54,26 @@ impl Eye {
         self.sky_bundle = bundles::get_sky_bundle(device, &self.camera, &world_data.sky);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData, target: &wgpu::TextureView) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+        renderer::render(
+            "sky",
+            encoder,
+            renderer::Args {
+                bundles: vec![&self.sky_bundle],
+                color_targets: &[&color_target],
+                depth_target: None,
+                clear_color: true,
+                clear_depth: false,
+            },
+        );
         renderer::render(
             "environment",
             encoder,
             renderer::Args {
                 bundles: vec![&self.terrain_bundle, &self.models_bundle],
-                color_targets: &[&world_data.sky.texture_view],
-                depth_target: Some(&world_data.sky.depth_texture_view),
-                clear_color: true,
+                color_targets: &[&color_target],
+                depth_target: Some(&depth_target),
+                clear_color: false,
                 clear_depth: true,
             },
         );
@@ -71,20 +82,9 @@ impl Eye {
             encoder,
             renderer::Args {
                 bundles: vec![&self.water_bundle],
-                color_targets: &[&world_data.sky.texture_view],
-                depth_target: Some(&world_data.sky.depth_texture_view),
+                color_targets: &[&color_target],
+                depth_target: Some(&depth_target),
                 clear_color: false,
-                clear_depth: false,
-            },
-        );
-        renderer::render(
-            "sky",
-            encoder,
-            renderer::Args {
-                bundles: vec![&self.sky_bundle],
-                color_targets: &[&target],
-                depth_target: None,
-                clear_color: true,
                 clear_depth: false,
             },
         );

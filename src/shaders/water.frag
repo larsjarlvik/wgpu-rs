@@ -5,6 +5,7 @@
 #include "include/waves.glsl"
 #include "include/camera.glsl"
 #include "include/light.glsl"
+#include "include/fog.glsl"
 
 #define SURFACE_COLOR vec3(0.236, 0.394, 0.404)
 #define DEPTH_COLOR vec3(0.0039, 0.00196, 0.145)
@@ -54,4 +55,5 @@ void main() {
     water_color = mix(ground, water_color, clamp(depth * 10.0, 0.0, 1.0));
 
     f_color = vec4(water_color, 1.0);
+    f_color = with_fog(f_color, v_position.xyz, 0.5);
 }

@@ -1,12 +1,7 @@
 #version 450
-
-layout(set = 0, binding = 0) uniform texture2D t_depth_texture;
-layout(set = 0, binding = 1) uniform texture2D t_texture;
-layout(set = 0, binding = 2) uniform sampler t_sampler;
+#include "include/camera.glsl"
 
 layout(location=0) out vec4 f_color;
-
-#include "include/camera.glsl"
 
 layout(set=1, binding=0) uniform SkyUniforms {
     vec3 light_dir;
@@ -14,10 +9,6 @@ layout(set=1, binding=0) uniform SkyUniforms {
     vec3 color;
     float fade_distance;
 } sky;
-
-float linearize_depth(float d) {
-    return cam.z_near * cam.z_far / (cam.z_far + d * (cam.z_near - cam.z_far));
-}
 
 vec4 world_pos_from_depth(float depth, vec2 coords, mat4 view_proj) {
     vec4 pos = vec4(vec2(coords.x, 1.0 - coords.y) * 2.0 - 1.0, depth, 1.0);
@@ -37,15 +28,6 @@ vec3 sky_color() {
 }
 
 void main() {
-    ivec2 fragCoord = ivec2(gl_FragCoord.xy);
-    float depth = texelFetch(sampler2D(t_depth_texture, t_sampler), fragCoord, 0).r;
-    vec4 color = texelFetch(sampler2D(t_texture, t_sampler), fragCoord, 0);
-
-    if (depth < 1.0) {
-        float fog = smoothstep(cam.z_far / 4.0 * sky.fade_distance, cam.z_far * sky.fade_distance, linearize_depth(depth));
-        f_color = mix(color, vec4(sky.color, 1.0), fog);
-    } else {
-        f_color = vec4(sky_color(), 1.0);
-    }
+    f_color = vec4(sky_color(), 1.0);
 }
 

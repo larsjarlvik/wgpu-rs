@@ -18,3 +18,4 @@ void main() {
     v_position.y = get_wave(v_position.xz);
     gl_Position = cam.view_proj * v_position;
 }
+

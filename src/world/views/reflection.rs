@@ -63,17 +63,6 @@ impl Reflection {
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData) {
         renderer::render(
-            "environment",
-            encoder,
-            renderer::Args {
-                bundles: vec![&self.terrain_bundle, &self.models_bundle],
-                color_targets: &[&world_data.sky.texture_view],
-                depth_target: Some(&world_data.sky.depth_texture_view),
-                clear_color: true,
-                clear_depth: true,
-            },
-        );
-        renderer::render(
             "sky",
             encoder,
             renderer::Args {
@@ -82,6 +71,17 @@ impl Reflection {
                 depth_target: None,
                 clear_color: true,
                 clear_depth: false,
+            },
+        );
+        renderer::render(
+            "environment",
+            encoder,
+            renderer::Args {
+                bundles: vec![&self.terrain_bundle, &self.models_bundle],
+                color_targets: &[&world_data.water.reflection_texture_view],
+                depth_target: Some(&world_data.water.reflection_depth_texture_view),
+                clear_color: false,
+                clear_depth: true,
             },
         );
     }

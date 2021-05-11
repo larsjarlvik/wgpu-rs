@@ -118,7 +118,7 @@ impl World {
         self.views.resize(device, &self.data, viewport);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
-        self.views.render(encoder, &self.data, target);
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+        self.views.render(encoder, &self.data, color_target, depth_target);
     }
 }

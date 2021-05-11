@@ -4,6 +4,7 @@
 #include "include/noise.glsl"
 #include "include/camera.glsl"
 #include "include/light.glsl"
+#include "include/fog.glsl"
 
 layout(set = 4, binding = 1) uniform texture2D t_biome;
 layout(set = 4, binding = 2) uniform sampler t_compute_sampler;
@@ -143,4 +144,5 @@ void main() {
 
     vec3 normal = normalize(v_tbn * (t.normal * 2.0 - 1.0));
     f_base_color = vec4(light_shadow(v_position.xyz, normal, t.base_color), 1.0);
+    f_base_color = with_fog(f_base_color, v_position.xyz, 0.5);
 }

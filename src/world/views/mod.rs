@@ -62,10 +62,16 @@ impl Views {
         self.shadow.resize(viewport);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world: &WorldData, target: &wgpu::TextureView) {
+    pub fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        world: &WorldData,
+        color_target: &wgpu::TextureView,
+        depth_target: &wgpu::TextureView,
+    ) {
         self.shadow.render(encoder, world);
         self.reflection.render(encoder, world);
         self.refraction.render(encoder, world);
-        self.eye.render(encoder, world, target);
+        self.eye.render(encoder, color_target, depth_target);
     }
 }

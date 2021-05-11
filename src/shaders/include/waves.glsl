@@ -1,9 +1,5 @@
 
 layout(set=1, binding=0) uniform Uniforms {
-    vec3 u_light_dir;
-    float u_ambient_strength;
-    vec3 u_light_color;
-    float u_light_intensity;
     float u_time;
 };
 

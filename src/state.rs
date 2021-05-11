@@ -108,11 +108,12 @@ impl State {
         let device = &mut self.device;
         let world = &mut self.world;
         let queue = &mut self.queue;
-        self.anti_aliasing.execute(&device, &queue, &frame.view, |target| {
-            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
-            world.render(&mut encoder, &target);
-            queue.submit(std::iter::once(encoder.finish()));
-        });
+        self.anti_aliasing
+            .execute(&device, &queue, &frame.view, |color_target, depth_target| {
+                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
+                world.render(&mut encoder, &color_target, &depth_target);
+                queue.submit(std::iter::once(encoder.finish()));
+            });
 
         Ok(())
     }

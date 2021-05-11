@@ -2,7 +2,8 @@
 
 #define NOISE_SET 2
 #include "include/noise.glsl"
-
+#include "include/camera.glsl"
+#include "include/light.glsl"
 
 layout(set = 4, binding = 1) uniform texture2D t_biome;
 layout(set = 4, binding = 2) uniform sampler t_compute_sampler;
@@ -12,8 +13,7 @@ layout(location=1) in mat3 v_tbn;
 layout(location=4) in vec3 v_normal;
 layout(location=5) in float v_size;
 
-layout(location=0) out vec4 f_normals;
-layout(location=1) out vec4 f_base_color;
+layout(location=0) out vec4 f_base_color;
 
 layout(set = 1, binding = 0) uniform texture2D t_textures[26];
 layout(set = 1, binding = 1) uniform sampler s_texture;
@@ -141,6 +141,6 @@ void main() {
     vec4 biome = texture(sampler2D(t_biome, t_compute_sampler), (v_position.xz + v_size / 2) / v_size);
     Texture t = get_biome(biome.x, biome.y, biome.z, biome.w);
 
-    f_normals = vec4(normalize(v_tbn * (t.normal * 2.0 - 1.0)), 1.0);
-    f_base_color = vec4(t.base_color, 1.0);
+    vec3 normal = normalize(v_tbn * (t.normal * 2.0 - 1.0));
+    f_base_color = vec4(light_shadow(v_position.xyz, normal, t.base_color), 1.0);
 }

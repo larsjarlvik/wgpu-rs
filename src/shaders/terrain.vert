@@ -1,4 +1,5 @@
 #version 450
+#include "include/camera.glsl"
 
 layout(location=0) in vec2 a_position;
 
@@ -6,16 +7,6 @@ layout(location=0) out vec4 v_position;
 layout(location=1) out mat3 v_tbn;
 layout(location=4) out vec3 v_normal;
 layout(location=5) out float v_size;
-
-layout(set=0, binding=0) uniform Camera {
-    mat4 u_view_proj;
-    vec3 u_eye_pos;
-    float z_near;
-    vec3 u_look_at;
-    float z_far;
-    vec4 u_clip;
-    vec2 u_viewport_size;
-};
 
 layout(set=3, binding=0) uniform Node {
     vec2 u_translation;
@@ -42,6 +33,6 @@ void main() {
     v_normal = normal;
     v_size = u_size;
 
-    gl_ClipDistance[0] = dot(v_position, u_clip);
-    gl_Position = u_view_proj * v_position;
+    gl_ClipDistance[0] = dot(v_position, cam.clip);
+    gl_Position = cam.view_proj * v_position;
 }

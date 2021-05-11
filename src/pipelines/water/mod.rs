@@ -18,18 +18,16 @@ pub struct Water {
 }
 
 impl Water {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, noise: &noise::Noise, tile: &plane::Plane) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        viewport: &camera::Viewport,
+        noise: &noise::Noise,
+        tile: &plane::Plane,
+        light_uniforms: &wgpu::BindGroupLayout,
+        light_textures: &wgpu::BindGroupLayout,
+    ) -> Self {
         let noise_bindings = noise.create_bindings(device);
-        let uniforms = uniforms::UniformBuffer::new(
-            &device,
-            uniforms::Uniforms {
-                light_color: settings::LIGHT_COLOR.into(),
-                ambient_strength: settings::LIGHT_AMBIENT,
-                light_dir: settings::LIGHT_DIR.into(),
-                light_intensity: settings::LIGHT_INTENSITY,
-                time: 0.0,
-            },
-        );
+        let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
         let mut lods = vec![];
 
         for lod in 0..=settings::LODS.len() {
@@ -98,6 +96,8 @@ impl Water {
                 &noise_bindings.bind_group_layout,
                 &texture_bind_group_layout,
                 &node_uniform_bind_group_layout,
+                light_uniforms,
+                light_textures,
             ],
             push_constant_ranges: &[],
         });

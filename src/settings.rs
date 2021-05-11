@@ -16,7 +16,7 @@ pub const VERTICAL_SCALE: f32 = 150.0;
 pub const SEA_LEVEL: f32 = 0.4;
 pub const TERRAIN_OCTAVES: u32 = 4;
 pub const TILE_SIZE: u32 = 40;
-pub const TILE_DEPTH: u32 = 6;
+pub const TILE_DEPTH: u32 = 3;
 pub static LODS: [f32; 3] = [0.1, 0.2, 0.3];
 
 pub static SKY_COLOR: Vector3<f32> = vec3(0.312, 0.573, 0.757);
@@ -25,7 +25,7 @@ pub const SKY_FADE_DISTANCE: f32 = 0.5;
 pub const LIGHT_DIR: Vector3<f32> = vec3(0.5, -1.0, 0.0);
 pub static LIGHT_COLOR: Vector3<f32> = vec3(1.0, 0.9, 0.5);
 pub const LIGHT_AMBIENT: f32 = 0.3;
-pub const LIGHT_INTENSITY: f32 = 1.0;
+pub const LIGHT_INTENSITY: f32 = 2.0;
 pub const SHADOW_CASCADE_SPLITS: [f32; 4] = [0.05, 0.15, 0.3, 1.0];
 pub const SHADOW_RESOLUTION: u32 = 4096;
 

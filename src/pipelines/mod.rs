@@ -1,4 +1,3 @@
-pub mod deferred;
 pub mod fxaa;
 pub mod model;
 pub mod sky;

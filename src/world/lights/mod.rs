@@ -1,22 +1,65 @@
-use crate::{camera, settings};
-mod textures;
+use crate::{camera, settings, texture};
 mod uniforms;
 use cgmath::*;
+use std::convert::TryInto;
 
-pub struct DeferredRender {
-    pub render_pipeline: wgpu::RenderPipeline,
+pub struct Lights {
     pub texture_bind_group: wgpu::BindGroup,
-    pub target: textures::Textures,
+    pub texture_bind_group_layout: wgpu::BindGroupLayout,
+    pub uniform_bind_group_layout: wgpu::BindGroupLayout,
     pub uniforms: uniforms::UniformBuffer,
     pub shadow_matrix: Vec<Matrix4<f32>>,
+    pub shadow_texture_view: Vec<wgpu::TextureView>,
 }
 
-impl DeferredRender {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
+impl Lights {
+    pub fn new(device: &wgpu::Device) -> Self {
         // Textures
-        let target = textures::Textures::new(device, viewport.width, viewport.height);
-        let texture_bind_group_layout = target.create_bind_group_layout(device);
-        let texture_bind_group = target.create_bind_group(device, &texture_bind_group_layout);
+        let shadow_sampler = texture::create_shadow_sampler(device);
+        let shadow_texture_view: Vec<wgpu::TextureView> = (0..settings::SHADOW_CASCADE_SPLITS.len())
+            .map(|_| {
+                texture::create_view(
+                    &device,
+                    settings::SHADOW_RESOLUTION,
+                    settings::SHADOW_RESOLUTION,
+                    settings::DEPTH_TEXTURE_FORMAT,
+                )
+            })
+            .collect();
+
+        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("deferred_textures_bind_group_layout"),
+            entries: &[
+                texture::create_array_bind_group_layout(0, wgpu::TextureSampleType::Depth, settings::SHADOW_CASCADE_SPLITS.len()),
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler {
+                        comparison: true,
+                        filtering: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let t: &[&wgpu::TextureView; settings::SHADOW_CASCADE_SPLITS.len()] =
+            &shadow_texture_view.iter().collect::<Vec<_>>().try_into().unwrap();
+
+        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("deferred_textures"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureViewArray(t),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&shadow_sampler),
+                },
+            ],
+        });
 
         // Uniforms
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -33,62 +76,25 @@ impl DeferredRender {
             }],
         });
 
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("deferred_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout, &viewport.bind_group_layout],
-            push_constant_ranges: &[],
-        });
-
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/deferred.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/deferred.frag.spv"));
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("deferred_pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &vs_module,
-                entry_point: "main",
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &fs_module,
-                entry_point: "main",
-                targets: &[settings::COLOR_TEXTURE_FORMAT.into()],
-            }),
-            primitive: wgpu::PrimitiveState {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                ..Default::default()
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: settings::DEPTH_TEXTURE_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-                clamp_depth: false,
-            }),
-            multisample: wgpu::MultisampleState::default(),
-        });
-
         let uniforms = uniforms::UniformBuffer::new(
             &device,
             &uniform_bind_group_layout,
             uniforms::Uniforms {
-                light_dir: [0.5, -1.0, 0.0],
-                light_color: [1.0, 0.9, 0.5],
-                ambient_strength: 0.3,
-                light_intensity: 2.0,
+                light_dir: settings::LIGHT_DIR.into(),
+                light_color: settings::LIGHT_COLOR.into(),
+                ambient_strength: settings::LIGHT_AMBIENT,
+                light_intensity: settings::LIGHT_INTENSITY,
                 shadow_matrix: [Matrix4::identity().into(); settings::SHADOW_CASCADE_SPLITS.len()],
                 shadow_split_depth: [[0.0, 0.0, 0.0, 0.0]; settings::SHADOW_CASCADE_SPLITS.len()],
             },
         );
 
-        DeferredRender {
-            render_pipeline,
+        Lights {
             texture_bind_group,
-            target,
+            texture_bind_group_layout,
+            uniform_bind_group_layout,
             uniforms,
+            shadow_texture_view,
             shadow_matrix: vec![Matrix4::identity(); settings::SHADOW_CASCADE_SPLITS.len()],
         }
     }
@@ -155,23 +161,5 @@ impl DeferredRender {
         }
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
-    }
-
-    pub fn get_render_bundle(&self, device: &wgpu::Device, camera: &camera::Instance, bundle_name: &str) -> wgpu::RenderBundle {
-        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
-            label: None,
-            color_formats: &[settings::COLOR_TEXTURE_FORMAT],
-            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
-            sample_count: 1,
-        });
-
-        encoder.set_pipeline(&self.render_pipeline);
-        encoder.set_bind_group(0, &self.texture_bind_group, &[]);
-        encoder.set_bind_group(1, &self.uniforms.bind_group, &[]);
-        encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
-        encoder.draw(0..6, 0..1);
-        encoder.finish(&wgpu::RenderBundleDescriptor {
-            label: Some(format!("deferred_{}", bundle_name).as_str()),
-        })
     }
 }

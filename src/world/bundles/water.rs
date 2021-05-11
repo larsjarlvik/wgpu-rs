@@ -24,6 +24,8 @@ pub fn get_water_bundle(
     encoder.set_bind_group(1, &world_data.water.uniforms.bind_group, &[]);
     encoder.set_bind_group(2, &world_data.water.noise_bindings.bind_group, &[]);
     encoder.set_bind_group(3, &world_data.water.texture_bind_group, &[]);
+    encoder.set_bind_group(5, &world_data.lights.uniforms.bind_group, &[]);
+    encoder.set_bind_group(6, &world_data.lights.texture_bind_group, &[]);
     encoder.set_vertex_buffer(0, world_data.water.vertex_buffer.slice(..));
 
     let plane = camera.uniforms.data.clip[3];

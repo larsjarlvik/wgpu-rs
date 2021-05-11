@@ -20,6 +20,8 @@ impl Terrain {
         noise: &noise::Noise,
         tile: &plane::Plane,
         map_bind_group_layout: &wgpu::BindGroupLayout,
+        light_uniforms: &wgpu::BindGroupLayout,
+        light_textures: &wgpu::BindGroupLayout,
     ) -> Terrain {
         let noise_bindings = noise.create_bindings(device);
 
@@ -61,6 +63,8 @@ impl Terrain {
                 &noise_bindings.bind_group_layout,
                 &node_uniform_bind_group_layout,
                 &map_bind_group_layout,
+                light_uniforms,
+                light_textures,
             ],
             push_constant_ranges: &[],
         });
@@ -78,7 +82,7 @@ impl Terrain {
             fragment: Some(wgpu::FragmentState {
                 module: &fs_module,
                 entry_point: "main",
-                targets: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
+                targets: &[settings::COLOR_TEXTURE_FORMAT.into()],
             }),
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,

@@ -1,10 +1,9 @@
 use super::renderer;
 use crate::{
-    camera, pipelines,
+    camera,
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
-use pipelines::*;
 
 pub struct Eye {
     pub terrain_bundle: wgpu::RenderBundle,
@@ -13,19 +12,11 @@ pub struct Eye {
     pub sky_bundle: wgpu::RenderBundle,
     pub model_instances: bundles::ModelInstances,
     pub camera: camera::Instance,
-    pub deferred: wgpu::RenderBundle,
 }
 
 impl Eye {
-    pub fn new(
-        device: &wgpu::Device,
-        deferred: &deferred::DeferredRender,
-        world_data: &WorldData,
-        viewport: &camera::Viewport,
-        root_node: &node::Node,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
-        let deferred = deferred.get_render_bundle(device, &camera, "eye");
         let nodes = node::filter_nodes(root_node.get_nodes(&camera.frustum), viewport);
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
@@ -36,7 +27,6 @@ impl Eye {
             models_bundle: bundles::get_models_bundle(device, &camera, world_data, &mut model_instances, &nodes),
             model_instances,
             camera,
-            deferred,
         }
     }
 
@@ -46,7 +36,7 @@ impl Eye {
         queue: &wgpu::Queue,
         world_data: &WorldData,
         viewport: &camera::Viewport,
-        view: Matrix4<f32>,
+        view: &Matrix4<f32>,
         root_node: &node::Node,
     ) {
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
@@ -59,41 +49,17 @@ impl Eye {
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 
-    pub fn resize(
-        &mut self,
-        device: &wgpu::Device,
-        deferred_render: &deferred::DeferredRender,
-        world_data: &WorldData,
-        viewport: &camera::Viewport,
-    ) {
+    pub fn resize(&mut self, device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport) {
         self.camera.resize(viewport.width, viewport.height);
-        self.deferred = deferred_render.get_render_bundle(device, &self.camera, "eye");
         self.sky_bundle = bundles::get_sky_bundle(device, &self.camera, &world_data.sky);
     }
 
-    pub fn render(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        deferred: &deferred::DeferredRender,
-        world_data: &WorldData,
-        target: &wgpu::TextureView,
-    ) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData, target: &wgpu::TextureView) {
         renderer::render(
             "environment",
             encoder,
             renderer::Args {
                 bundles: vec![&self.terrain_bundle, &self.models_bundle],
-                color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
-                depth_target: Some(&deferred.target.depth_texture_view),
-                clear_color: true,
-                clear_depth: true,
-            },
-        );
-        renderer::render(
-            "deferred",
-            encoder,
-            renderer::Args {
-                bundles: vec![&self.deferred],
                 color_targets: &[&world_data.sky.texture_view],
                 depth_target: Some(&world_data.sky.depth_texture_view),
                 clear_color: true,

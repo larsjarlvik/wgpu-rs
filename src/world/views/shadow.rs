@@ -1,6 +1,6 @@
 use super::renderer;
 use crate::{
-    camera, pipelines, settings,
+    camera, settings,
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
@@ -47,15 +47,15 @@ impl Shadow {
         queue: &wgpu::Queue,
         world_data: &WorldData,
         viewport: &camera::Viewport,
-        view: Matrix4<f32>,
-        deferred: &pipelines::deferred::DeferredRender,
+        view: &Matrix4<f32>,
         root_node: &node::Node,
     ) {
         self.cascades.par_iter_mut().for_each(|c| {
             let nodes = root_node.get_nodes(&c.camera.frustum);
             let nodes = node::filter_nodes(nodes, viewport);
 
-            c.camera.update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[c.i]);
+            c.camera
+                .update(queue, viewport.target, viewport.eye, world_data.lights.shadow_matrix[c.i]);
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
             c.models_bundle = bundles::get_models_shadow_bundle(device, &c.camera, world_data, &mut c.model_instances, &nodes);
         });
@@ -67,7 +67,7 @@ impl Shadow {
         }
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData) {
         for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
             renderer::render(
                 "shadows",
@@ -75,7 +75,7 @@ impl Shadow {
                 renderer::Args {
                     bundles: vec![&self.cascades[i].models_bundle],
                     color_targets: &[],
-                    depth_target: Some(&deferred.target.shadow_texture_view[i]),
+                    depth_target: Some(&world_data.lights.shadow_texture_view[i]),
                     clear_color: false,
                     clear_depth: true,
                 },

@@ -1,6 +1,6 @@
 use super::renderer;
 use crate::{
-    camera, pipelines,
+    camera,
     world::{bundles, node, WorldData},
 };
 use cgmath::*;
@@ -11,19 +11,11 @@ pub struct Reflection {
     pub sky_bundle: wgpu::RenderBundle,
     pub model_instances: bundles::ModelInstances,
     pub camera: camera::Instance,
-    pub deferred: wgpu::RenderBundle,
 }
 
 impl Reflection {
-    pub fn new(
-        device: &wgpu::Device,
-        deferred: &pipelines::deferred::DeferredRender,
-        world_data: &WorldData,
-        viewport: &camera::Viewport,
-        root_node: &node::Node,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
-        let deferred = deferred.get_render_bundle(device, &camera, "reflection");
 
         let nodes = root_node.get_nodes(&camera.frustum);
         let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
@@ -39,7 +31,6 @@ impl Reflection {
             models_bundle: bundles::get_models_bundle(device, &camera, world_data, &mut model_instances, &nodes),
             model_instances,
             camera,
-            deferred,
         }
     }
 
@@ -65,35 +56,17 @@ impl Reflection {
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 
-    pub fn resize(
-        &mut self,
-        device: &wgpu::Device,
-        deferred: &pipelines::deferred::DeferredRender,
-        world_data: &WorldData,
-        viewport: &camera::Viewport,
-    ) {
+    pub fn resize(&mut self, device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport) {
         self.camera.resize(viewport.width, viewport.height);
-        self.deferred = deferred.get_render_bundle(device, &self.camera, "reflection");
         self.sky_bundle = bundles::get_sky_bundle(device, &self.camera, &world_data.sky);
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, deferred: &pipelines::deferred::DeferredRender, world_data: &WorldData) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData) {
         renderer::render(
             "environment",
             encoder,
             renderer::Args {
                 bundles: vec![&self.terrain_bundle, &self.models_bundle],
-                color_targets: &[&deferred.target.normals_texture_view, &deferred.target.base_color_texture_view],
-                depth_target: Some(&deferred.target.depth_texture_view),
-                clear_color: true,
-                clear_depth: true,
-            },
-        );
-        renderer::render(
-            "deferred",
-            encoder,
-            renderer::Args {
-                bundles: vec![&self.deferred],
                 color_targets: &[&world_data.sky.texture_view],
                 depth_target: Some(&world_data.sky.depth_texture_view),
                 clear_color: true,

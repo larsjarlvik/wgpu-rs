@@ -10,7 +10,12 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        viewport: &camera::Viewport,
+        light_uniforms: &wgpu::BindGroupLayout,
+        light_textures: &wgpu::BindGroupLayout,
+    ) -> Self {
         let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Linear);
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -31,7 +36,12 @@ impl Model {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("model_pipeline_layout"),
-            bind_group_layouts: &[&texture_bind_group_layout, &viewport.bind_group_layout],
+            bind_group_layouts: &[
+                &texture_bind_group_layout,
+                &viewport.bind_group_layout,
+                light_uniforms,
+                light_textures,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -48,7 +58,7 @@ impl Model {
             fragment: Some(wgpu::FragmentState {
                 module: &fs_module,
                 entry_point: "main",
-                targets: &[settings::COLOR_TEXTURE_FORMAT.into(), settings::COLOR_TEXTURE_FORMAT.into()],
+                targets: &[settings::COLOR_TEXTURE_FORMAT.into()],
             }),
             primitive: wgpu::PrimitiveState {
                 front_face: wgpu::FrontFace::Ccw,

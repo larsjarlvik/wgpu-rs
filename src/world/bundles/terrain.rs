@@ -15,7 +15,7 @@ pub fn get_terrain_bundle(
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: Some("terrain_bundle"),
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT],
         depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
         sample_count: 1,
     });
@@ -24,6 +24,8 @@ pub fn get_terrain_bundle(
     encoder.set_bind_group(1, &world_data.terrain.texture_bind_group, &[]);
     encoder.set_bind_group(2, &world_data.terrain.noise_bindings.bind_group, &[]);
     encoder.set_bind_group(4, &world_data.map.textures.bind_group, &[]);
+    encoder.set_bind_group(5, &world_data.lights.uniforms.bind_group, &[]);
+    encoder.set_bind_group(6, &world_data.lights.texture_bind_group, &[]);
     encoder.set_vertex_buffer(0, world_data.terrain.vertex_buffer.slice(..));
 
     let direction = camera.uniforms.data.clip[1];

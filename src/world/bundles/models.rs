@@ -46,13 +46,15 @@ pub fn get_models_bundle(
 
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
-        color_formats: &[settings::COLOR_TEXTURE_FORMAT, settings::COLOR_TEXTURE_FORMAT],
+        color_formats: &[settings::COLOR_TEXTURE_FORMAT],
         depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
         sample_count: 1,
     });
 
     encoder.set_pipeline(&world_data.model.render_pipeline);
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
+    encoder.set_bind_group(2, &world_data.lights.uniforms.bind_group, &[]);
+    encoder.set_bind_group(3, &world_data.lights.texture_bind_group, &[]);
 
     for (key, model_instances) in model_instances.model_instances.iter_mut() {
         let model = world_data.models.meshes.get(key).unwrap();

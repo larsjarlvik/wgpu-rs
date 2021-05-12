@@ -30,7 +30,13 @@ impl Refraction {
         root_node: &node::Node,
     ) {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
-        self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
+        self.camera.update(
+            queue,
+            viewport.target,
+            viewport.eye,
+            viewport.proj * view,
+            viewport.z_near..viewport.z_far,
+        );
 
         let nodes = root_node.get_nodes(&self.camera.frustum);
         self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);

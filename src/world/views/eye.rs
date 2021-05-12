@@ -17,7 +17,7 @@ pub struct Eye {
 impl Eye {
     pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
-        let nodes = node::filter_nodes(root_node.get_nodes(&camera.frustum), viewport);
+        let nodes = root_node.get_nodes(&camera.frustum);
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
@@ -39,13 +39,17 @@ impl Eye {
         view: &Matrix4<f32>,
         root_node: &node::Node,
     ) {
-        self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
+        self.camera.update(
+            queue,
+            viewport.target,
+            viewport.eye,
+            viewport.proj * view,
+            viewport.z_near..viewport.z_far,
+        );
 
         let nodes = root_node.get_nodes(&self.camera.frustum);
         self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
         self.water_bundle = bundles::get_water_bundle(device, &self.camera, &world_data, &nodes);
-
-        let nodes = node::filter_nodes(nodes, viewport);
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 

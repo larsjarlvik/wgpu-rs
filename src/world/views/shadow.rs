@@ -52,10 +52,14 @@ impl Shadow {
     ) {
         self.cascades.par_iter_mut().for_each(|c| {
             let nodes = root_node.get_nodes(&c.camera.frustum);
-            let nodes = node::filter_nodes(nodes, viewport);
 
-            c.camera
-                .update(queue, viewport.target, viewport.eye, world_data.lights.shadow_matrix[c.i]);
+            c.camera.update(
+                queue,
+                viewport.target,
+                viewport.eye,
+                world_data.lights.shadow_matrix[c.i],
+                viewport.z_near..viewport.z_far,
+            );
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
             c.models_bundle = bundles::get_models_shadow_bundle(device, &c.camera, world_data, &mut c.model_instances, &nodes);
         });

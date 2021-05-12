@@ -159,11 +159,3 @@ impl Node {
         vec2(self.x, self.z).distance(vec2(x, z)) - self.radius
     }
 }
-
-pub fn filter_nodes<'a>(nodes: Vec<(&'a Node, &'a NodeData)>, viewport: &camera::Viewport) -> Vec<(&'a Node, &'a NodeData)> {
-    let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
-    nodes
-        .into_iter()
-        .filter(|(node, _)| node.get_distance(viewport.eye.x, viewport.eye.z) <= z_far_range * settings::SKY_FADE_DISTANCE)
-        .collect()
-}

@@ -37,7 +37,7 @@ fn main() {
     let mut state = block_on(state::State::new(&window));
     let mut fps = 0;
     let mut last_update = Instant::now();
-    optick::start_capture();
+    let mut profiling = false;
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
@@ -84,6 +84,18 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::Escape),
                     ..
                 } => exit(control_flow),
+                KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::P),
+                    ..
+                } => {
+                    if profiling {
+                        optick::stop_capture("wgpu-profile");
+                    } else {
+                        optick::start_capture();
+                    }
+                    profiling = !profiling;
+                }
                 KeyboardInput {
                     state: ElementState::Pressed,
                     virtual_keycode: Some(VirtualKeyCode::F),

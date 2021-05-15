@@ -30,7 +30,7 @@ pub struct Viewport {
 impl Viewport {
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let z_near = 1.0;
-        let z_far = 800.0;
+        let z_far = 1600.0;
         let fov_y = 45.0;
         let controller = controller::Controller::new();
 

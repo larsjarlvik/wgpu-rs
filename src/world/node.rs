@@ -55,8 +55,8 @@ impl Node {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
-        let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
-        let z_far_range = num_traits::Float::sqrt(viewport.z_far * viewport.z_far + viewport.z_far * viewport.z_far);
+        let distance = self.get_distance(viewport.eye.x, viewport.eye.z);
+        let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
 
         if distance > z_far_range {
             self.data = None;
@@ -144,14 +144,26 @@ impl Node {
         self.data = Some(NodeData { model_instances, uniforms });
     }
 
-    pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<(&Self, &NodeData)> {
-        if camera.frustum.test_bounding_box(&self.bounding_box) {
+    pub fn get_nodes(&self, frustum: &camera::FrustumCuller) -> Vec<(&Self, &NodeData)> {
+        if frustum.test_bounding_box(&self.bounding_box) {
             match &self.data {
                 Some(t) => vec![(&self, &t)],
-                None => self.children.iter().flat_map(|child| child.get_nodes(camera)).collect(),
+                None => self.children.iter().flat_map(|child| child.get_nodes(frustum)).collect(),
             }
         } else {
             vec![]
         }
     }
+
+    pub fn get_distance(&self, x: f32, z: f32) -> f32 {
+        vec2(self.x, self.z).distance(vec2(x, z)) - self.radius
+    }
+}
+
+pub fn filter_nodes<'a>(nodes: Vec<(&'a Node, &'a NodeData)>, viewport: &camera::Viewport) -> Vec<(&'a Node, &'a NodeData)> {
+    let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
+    nodes
+        .into_iter()
+        .filter(|(node, _)| node.get_distance(viewport.eye.x, viewport.eye.z) <= z_far_range * settings::SKY_FADE_DISTANCE)
+        .collect()
 }

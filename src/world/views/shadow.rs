@@ -16,7 +16,7 @@ pub struct Cascade {
 impl Cascade {
     fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node, i: usize) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
-        let nodes = root_node.get_nodes(&camera);
+        let nodes = root_node.get_nodes(&camera.frustum);
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
@@ -52,9 +52,11 @@ impl Shadow {
         root_node: &node::Node,
     ) {
         self.cascades.par_iter_mut().for_each(|c| {
+            let nodes = root_node.get_nodes(&c.camera.frustum);
+            let nodes = node::filter_nodes(nodes, viewport);
+
             c.camera.update(queue, viewport.target, viewport.eye, deferred.shadow_matrix[c.i]);
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
-            let nodes = root_node.get_nodes(&c.camera);
             c.models_bundle = bundles::get_models_shadow_bundle(device, &c.camera, world_data, &mut c.model_instances, &nodes);
         });
     }

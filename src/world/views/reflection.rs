@@ -24,7 +24,13 @@ impl Reflection {
     ) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let deferred = deferred.get_render_bundle(device, &camera, "reflection");
-        let nodes = root_node.get_nodes(&camera);
+
+        let nodes = root_node.get_nodes(&camera.frustum);
+        let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
+        let nodes = nodes
+            .into_iter()
+            .filter(|(node, _)| node.get_distance(viewport.eye.x, viewport.eye.z) <= z_far_range)
+            .collect();
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
@@ -52,8 +58,10 @@ impl Reflection {
         );
         self.camera.update(queue, viewport.target, viewport.eye, viewport.proj * view);
 
-        let nodes = root_node.get_nodes(&self.camera);
+        let nodes = root_node.get_nodes(&self.camera.frustum);
         self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
+
+        let nodes = node::filter_nodes(nodes, viewport);
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
 

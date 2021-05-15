@@ -60,7 +60,6 @@ impl Sky {
                 light_dir: settings::LIGHT_DIR.into(),
                 not_used: 0.0,
                 sky_color: settings::SKY_COLOR.into(),
-                sky_fade_distance: settings::SKY_FADE_DISTANCE,
             },
         );
 

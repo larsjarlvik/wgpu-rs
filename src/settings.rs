@@ -20,8 +20,6 @@ pub const TILE_DEPTH: u32 = 5;
 pub static LODS: [f32; 3] = [0.1, 0.2, 0.3];
 
 pub static SKY_COLOR: Vector3<f32> = vec3(0.312, 0.573, 0.757);
-pub const SKY_FADE_DISTANCE: f32 = 0.5;
-
 pub const LIGHT_DIR: Vector3<f32> = vec3(0.5, -1.0, 0.0);
 pub static LIGHT_COLOR: Vector3<f32> = vec3(1.0, 0.9, 0.5);
 pub const LIGHT_AMBIENT: f32 = 0.3;

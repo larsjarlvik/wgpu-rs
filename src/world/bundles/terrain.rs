@@ -1,9 +1,6 @@
 use crate::{
     camera, plane, settings,
-    world::{
-        self,
-        node::{Node, NodeData},
-    },
+    world::{self, node::Node},
 };
 use cgmath::*;
 
@@ -11,7 +8,7 @@ pub fn get_terrain_bundle(
     device: &wgpu::Device,
     camera: &camera::Instance,
     world_data: &world::WorldData,
-    nodes: &Vec<(&Node, &NodeData)>,
+    nodes: &Vec<&Node>,
 ) -> wgpu::RenderBundle {
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: Some("terrain_bundle"),
@@ -36,19 +33,21 @@ pub fn get_terrain_bundle(
         camera.uniforms.data.eye_pos[2],
     );
 
-    for (node, data) in nodes {
+    for node in nodes {
         for lod in 0..=settings::LODS.len() {
             let terrain_lod = world_data.lods.get(lod).expect("Could not get LOD!");
 
             if check_clip(direction, plane, &node.bounding_box)
                 && plane::get_lod(eye, vec3(node.x, 0.0, node.z), camera.uniforms.data.z_far) == lod as u32
             {
-                let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
-                let lod_buffer = terrain_lod.get(&ct).unwrap();
+                if let Some(data) = &node.data {
+                    let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
+                    let lod_buffer = terrain_lod.get(&ct).unwrap();
 
-                encoder.set_bind_group(3, &data.uniforms.bind_group, &[]);
-                encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+                    encoder.set_bind_group(3, &data.uniforms.bind_group, &[]);
+                    encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+                }
             }
         }
     }

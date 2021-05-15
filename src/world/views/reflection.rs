@@ -21,7 +21,7 @@ impl Reflection {
         let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
         let nodes = nodes
             .into_iter()
-            .filter(|(node, _)| node.get_distance(viewport.eye.x, viewport.eye.z) <= z_far_range)
+            .filter(|node| node.get_distance(viewport.eye.x, viewport.eye.z) <= z_far_range)
             .collect();
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 

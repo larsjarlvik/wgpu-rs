@@ -9,7 +9,7 @@ use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
 use rand_seeder::Seeder;
-use std::collections::HashMap;
+use std::{collections::HashMap, iter};
 
 pub struct NodeData {
     pub model_instances: HashMap<String, Vec<model::Instance>>,
@@ -144,15 +144,14 @@ impl Node {
         self.data = Some(NodeData { model_instances, uniforms });
     }
 
-    pub fn get_nodes(&self, frustum: &camera::FrustumCuller) -> Vec<(&Self, &NodeData)> {
-        if frustum.test_bounding_box(&self.bounding_box) {
-            match &self.data {
-                Some(t) => vec![(&self, &t)],
-                None => self.children.iter().flat_map(|child| child.get_nodes(frustum)).collect(),
-            }
-        } else {
-            vec![]
-        }
+    pub fn get_nodes<'a>(&'a self, frustum: &camera::FrustumCuller) -> Vec<&'a Self> {
+        iter::once(self)
+            .chain({
+                let children = &self.children;
+                children.into_iter().flat_map(|c| c.get_nodes(frustum))
+            })
+            .filter(|node| frustum.test_bounding_box(&self.bounding_box) && node.data.is_some())
+            .collect()
     }
 
     pub fn get_distance(&self, x: f32, z: f32) -> f32 {

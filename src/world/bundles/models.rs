@@ -1,9 +1,4 @@
-use crate::{
-    camera, models,
-    pipelines::model,
-    settings, world,
-    world::node::{Node, NodeData},
-};
+use crate::{camera, models, pipelines::model, settings, world, world::node::Node};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
@@ -40,7 +35,7 @@ pub fn get_models_bundle(
     camera: &camera::Instance,
     world_data: &world::WorldData,
     model_instances: &mut ModelInstances,
-    nodes: &Vec<(&Node, &NodeData)>,
+    nodes: &Vec<&Node>,
 ) -> wgpu::RenderBundle {
     update_instance_buffer(device, model_instances, nodes);
 
@@ -75,7 +70,7 @@ pub fn get_models_shadow_bundle(
     camera: &camera::Instance,
     world_data: &world::WorldData,
     model_instances: &mut ModelInstances,
-    nodes: &Vec<(&Node, &NodeData)>,
+    nodes: &Vec<&Node>,
 ) -> wgpu::RenderBundle {
     update_instance_buffer(device, model_instances, nodes);
 
@@ -105,16 +100,18 @@ pub fn get_models_shadow_bundle(
     })
 }
 
-fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut ModelInstances, nodes: &Vec<(&Node, &NodeData)>) {
+fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut ModelInstances, nodes: &Vec<&Node>) {
     model_instances.model_instances.par_iter_mut().for_each(|(key, instance)| {
         let mut instances: Vec<model::Instance> = vec![];
-        for (_, data) in nodes {
-            let node_instances = data.model_instances.get(key);
-            match node_instances {
-                Some(ni) => {
-                    instances.extend(ni);
+        for node in nodes {
+            if let Some(data) = &node.data {
+                let node_instances = data.model_instances.get(key);
+                match node_instances {
+                    Some(ni) => {
+                        instances.extend(ni);
+                    }
+                    None => (),
                 }
-                None => (),
             }
         }
 

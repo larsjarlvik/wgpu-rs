@@ -121,7 +121,7 @@ fn get_offsets(radius: f32, scale: f32) -> Vec<Vector3<f32>> {
 pub fn create_assets(x: f32, z: f32, size: f32, world: &WorldData, mesh: &assets::Mesh, key: &str) -> Vec<pipelines::model::Instance> {
     let seed = format!("{}_NODE_{}_{}_{}", settings::MAP_SEED, x, z, key);
     let mut rng: Pcg64 = Seeder::from(seed).make_rng();
-    let mut count = (rng.gen::<f32>() * mesh.density.floor()) as usize;
+    let mut count = (rng.gen::<f32>() * mesh.density.floor() * settings::TILE_SIZE as f32 / 20.0) as usize;
 
     if rng.gen::<f32>() < mesh.density.fract() {
         count += 1;

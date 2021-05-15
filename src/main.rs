@@ -23,7 +23,6 @@ pub use state::*;
 
 fn exit(control_flow: &mut ControlFlow) {
     logger::print();
-    optick::stop_capture("wgpu-profile");
     *control_flow = ControlFlow::Exit
 }
 

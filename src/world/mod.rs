@@ -119,6 +119,7 @@ impl World {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+        optick::event!();
         self.views.render(encoder, &self.data, color_target, depth_target);
     }
 }

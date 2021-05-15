@@ -52,12 +52,13 @@ pub fn get_models_bundle(
     encoder.set_bind_group(2, &world_data.lights.uniforms.bind_group, &[]);
     encoder.set_bind_group(3, &world_data.lights.texture_bind_group, &[]);
 
-    for (key, model_instances) in model_instances.model_instances.iter_mut() {
+    for (key, model_instances) in model_instances.model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
         let model = world_data.models.meshes.get(key).unwrap();
+        encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
+
         for mesh in &model.primitives {
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
             encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             encoder.draw_indexed(0..mesh.num_elements, 0, 0..model_instances.length as _);
         }
@@ -86,12 +87,13 @@ pub fn get_models_shadow_bundle(
     encoder.set_pipeline(&world_data.model.shadow_pipeline);
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
-    for (key, model_instances) in model_instances.model_instances.iter_mut() {
+    for (key, model_instances) in model_instances.model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
         let model = world_data.models.meshes.get(key).unwrap();
+        encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
+
         for mesh in &model.primitives {
             encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
             encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
             encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             encoder.draw_indexed(0..mesh.num_elements, 0, 0..model_instances.length as _);
         }
@@ -104,24 +106,20 @@ pub fn get_models_shadow_bundle(
 
 fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut ModelInstances, nodes: &Vec<&Node>) {
     model_instances.model_instances.par_iter_mut().for_each(|(key, instance)| {
-        let mut instances: Vec<model::Instance> = vec![];
-        for node in nodes {
-            if let Some(data) = &node.get_data() {
-                let node_instances = data.model_instances.get(key);
-                match node_instances {
-                    Some(ni) => {
-                        instances.extend(ni);
-                    }
-                    None => (),
-                }
-            }
-        }
+        let instances = nodes
+            .iter()
+            .filter_map(|n| n.get_data())
+            .filter_map(|d| d.model_instances.get(key))
+            .flat_map(|mi| mi.clone())
+            .collect::<Vec<model::Instance>>();
 
         instance.length = instances.len() as u32;
-        instance.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("instance_buffer"),
-            contents: bytemuck::cast_slice(&instances),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
+        if instance.length > 0 {
+            instance.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("instance_buffer"),
+                contents: bytemuck::cast_slice(&instances.as_slice()),
+                usage: wgpu::BufferUsage::VERTEX,
+            });
+        }
     });
 }

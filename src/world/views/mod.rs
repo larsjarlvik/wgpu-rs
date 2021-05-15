@@ -34,15 +34,26 @@ impl Views {
         view: &Matrix4<f32>,
     ) {
         optick::event!();
-        let eye = &mut self.eye;
-        let reflection = &mut self.reflection;
-        let refraction = &mut self.refraction;
-        let shadow = &mut self.shadow;
+        crossbeam_utils::thread::scope(|scope| {
+            let eye = &mut self.eye;
+            let reflection = &mut self.reflection;
+            let refraction = &mut self.refraction;
+            let shadow = &mut self.shadow;
 
-        eye.update(device, queue, world, viewport, view, root_node);
-        reflection.update(device, queue, world, viewport, root_node);
-        refraction.update(device, queue, world, viewport, root_node);
-        shadow.update(device, queue, world, viewport, view, root_node);
+            scope.spawn(move |_| {
+                eye.update(device, queue, world, viewport, view, root_node);
+            });
+            scope.spawn(move |_| {
+                reflection.update(device, queue, world, viewport, root_node);
+            });
+            scope.spawn(move |_| {
+                refraction.update(device, queue, world, viewport, root_node);
+            });
+            scope.spawn(move |_| {
+                shadow.update(device, queue, world, viewport, view, root_node);
+            });
+        })
+        .unwrap();
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport) {

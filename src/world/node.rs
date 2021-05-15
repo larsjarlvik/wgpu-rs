@@ -9,19 +9,24 @@ use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
 use rand_seeder::Seeder;
-use std::{collections::HashMap, iter};
+use std::collections::HashMap;
 
 pub struct NodeData {
     pub model_instances: HashMap<String, Vec<model::Instance>>,
     pub uniforms: node_uniforms::UniformBuffer,
 }
 
+enum NodeTree {
+    Branch(Box<Vec<Node>>),
+    Leaf(NodeData),
+    None,
+}
+
 pub struct Node {
     pub x: f32,
     pub z: f32,
     pub bounding_box: camera::BoundingBox,
-    pub data: Option<NodeData>,
-    children: Vec<Node>,
+    tree: NodeTree,
     size: f32,
     radius: f32,
     depth: u32,
@@ -36,22 +41,15 @@ impl Node {
             max: Point3::new(x + size / 2.0, 10000.0, z + size / 2.0),
         };
 
-        let mut node = Self {
+        Self {
             x,
             z,
             bounding_box,
-            data: None,
-            children: vec![],
+            tree: NodeTree::None,
             depth,
             size,
             radius,
-        };
-
-        if !node.is_leaf() {
-            node.add_children();
         }
-
-        node
     }
 
     pub fn update(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
@@ -59,46 +57,43 @@ impl Node {
         let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
 
         if distance > z_far_range {
-            self.data = None;
-            self.children = Vec::new();
+            self.tree = NodeTree::None;
             return;
         }
 
-        if self.data.is_none() {
-            if self.is_leaf() {
-                let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
-                if distance < z_far_range && self.data.is_none() {
-                    self.build_leaf_node(device, world);
-                }
-            } else {
-                self.add_children();
-                for child in self.children.iter_mut() {
-                    child.update(device, world, viewport);
-                    self.bounding_box = self.bounding_box.grow(&child.bounding_box);
+        match self.tree {
+            NodeTree::None => {
+                if self.depth == 0 {
+                    let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
+                    if distance < z_far_range {
+                        self.build_leaf_node(device, world);
+                    }
+                } else {
+                    self.add_children(device, world, viewport);
                 }
             }
+            _ => {}
         }
     }
 
-    pub fn is_leaf(&self) -> bool {
-        self.depth == 0
-    }
+    pub fn add_children(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
+        let mut children = vec![];
+        let child_size = self.size / 2.0;
 
-    pub fn add_children(&mut self) {
-        if self.children.len() == 0 {
-            let child_size = self.size / 2.0;
-            for cz in -1..1 {
-                for cx in -1..1 {
-                    let child = Node::new(
-                        self.x + ((cx as f32 + 0.5) * child_size),
-                        self.z + ((cz as f32 + 0.5) * child_size),
-                        self.depth - 1,
-                    );
-                    self.bounding_box = self.bounding_box.grow(&child.bounding_box);
-                    self.children.push(child);
-                }
+        for cz in -1..1 {
+            for cx in -1..1 {
+                let mut child = Node::new(
+                    self.x + ((cx as f32 + 0.5) * child_size),
+                    self.z + ((cz as f32 + 0.5) * child_size),
+                    self.depth - 1,
+                );
+                child.update(device, world, viewport);
+                self.bounding_box = self.bounding_box.grow(&child.bounding_box);
+                children.push(child);
             }
         }
+
+        self.tree = NodeTree::Branch(Box::new(children));
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
@@ -141,17 +136,28 @@ impl Node {
             },
         );
 
-        self.data = Some(NodeData { model_instances, uniforms });
+        self.tree = NodeTree::Leaf(NodeData { model_instances, uniforms });
     }
 
     pub fn get_nodes<'a>(&'a self, frustum: &camera::FrustumCuller) -> Vec<&'a Self> {
-        iter::once(self)
-            .chain({
-                let children = &self.children;
-                children.into_iter().flat_map(|c| c.get_nodes(frustum))
-            })
-            .filter(|node| frustum.test_bounding_box(&self.bounding_box) && node.data.is_some())
-            .collect()
+        optick::event!();
+        if frustum.test_bounding_box(&self.bounding_box) {
+            match &self.tree {
+                NodeTree::Branch(children) => children.iter().flat_map(|child| child.get_nodes(frustum)).collect(),
+                NodeTree::Leaf(_) => vec![&self],
+                NodeTree::None => vec![],
+            }
+        } else {
+            vec![]
+        }
+    }
+
+    pub fn get_data<'a>(&'a self) -> Option<&'a NodeData> {
+        match &self.tree {
+            NodeTree::Branch(_) => None,
+            NodeTree::Leaf(data) => Some(&data),
+            NodeTree::None => None,
+        }
     }
 
     pub fn get_distance(&self, x: f32, z: f32) -> f32 {

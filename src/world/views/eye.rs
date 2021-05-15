@@ -39,6 +39,7 @@ impl Eye {
         view: &Matrix4<f32>,
         root_node: &node::Node,
     ) {
+        optick::event!();
         self.camera.update(
             queue,
             viewport.target,
@@ -59,6 +60,7 @@ impl Eye {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {
+        optick::event!();
         renderer::render(
             "sky",
             encoder,

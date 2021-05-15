@@ -10,6 +10,7 @@ pub fn get_water_bundle(
     world_data: &world::WorldData,
     nodes: &Vec<&Node>,
 ) -> wgpu::RenderBundle {
+    optick::event!();
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: Some("water_bundle"),
         color_formats: &[settings::COLOR_TEXTURE_FORMAT],
@@ -39,7 +40,7 @@ pub fn get_water_bundle(
             if check_clip(plane, node.bounding_box.min.y)
                 && plane::get_lod(eye, vec3(node.x, 0.0, node.z), camera.uniforms.data.z_far) == lod as u32
             {
-                if let Some(data) = &node.data {
+                if let Some(data) = &node.get_data() {
                     let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
                     let lod_buffer = water_lod.get(&ct).unwrap();
                     encoder.set_bind_group(4, &data.uniforms.bind_group, &[]);

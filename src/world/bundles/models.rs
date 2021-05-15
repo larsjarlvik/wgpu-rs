@@ -37,6 +37,7 @@ pub fn get_models_bundle(
     model_instances: &mut ModelInstances,
     nodes: &Vec<&Node>,
 ) -> wgpu::RenderBundle {
+    optick::event!();
     update_instance_buffer(device, model_instances, nodes);
 
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -72,6 +73,7 @@ pub fn get_models_shadow_bundle(
     model_instances: &mut ModelInstances,
     nodes: &Vec<&Node>,
 ) -> wgpu::RenderBundle {
+    optick::event!();
     update_instance_buffer(device, model_instances, nodes);
 
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
@@ -104,7 +106,7 @@ fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut ModelInst
     model_instances.model_instances.par_iter_mut().for_each(|(key, instance)| {
         let mut instances: Vec<model::Instance> = vec![];
         for node in nodes {
-            if let Some(data) = &node.data {
+            if let Some(data) = &node.get_data() {
                 let node_instances = data.model_instances.get(key);
                 match node_instances {
                     Some(ni) => {

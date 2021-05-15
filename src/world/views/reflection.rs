@@ -1,7 +1,11 @@
 use super::renderer;
 use crate::{
     camera,
-    world::{bundles, node, WorldData},
+    world::{
+        bundles,
+        node::{self},
+        WorldData,
+    },
 };
 use cgmath::*;
 
@@ -17,12 +21,7 @@ impl Reflection {
     pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
 
-        let nodes = root_node.get_nodes(&camera.frustum);
-        let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
-        let nodes = nodes
-            .into_iter()
-            .filter(|node| node.get_distance(viewport.eye.x, viewport.eye.z) <= z_far_range)
-            .collect();
+        let nodes = root_node.get_nodes(&Box::new(camera.frustum));
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
@@ -42,6 +41,7 @@ impl Reflection {
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
+        optick::event!();
         let view = Matrix4::look_at_rh(
             Point3::new(viewport.eye.x, -viewport.eye.y, viewport.eye.z),
             viewport.target,
@@ -55,7 +55,7 @@ impl Reflection {
             viewport.z_near..viewport.z_far,
         );
 
-        let nodes = root_node.get_nodes(&self.camera.frustum);
+        let nodes = root_node.get_nodes(&Box::new(self.camera.frustum));
         self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
         self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
     }
@@ -66,6 +66,7 @@ impl Reflection {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData) {
+        optick::event!();
         renderer::render(
             "sky",
             encoder,

@@ -13,7 +13,7 @@ pub struct Refraction {
 impl Refraction {
     pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, -1.0, 0.0, 1.0]);
-        let nodes = root_node.get_nodes(&camera.frustum);
+        let nodes = root_node.get_nodes(&Box::new(camera.frustum));
 
         Self {
             terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data, &nodes),
@@ -29,6 +29,7 @@ impl Refraction {
         viewport: &camera::Viewport,
         root_node: &node::Node,
     ) {
+        optick::event!();
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
         self.camera.update(
             queue,
@@ -38,7 +39,7 @@ impl Refraction {
             viewport.z_near..viewport.z_far,
         );
 
-        let nodes = root_node.get_nodes(&self.camera.frustum);
+        let nodes = root_node.get_nodes(&Box::new(self.camera.frustum));
         self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
     }
 
@@ -47,6 +48,7 @@ impl Refraction {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData) {
+        optick::event!();
         renderer::render(
             "environment",
             encoder,

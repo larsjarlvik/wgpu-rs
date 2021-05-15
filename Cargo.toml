@@ -23,6 +23,7 @@ crossbeam-channel = "0.5.1"
 smaa = "0.2.2"
 rand_pcg = "0.3.0"
 rand_seeder = "0.2.2"
+optick = "1.3.1"
 
 [dependencies.gltf]
 version = "0.15.0"

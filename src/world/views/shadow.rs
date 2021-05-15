@@ -16,7 +16,7 @@ pub struct Cascade {
 impl Cascade {
     fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node, i: usize) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
-        let nodes = root_node.get_nodes(&camera.frustum);
+        let nodes = root_node.get_nodes(&Box::new(camera.frustum));
         let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
 
         Self {
@@ -50,8 +50,9 @@ impl Shadow {
         view: &Matrix4<f32>,
         root_node: &node::Node,
     ) {
+        optick::event!();
         self.cascades.par_iter_mut().for_each(|c| {
-            let nodes = root_node.get_nodes(&c.camera.frustum);
+            let nodes = root_node.get_nodes(&Box::new(c.camera.frustum));
 
             c.camera.update(
                 queue,
@@ -72,6 +73,7 @@ impl Shadow {
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, world_data: &WorldData) {
+        optick::event!();
         for i in 0..settings::SHADOW_CASCADE_SPLITS.len() {
             renderer::render(
                 "shadows",

@@ -101,7 +101,7 @@ impl Lights {
 
     pub fn update(&mut self, queue: &wgpu::Queue, viewport: &camera::Viewport, view: Matrix4<f32>) {
         let inv_cam = (viewport.proj * view).inverse_transform().unwrap();
-        let clip_range = viewport.z_far - viewport.z_near;
+        let clip_range = (viewport.z_far * settings::SKY_FADE_DISTANCE) - viewport.z_near;
 
         let mut last_split_dist = 0.0;
         for (i, split_dist) in settings::SHADOW_CASCADE_SPLITS.iter().enumerate() {

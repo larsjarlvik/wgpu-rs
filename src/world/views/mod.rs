@@ -33,26 +33,16 @@ impl Views {
         root_node: &node::Node,
         view: &Matrix4<f32>,
     ) {
-        crossbeam_utils::thread::scope(|scope| {
-            let eye = &mut self.eye;
-            let reflection = &mut self.reflection;
-            let refraction = &mut self.refraction;
-            let shadow = &mut self.shadow;
+        optick::event!();
+        let eye = &mut self.eye;
+        let reflection = &mut self.reflection;
+        let refraction = &mut self.refraction;
+        let shadow = &mut self.shadow;
 
-            scope.spawn(move |_| {
-                eye.update(device, queue, world, viewport, view, root_node);
-            });
-            scope.spawn(move |_| {
-                reflection.update(device, queue, world, viewport, root_node);
-            });
-            scope.spawn(move |_| {
-                refraction.update(device, queue, world, viewport, root_node);
-            });
-            scope.spawn(move |_| {
-                shadow.update(device, queue, world, viewport, view, root_node);
-            });
-        })
-        .unwrap();
+        eye.update(device, queue, world, viewport, view, root_node);
+        reflection.update(device, queue, world, viewport, root_node);
+        refraction.update(device, queue, world, viewport, root_node);
+        shadow.update(device, queue, world, viewport, view, root_node);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world: &WorldData, viewport: &camera::Viewport) {
@@ -69,6 +59,7 @@ impl Views {
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
     ) {
+        optick::event!();
         self.shadow.render(encoder, world);
         self.reflection.render(encoder, world);
         self.refraction.render(encoder, world);

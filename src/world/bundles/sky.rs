@@ -1,6 +1,7 @@
 use crate::{camera, pipelines, settings};
 
 pub fn get_sky_bundle(device: &wgpu::Device, camera: &camera::Instance, pipeline: &pipelines::sky::Sky) -> wgpu::RenderBundle {
+    optick::event!();
     let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
         label: None,
         color_formats: &[settings::COLOR_TEXTURE_FORMAT],

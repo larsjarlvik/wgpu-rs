@@ -23,6 +23,7 @@ pub use state::*;
 
 fn exit(control_flow: &mut ControlFlow) {
     logger::print();
+    optick::stop_capture("wgpu-profile");
     *control_flow = ControlFlow::Exit
 }
 
@@ -36,12 +37,15 @@ fn main() {
     let mut state = block_on(state::State::new(&window));
     let mut fps = 0;
     let mut last_update = Instant::now();
+    optick::start_capture();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
             state.input.process_device_event(event);
         }
         Event::RedrawRequested(_) => {
+            optick::next_frame();
+
             logger::measure_time("Update", || {
                 state.update();
             });

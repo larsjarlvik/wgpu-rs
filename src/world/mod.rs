@@ -38,32 +38,10 @@ impl World {
         let map = map::Map::new(device, queue, &noise).await;
 
         let lights = lights::Lights::new(device);
-        let water = systems::water::Water::new(
-            device,
-            viewport,
-            &noise,
-            &tile,
-            &lights.uniform_bind_group_layout,
-            &lights.texture_bind_group_layout,
-        );
+        let water = systems::water::Water::new(device, viewport, &noise, &tile, &lights);
         let sky = systems::sky::Sky::new(device, viewport);
-        let assets = systems::assets::Assets::new(
-            device,
-            queue,
-            viewport,
-            &lights.uniform_bind_group_layout,
-            &lights.texture_bind_group_layout,
-        );
-        let terrain = systems::terrain::Terrain::new(
-            device,
-            queue,
-            viewport,
-            &noise,
-            &tile,
-            &map.textures.bind_group_layout,
-            &lights.uniform_bind_group_layout,
-            &lights.texture_bind_group_layout,
-        );
+        let assets = systems::assets::Assets::new(device, queue, viewport, &lights);
+        let terrain = systems::terrain::Terrain::new(device, queue, viewport, &noise, &tile, &map, &lights);
 
         let mut data = WorldData {
             terrain,
@@ -98,14 +76,7 @@ impl World {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
-        self.data.water = systems::water::Water::new(
-            device,
-            viewport,
-            &self.data.noise,
-            &self.tile,
-            &self.data.lights.uniform_bind_group_layout,
-            &self.data.lights.texture_bind_group_layout,
-        );
+        self.data.water = systems::water::Water::new(device, viewport, &self.data.noise, &self.tile, &self.data.lights);
         self.data.sky = systems::sky::Sky::new(device, viewport);
         self.views.resize(device, &self.data, viewport);
     }

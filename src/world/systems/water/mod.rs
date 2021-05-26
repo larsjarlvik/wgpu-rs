@@ -27,8 +27,7 @@ impl Water {
         viewport: &camera::Viewport,
         noise: &noise::Noise,
         tile: &plane::Plane,
-        light_uniforms: &wgpu::BindGroupLayout,
-        light_textures: &wgpu::BindGroupLayout,
+        lights: &world::lights::Lights,
     ) -> Self {
         let noise_bindings = noise.create_bindings(device);
         let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
@@ -100,8 +99,8 @@ impl Water {
                 &noise_bindings.bind_group_layout,
                 &texture_bind_group_layout,
                 &node_uniform_bind_group_layout,
-                light_uniforms,
-                light_textures,
+                &lights.uniform_bind_group_layout,
+                &lights.texture_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });

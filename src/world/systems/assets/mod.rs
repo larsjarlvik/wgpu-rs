@@ -25,13 +25,7 @@ pub struct Assets {
 }
 
 impl Assets {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        viewport: &camera::Viewport,
-        light_uniforms: &wgpu::BindGroupLayout,
-        light_textures: &wgpu::BindGroupLayout,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, lights: &world::lights::Lights) -> Self {
         let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Linear);
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -55,8 +49,8 @@ impl Assets {
             bind_group_layouts: &[
                 &texture_bind_group_layout,
                 &viewport.bind_group_layout,
-                light_uniforms,
-                light_textures,
+                &lights.uniform_bind_group_layout,
+                &lights.texture_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });

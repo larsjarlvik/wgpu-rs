@@ -11,9 +11,9 @@ use wgpu::util::DeviceExt;
 pub struct Terrain {
     pub render_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group: wgpu::BindGroup,
-    pub noise_bindings: noise::NoiseBindings,
     pub vertex_buffer: wgpu::Buffer,
     pub node_uniform_bind_group_layout: wgpu::BindGroupLayout,
+    noise_bindings: noise::NoiseBindings,
 }
 
 impl Terrain {
@@ -24,7 +24,7 @@ impl Terrain {
         noise: &noise::Noise,
         tile: &plane::Plane,
         map: &world::map::Map,
-        lights: &world::lights::Lights,
+        lights: &world::enivornment::Environment,
     ) -> Terrain {
         let noise_bindings = noise.create_bindings(device);
 
@@ -65,9 +65,9 @@ impl Terrain {
                 &texture_bind_group_layout,
                 &noise_bindings.bind_group_layout,
                 &node_uniform_bind_group_layout,
-                &map.textures.bind_group_layout,
                 &lights.uniform_bind_group_layout,
                 &lights.texture_bind_group_layout,
+                &map.textures.bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -139,9 +139,9 @@ impl Terrain {
         encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
         encoder.set_bind_group(1, &self.texture_bind_group, &[]);
         encoder.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
-        encoder.set_bind_group(4, &world_data.map.textures.bind_group, &[]);
-        encoder.set_bind_group(5, &world_data.lights.uniforms.bind_group, &[]);
-        encoder.set_bind_group(6, &world_data.lights.texture_bind_group, &[]);
+        encoder.set_bind_group(4, &world_data.environment.uniforms.bind_group, &[]);
+        encoder.set_bind_group(5, &world_data.environment.texture_bind_group, &[]);
+        encoder.set_bind_group(6, &world_data.map.textures.bind_group, &[]);
         encoder.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
         let direction = camera.uniforms.data.clip[1];

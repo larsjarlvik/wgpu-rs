@@ -8,7 +8,7 @@
 layout(location=0) in vec2 a_position;
 layout(location=0) out vec4 v_position;
 
-layout(set=4, binding=0) uniform Node {
+layout(set=3, binding=0) uniform Node {
     vec2 u_translation;
 };
 

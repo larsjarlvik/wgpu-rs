@@ -13,8 +13,8 @@ layout(set=3, binding=0) uniform Node {
     float u_size;
 };
 
-layout(set = 4, binding = 0) uniform texture2D t_elvation_normal;
-layout(set = 4, binding = 2) uniform sampler t_compute_sampler;
+layout(set = 6, binding = 0) uniform texture2D t_elvation_normal;
+layout(set = 6, binding = 2) uniform sampler t_compute_sampler;
 
 void main() {
     vec2 pos = a_position + u_translation;

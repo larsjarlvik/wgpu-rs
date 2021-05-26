@@ -3,13 +3,11 @@ use crate::{
     world::{self, node::Node},
 };
 use cgmath::*;
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 use wgpu::util::DeviceExt;
-mod uniforms;
 
 pub struct Water {
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
-    pub uniforms: uniforms::UniformBuffer,
     pub render_pipeline: wgpu::RenderPipeline,
     pub noise_bindings: noise::NoiseBindings,
     pub refraction_texture_view: wgpu::TextureView,
@@ -27,10 +25,9 @@ impl Water {
         viewport: &camera::Viewport,
         noise: &noise::Noise,
         tile: &plane::Plane,
-        lights: &world::lights::Lights,
+        env: &world::enivornment::Environment,
     ) -> Self {
         let noise_bindings = noise.create_bindings(device);
-        let uniforms = uniforms::UniformBuffer::new(&device, uniforms::Uniforms { time: 0.0 });
         let mut lods = vec![];
 
         for lod in 0..=settings::LODS.len() {
@@ -95,12 +92,11 @@ impl Water {
             label: Some("water_pipeline_layout"),
             bind_group_layouts: &[
                 &viewport.bind_group_layout,
-                &uniforms.bind_group_layout,
-                &noise_bindings.bind_group_layout,
                 &texture_bind_group_layout,
+                &noise_bindings.bind_group_layout,
                 &node_uniform_bind_group_layout,
-                &lights.uniform_bind_group_layout,
-                &lights.texture_bind_group_layout,
+                &env.uniform_bind_group_layout,
+                &env.texture_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -145,7 +141,6 @@ impl Water {
 
         Self {
             lods,
-            uniforms,
             render_pipeline,
             noise_bindings,
             reflection_texture_view,
@@ -156,11 +151,6 @@ impl Water {
             vertex_buffer,
             node_uniform_bind_group_layout,
         }
-    }
-
-    pub fn update(&mut self, queue: &wgpu::Queue, time: Instant) {
-        self.uniforms.data.time = time.elapsed().as_millis() as f32;
-        queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
 
     pub fn get_bundle(
@@ -179,11 +169,10 @@ impl Water {
         });
         encoder.set_pipeline(&self.render_pipeline);
         encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
-        encoder.set_bind_group(1, &self.uniforms.bind_group, &[]);
+        encoder.set_bind_group(1, &self.texture_bind_group, &[]);
         encoder.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
-        encoder.set_bind_group(3, &self.texture_bind_group, &[]);
-        encoder.set_bind_group(5, &world_data.lights.uniforms.bind_group, &[]);
-        encoder.set_bind_group(6, &world_data.lights.texture_bind_group, &[]);
+        encoder.set_bind_group(4, &world_data.environment.uniforms.bind_group, &[]);
+        encoder.set_bind_group(5, &world_data.environment.texture_bind_group, &[]);
         encoder.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
         let plane = camera.uniforms.data.clip[3];
@@ -203,7 +192,7 @@ impl Water {
                     if let Some(data) = &node.get_data() {
                         let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
                         let lod_buffer = water_lod.get(&ct).unwrap();
-                        encoder.set_bind_group(4, &data.uniforms.bind_group, &[]);
+                        encoder.set_bind_group(3, &data.uniforms.bind_group, &[]);
                         encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                         encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
                     }

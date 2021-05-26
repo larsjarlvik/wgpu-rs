@@ -1,7 +1,6 @@
-#ifndef NODE_SET
-    #define NODE_SET 0
+#ifndef NOISE_SET
+    #define NOISE_SET 0
 #endif
-
 
 layout(set = NOISE_SET, binding = 0) uniform texture2D t_noise;
 layout(set = NOISE_SET, binding = 1) uniform sampler t_noise_sampler;

@@ -8,6 +8,7 @@ pub struct Buffers {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
+    pub uniforms: super::uniforms::UniformBuffer,
 }
 
 pub struct ModelBuffer {
@@ -23,6 +24,7 @@ impl AssetBuffers {
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         sampler: &wgpu::Sampler,
     ) -> Self {
@@ -43,7 +45,16 @@ impl AssetBuffers {
                     let primitives = mesh
                         .primitives
                         .iter()
-                        .map(|p| to_buffers(device, sampler, p, &model.materials, texture_bind_group_layout))
+                        .map(|p| {
+                            to_buffers(
+                                device,
+                                sampler,
+                                p,
+                                &model.materials,
+                                uniform_bind_group_layout,
+                                texture_bind_group_layout,
+                            )
+                        })
                         .collect();
 
                     models.insert(
@@ -66,6 +77,7 @@ fn to_buffers(
     sampler: &wgpu::Sampler,
     primitive: &model::Primitive,
     materials: &Vec<model::Material>,
+    uniform_bind_group_layout: &wgpu::BindGroupLayout,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
 ) -> Buffers {
     let mut vertices = vec![];
@@ -117,10 +129,14 @@ fn to_buffers(
         entries: &entries,
     });
 
+    let wind_factor = *material.extras.get("wind_factor").unwrap_or(&0.0);
+    let uniforms = super::uniforms::UniformBuffer::new(device, uniform_bind_group_layout, super::uniforms::Uniforms { wind_factor });
+
     Buffers {
         texture_bind_group,
         vertex_buffer,
         index_buffer,
         num_elements,
+        uniforms,
     }
 }

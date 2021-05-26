@@ -4,7 +4,7 @@
 #include "include/noise.glsl"
 #include "include/waves.glsl"
 #include "include/camera.glsl"
-#include "include/light.glsl"
+#include "include/environment.glsl"
 #include "include/fog.glsl"
 
 #define SURFACE_COLOR vec3(0.236, 0.394, 0.404)
@@ -12,13 +12,12 @@
 #define EXTINCTION vec3(7.0, 30.0, 40.0)
 
 layout(location=0) in vec4 v_position;
-
 layout(location=0) out vec4 f_color;
 
-layout(set = 3, binding = 0) uniform texture2D t_depth_texture;
-layout(set = 3, binding = 1) uniform texture2D t_refraction;
-layout(set = 3, binding = 2) uniform texture2D t_reflection;
-layout(set = 3, binding = 3) uniform sampler t_sampler;
+layout(set = 1, binding = 0) uniform texture2D t_depth_texture;
+layout(set = 1, binding = 1) uniform texture2D t_refraction;
+layout(set = 1, binding = 2) uniform texture2D t_reflection;
+layout(set = 1, binding = 3) uniform sampler t_sampler;
 
 vec3 calc_normal() {
     vec3 pos = v_position.xyz * 0.5;
@@ -46,7 +45,7 @@ void main() {
     vec3 reflection = texture(sampler2D(t_reflection, t_sampler), vec2(1.0 - fragCoord.x, fragCoord.y)).rgb;
     vec3 refraction = mix(mix(ground, SURFACE_COLOR, clamp(depth / 2.0, 0.0, 1.0)), DEPTH_COLOR, clamp(depth / EXTINCTION, 0.0, 1.0));
 
-    vec3 light = calculate_light(v_position.xyz, normal, 200.0, 2.0, 1.0);
+    vec3 light = calculate_light(v_position.xyz, normal, 200.0, 2.0, false);
     vec3 view_dir = normalize(cam.eye_pos - v_position.xyz);
 
     float fresnel = pow(dot(view_dir, vec3(0.0, 1.0, 0.0)), 1.2);

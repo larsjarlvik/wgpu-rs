@@ -20,7 +20,9 @@ impl Cascade {
         let mut asset_instances = world_data.assets.get_instances(device);
 
         Self {
-            models_bundle: world_data.assets.get_shadow_bundle(device, &camera, &mut asset_instances, &nodes),
+            models_bundle: world_data
+                .assets
+                .get_shadow_bundle(device, &camera, world_data, &mut asset_instances, &nodes),
             asset_instances,
             camera,
             i,
@@ -58,13 +60,13 @@ impl Shadow {
                 queue,
                 viewport.target,
                 viewport.eye,
-                world_data.lights.shadow_matrix[c.i],
+                world_data.environment.shadow_matrix[c.i],
                 viewport.z_near..viewport.z_far,
             );
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
             c.models_bundle = world_data
                 .assets
-                .get_shadow_bundle(device, &c.camera, &mut c.asset_instances, &nodes);
+                .get_shadow_bundle(device, &c.camera, world_data, &mut c.asset_instances, &nodes);
         });
     }
 
@@ -83,7 +85,7 @@ impl Shadow {
                 renderer::Args {
                     bundles: vec![&self.cascades[i].models_bundle],
                     color_targets: &[],
-                    depth_target: Some(&world_data.lights.shadow_texture_view[i]),
+                    depth_target: Some(&world_data.environment.shadow_texture_view[i]),
                     clear_color: false,
                     clear_depth: true,
                 },

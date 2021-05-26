@@ -1,5 +1,5 @@
 use crate::{
-    camera, settings, texture,
+    camera, noise, settings, texture,
     world::{self, node::Node},
 };
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
@@ -7,6 +7,7 @@ use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
 mod assets;
 mod data;
+mod uniforms;
 pub use {self::assets::AssetBuffers, self::data::Instance, self::data::Vertex};
 
 pub struct InstanceBuffer {
@@ -22,10 +23,33 @@ pub struct Assets {
     pub shadow_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
     pub assets: assets::AssetBuffers,
+    noise_bindings: noise::NoiseBindings,
 }
 
 impl Assets {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, lights: &world::lights::Lights) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        viewport: &camera::Viewport,
+        noise: &noise::Noise,
+        env: &world::enivornment::Environment,
+    ) -> Self {
+        let noise_bindings = noise.create_bindings(device);
+
+        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("uniform_bind_group_layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
         let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Linear);
         let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("texture_bind_group_layout"),
@@ -47,10 +71,12 @@ impl Assets {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("asset_pipeline_layout"),
             bind_group_layouts: &[
+                &uniform_bind_group_layout,
                 &texture_bind_group_layout,
                 &viewport.bind_group_layout,
-                &lights.uniform_bind_group_layout,
-                &lights.texture_bind_group_layout,
+                &noise_bindings.bind_group_layout,
+                &env.uniform_bind_group_layout,
+                &env.texture_bind_group_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -137,7 +163,7 @@ impl Assets {
         });
 
         let now = Instant::now();
-        let assets = assets::AssetBuffers::new(device, queue, &texture_bind_group_layout, &sampler);
+        let assets = assets::AssetBuffers::new(device, queue, &uniform_bind_group_layout, &texture_bind_group_layout, &sampler);
         println!("Assets: {} ms", now.elapsed().as_millis());
 
         Self {
@@ -145,6 +171,7 @@ impl Assets {
             render_pipeline,
             shadow_pipeline,
             texture_bind_group_layout,
+            noise_bindings,
             assets,
         }
     }
@@ -168,16 +195,18 @@ impl Assets {
         });
 
         encoder.set_pipeline(&self.render_pipeline);
-        encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
-        encoder.set_bind_group(2, &world_data.lights.uniforms.bind_group, &[]);
-        encoder.set_bind_group(3, &world_data.lights.texture_bind_group, &[]);
+        encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
+        encoder.set_bind_group(3, &self.noise_bindings.bind_group, &[]);
+        encoder.set_bind_group(4, &world_data.environment.uniforms.bind_group, &[]);
+        encoder.set_bind_group(5, &world_data.environment.texture_bind_group, &[]);
 
         for (key, model_instances) in model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
             let model = self.assets.models.get(key).unwrap();
             encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
 
             for mesh in &model.primitives {
-                encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
+                encoder.set_bind_group(0, &mesh.uniforms.bind_group, &[]);
+                encoder.set_bind_group(1, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 encoder.draw_indexed(0..mesh.num_elements, 0, 0..model_instances.length as _);
@@ -191,6 +220,7 @@ impl Assets {
         &self,
         device: &wgpu::Device,
         camera: &camera::Instance,
+        world_data: &world::WorldData,
         model_instances: &mut InstanceBufferMap,
         nodes: &Vec<&Node>,
     ) -> wgpu::RenderBundle {
@@ -205,14 +235,17 @@ impl Assets {
         });
 
         encoder.set_pipeline(&self.shadow_pipeline);
-        encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
+        encoder.set_bind_group(2, &camera.uniforms.bind_group, &[]);
+        encoder.set_bind_group(3, &self.noise_bindings.bind_group, &[]);
+        encoder.set_bind_group(4, &world_data.environment.uniforms.bind_group, &[]);
 
         for (key, model_instances) in model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
             let model = self.assets.models.get(key).unwrap();
             encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
 
             for mesh in &model.primitives {
-                encoder.set_bind_group(0, &mesh.texture_bind_group, &[]);
+                encoder.set_bind_group(0, &mesh.uniforms.bind_group, &[]);
+                encoder.set_bind_group(1, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                 encoder.draw_indexed(0..mesh.num_elements, 0, 0..model_instances.length as _);

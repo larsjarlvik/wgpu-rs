@@ -1,7 +1,7 @@
 use crate::{camera, noise, plane, settings};
 use cgmath::*;
 use std::{collections::HashMap, time::Instant};
-mod lights;
+mod enivornment;
 mod map;
 mod node;
 mod node_assets;
@@ -15,7 +15,7 @@ pub struct WorldData {
     pub assets: systems::assets::Assets,
     pub sky: systems::sky::Sky,
     pub noise: noise::Noise,
-    pub lights: lights::Lights,
+    pub environment: enivornment::Environment,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
     pub map: map::Map,
 }
@@ -37,11 +37,11 @@ impl World {
         let noise = noise::Noise::new(device, queue).await;
         let map = map::Map::new(device, queue, &noise).await;
 
-        let lights = lights::Lights::new(device);
-        let water = systems::water::Water::new(device, viewport, &noise, &tile, &lights);
+        let environment = enivornment::Environment::new(device);
+        let water = systems::water::Water::new(device, viewport, &noise, &tile, &environment);
         let sky = systems::sky::Sky::new(device, viewport);
-        let assets = systems::assets::Assets::new(device, queue, viewport, &lights);
-        let terrain = systems::terrain::Terrain::new(device, queue, viewport, &noise, &tile, &map, &lights);
+        let assets = systems::assets::Assets::new(device, queue, viewport, &noise, &environment);
+        let terrain = systems::terrain::Terrain::new(device, queue, viewport, &noise, &tile, &map, &environment);
 
         let mut data = WorldData {
             terrain,
@@ -51,7 +51,7 @@ impl World {
             sky,
             lods,
             map,
-            lights,
+            environment,
         };
 
         let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
@@ -69,14 +69,12 @@ impl World {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
 
         self.root_node.update(device, &mut self.data, viewport);
-
-        self.data.lights.update(queue, viewport, view);
-        self.data.water.update(queue, time);
+        self.data.environment.update(queue, viewport, view, time);
         self.views.update(device, queue, &self.data, viewport, &self.root_node, &view);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
-        self.data.water = systems::water::Water::new(device, viewport, &self.data.noise, &self.tile, &self.data.lights);
+        self.data.water = systems::water::Water::new(device, viewport, &self.data.noise, &self.tile, &self.data.environment);
         self.data.sky = systems::sky::Sky::new(device, viewport);
         self.views.resize(device, &self.data, viewport);
     }

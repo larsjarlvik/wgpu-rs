@@ -1,9 +1,9 @@
 use crate::{camera, settings};
-mod data;
+mod uniforms;
 
 pub struct Sky {
     pub render_pipeline: wgpu::RenderPipeline,
-    pub uniforms: data::UniformBuffer,
+    pub uniforms: uniforms::UniformBuffer,
 }
 
 impl Sky {
@@ -53,10 +53,10 @@ impl Sky {
             multisample: wgpu::MultisampleState::default(),
         });
 
-        let uniforms = data::UniformBuffer::new(
+        let uniforms = uniforms::UniformBuffer::new(
             &device,
             &uniform_bind_group_layout,
-            data::Uniforms {
+            uniforms::Uniforms {
                 light_dir: settings::LIGHT_DIR.into(),
                 not_used: 0.0,
                 sky_color: settings::SKY_COLOR.into(),

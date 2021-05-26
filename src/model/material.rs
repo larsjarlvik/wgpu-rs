@@ -1,9 +1,11 @@
 use crate::texture;
+use std::collections::HashMap;
 
 pub struct Material {
     pub index: usize,
     pub base_color_texture: Option<wgpu::TextureView>,
     pub normal_texture: Option<wgpu::TextureView>,
+    pub extras: HashMap<String, f32>,
 }
 
 impl Material {
@@ -37,10 +39,16 @@ impl Material {
             None => None,
         };
 
+        let mut extras: HashMap<String, f32> = HashMap::new();
+        if let Some(json) = material.extras() {
+            extras = serde_json::from_str(json.get()).unwrap();
+        }
+
         Self {
             index: material.index().unwrap(),
             base_color_texture,
             normal_texture,
+            extras,
         }
     }
 }

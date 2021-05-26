@@ -2276,6 +2276,7 @@ dependencies = [
  "rand_pcg",
  "rand_seeder",
  "rayon",
+ "serde_json",
  "shaderc",
  "smaa",
  "strum",

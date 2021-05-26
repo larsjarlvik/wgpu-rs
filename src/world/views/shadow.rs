@@ -17,7 +17,7 @@ impl Cascade {
     fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node, i: usize) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let nodes = root_node.get_nodes(&Box::new(camera.frustum));
-        let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
+        let mut model_instances = bundles::ModelInstances::new(device, &world_data.model);
 
         Self {
             models_bundle: bundles::get_models_shadow_bundle(device, &camera, world_data, &mut model_instances, &nodes),

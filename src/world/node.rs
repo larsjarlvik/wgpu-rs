@@ -1,10 +1,5 @@
 use super::{node_uniforms, WorldData};
-use crate::{
-    assets, camera,
-    pipelines::{self, model},
-    settings,
-    world::node_assets,
-};
+use crate::{assets, camera, pipelines, settings, world::node_assets};
 use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
@@ -12,7 +7,7 @@ use rand_seeder::Seeder;
 use std::collections::HashMap;
 
 pub struct NodeData {
-    pub model_instances: HashMap<String, Vec<model::Instance>>,
+    pub model_instances: HashMap<String, Vec<pipelines::assets::Instance>>,
     pub uniforms: node_uniforms::UniformBuffer,
 }
 
@@ -97,7 +92,7 @@ impl Node {
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
-        let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
+        let mut model_instances: HashMap<String, Vec<pipelines::assets::Instance>> = HashMap::new();
         let (y_min, y_max) = world.map.min_max_elevation(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max.max(0.0);
@@ -112,8 +107,9 @@ impl Node {
                     let name = mesh.variants.get(rng.gen_range(0..mesh.variants.len())).unwrap();
 
                     let model = world
+                        .model
+                        .assets
                         .models
-                        .meshes
                         .get(&name.to_string())
                         .expect(format!("Mesh {} not found!", name).as_str());
 

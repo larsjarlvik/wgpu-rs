@@ -1,4 +1,4 @@
-use crate::{camera, models, pipelines::model, settings, world, world::node::Node};
+use crate::{camera, pipelines::assets, settings, world, world::node::Node};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use std::collections::HashMap;
 use wgpu::util::DeviceExt;
@@ -13,11 +13,11 @@ pub struct ModelInstances {
 }
 
 impl ModelInstances {
-    pub fn new(device: &wgpu::Device, models: &models::Models) -> Self {
+    pub fn new(device: &wgpu::Device, assets: &assets::Assets) -> Self {
         let mut model_instances = HashMap::new();
 
-        for (key, _) in models.meshes.iter() {
-            let instances: Vec<model::Instance> = vec![];
+        for (key, _) in assets.assets.models.iter() {
+            let instances: Vec<assets::Instance> = vec![];
             let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("instance_buffer"),
                 contents: bytemuck::cast_slice(&instances),
@@ -53,7 +53,7 @@ pub fn get_models_bundle(
     encoder.set_bind_group(3, &world_data.lights.texture_bind_group, &[]);
 
     for (key, model_instances) in model_instances.model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
-        let model = world_data.models.meshes.get(key).unwrap();
+        let model = world_data.model.assets.models.get(key).unwrap();
         encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
 
         for mesh in &model.primitives {
@@ -88,7 +88,7 @@ pub fn get_models_shadow_bundle(
     encoder.set_bind_group(1, &camera.uniforms.bind_group, &[]);
 
     for (key, model_instances) in model_instances.model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
-        let model = world_data.models.meshes.get(key).unwrap();
+        let model = world_data.model.assets.models.get(key).unwrap();
         encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
 
         for mesh in &model.primitives {
@@ -111,7 +111,7 @@ fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut ModelInst
             .filter_map(|n| n.get_data())
             .filter_map(|d| d.model_instances.get(key))
             .flat_map(|mi| mi.clone())
-            .collect::<Vec<model::Instance>>();
+            .collect::<Vec<assets::Instance>>();
 
         instance.length = instances.len() as u32;
         if instance.length > 0 {

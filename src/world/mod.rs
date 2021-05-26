@@ -1,4 +1,4 @@
-use crate::{assets, camera, models, noise, pipelines, plane, settings};
+use crate::{camera, noise, pipelines, plane, settings};
 use cgmath::*;
 use std::{collections::HashMap, time::Instant};
 mod bundles;
@@ -12,10 +12,9 @@ mod views;
 pub struct WorldData {
     pub terrain: pipelines::terrain::Terrain,
     pub water: pipelines::water::Water,
-    pub model: pipelines::model::Model,
+    pub model: pipelines::assets::Assets,
     pub sky: pipelines::sky::Sky,
     pub noise: noise::Noise,
-    pub models: models::Models,
     pub lights: lights::Lights,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
     pub map: map::Map,
@@ -48,8 +47,9 @@ impl World {
             &lights.texture_bind_group_layout,
         );
         let sky = pipelines::sky::Sky::new(device, viewport);
-        let model = pipelines::model::Model::new(
+        let model = pipelines::assets::Assets::new(
             device,
+            queue,
             viewport,
             &lights.uniform_bind_group_layout,
             &lights.texture_bind_group_layout,
@@ -65,20 +65,12 @@ impl World {
             &lights.texture_bind_group_layout,
         );
 
-        let now = Instant::now();
-        let mut models = models::Models::new();
-        for asset in assets::ASSETS {
-            models.load_model(&device, &queue, &model, &asset);
-        }
-        println!("Assets: {} ms", now.elapsed().as_millis());
-
         let mut data = WorldData {
             terrain,
             water,
             noise,
             model,
             sky,
-            models,
             lods,
             map,
             lights,

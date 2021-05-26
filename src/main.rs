@@ -11,7 +11,7 @@ mod assets;
 mod camera;
 mod input;
 mod logger;
-mod models;
+mod model;
 mod noise;
 mod pipelines;
 mod plane;

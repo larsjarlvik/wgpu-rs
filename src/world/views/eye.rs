@@ -18,7 +18,7 @@ impl Eye {
     pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let nodes = root_node.get_nodes(&camera.frustum);
-        let mut model_instances = bundles::ModelInstances::new(device, &world_data.models);
+        let mut model_instances = bundles::ModelInstances::new(device, &world_data.model);
 
         Self {
             terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data, &nodes),

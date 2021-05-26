@@ -1,17 +1,20 @@
 use crate::*;
+mod assets;
 mod data;
 pub use {self::data::Instance, self::data::Vertex};
 
-pub struct Model {
+pub struct Assets {
     pub sampler: wgpu::Sampler,
     pub render_pipeline: wgpu::RenderPipeline,
     pub shadow_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
+    pub assets: assets::Assets,
 }
 
-impl Model {
+impl Assets {
     pub fn new(
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         viewport: &camera::Viewport,
         light_uniforms: &wgpu::BindGroupLayout,
         light_textures: &wgpu::BindGroupLayout,
@@ -45,8 +48,8 @@ impl Model {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/assets.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/assets.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_pipeline"),
             layout: Some(&pipeline_layout),
@@ -90,8 +93,8 @@ impl Model {
             multisample: wgpu::MultisampleState::default(),
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model-shadows.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/model-shadows.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/assets-shadows.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/assets-shadows.frag.spv"));
         let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("model_shadow_pipeline"),
             layout: Some(&pipeline_layout),
@@ -126,11 +129,16 @@ impl Model {
             multisample: wgpu::MultisampleState::default(),
         });
 
+        let now = Instant::now();
+        let models = assets::Assets::new(device, queue, &texture_bind_group_layout, &sampler);
+        println!("Assets: {} ms", now.elapsed().as_millis());
+
         Self {
             sampler,
             render_pipeline,
             shadow_pipeline,
             texture_bind_group_layout,
+            assets: models,
         }
     }
 }

@@ -9,8 +9,7 @@ use crate::settings;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
+    pub position: [f32; 2],
 }
 
 impl Vertex {
@@ -18,18 +17,11 @@ impl Vertex {
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
-                },
-            ],
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 0,
+                format: wgpu::VertexFormat::Float2,
+            }],
         }
     }
 }
@@ -66,35 +58,13 @@ impl Plane {
         for z in 0..size + 1 {
             for x in 0..size + 1 {
                 vertices.push(Vertex {
-                    position: [(x as f32) - half_size, 0.0, (z as f32) - half_size],
-                    normal: [0.0, 1.0, 0.0],
+                    position: [(x as f32) - half_size, (z as f32) - half_size],
                 });
             }
         }
 
         let length = vertices.len() as u32;
         Self { vertices, length, size }
-    }
-
-    pub fn sub(&self, x: f32, z: f32, size: u32) -> (Self, f32, f32) {
-        let mut vertices = Vec::new();
-        let x = (x + (self.size as f32 / 2.0)) as u32 - size / 2;
-        let z = (z + (self.size as f32 / 2.0)) as u32 - size / 2;
-        let first = self.vertices.get(0).unwrap();
-        let mut y_min = first.position[1];
-        let mut y_max = first.position[1];
-
-        for z in z..=(z + size) {
-            for x in x..=(x + size) {
-                let vertex = self.vertices.get(self.get_index(x, z) as usize).unwrap();
-                y_min = y_min.min(vertex.position[1]);
-                y_max = y_max.max(vertex.position[1]);
-                vertices.push(*vertex);
-            }
-        }
-
-        let length = vertices.len() as u32;
-        (Self { vertices, length, size }, y_min, y_max)
     }
 
     pub fn create_indices(&self, device: &wgpu::Device, lod: u32) -> HashMap<ConnectType, LodBuffer> {
@@ -296,9 +266,4 @@ pub fn get_lod(a: Vector3<f32>, b: Vector3<f32>, z_far: f32) -> u32 {
     }
 
     settings::LODS.len() as u32
-}
-
-pub fn from_data(vertices: Vec<Vertex>, size: u32) -> Plane {
-    let length = vertices.len() as u32;
-    Plane { vertices, length, size }
 }

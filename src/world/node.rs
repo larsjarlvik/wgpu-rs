@@ -1,30 +1,27 @@
-use super::WorldData;
-use crate::{
-    assets, camera,
-    pipelines::{self, model},
-    plane, settings,
-};
+use super::{node_uniforms, systems, WorldData};
+use crate::{assets, camera, settings, world::node_assets};
 use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
 use rand_seeder::Seeder;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
-use wgpu::util::DeviceExt;
 
 pub struct NodeData {
-    pub terrain_buffer: wgpu::Buffer,
-    pub water_buffer: wgpu::Buffer,
-    pub model_instances: HashMap<String, Vec<model::Instance>>,
-    pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
+    pub model_instances: HashMap<String, Vec<systems::assets::Instance>>,
+    pub uniforms: node_uniforms::UniformBuffer,
+}
+
+enum NodeTree {
+    Branch(Box<Vec<Node>>),
+    Leaf(NodeData),
+    None,
 }
 
 pub struct Node {
     pub x: f32,
     pub z: f32,
     pub bounding_box: camera::BoundingBox,
-    pub data: Option<NodeData>,
-    children: Vec<Node>,
+    tree: NodeTree,
     size: f32,
     radius: f32,
     depth: u32,
@@ -39,151 +36,127 @@ impl Node {
             max: Point3::new(x + size / 2.0, 10000.0, z + size / 2.0),
         };
 
-        let mut node = Self {
+        Self {
             x,
             z,
             bounding_box,
-            data: None,
-            children: vec![],
+            tree: NodeTree::None,
             depth,
             size,
             radius,
-        };
-
-        if !node.is_leaf() {
-            node.add_children();
         }
-
-        node
     }
 
     pub fn update(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
-        let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
-        let z_far_range = num_traits::Float::sqrt(viewport.z_far * viewport.z_far + viewport.z_far * viewport.z_far);
+        let distance = self.get_distance(viewport.eye.x, viewport.eye.z);
+        let z_far_range = num_traits::Float::sqrt(viewport.z_far.powf(2.0) + viewport.z_far.powf(2.0));
 
         if distance > z_far_range {
-            self.data = None;
-            self.children = Vec::new();
+            self.tree = NodeTree::None;
             return;
         }
 
-        if self.data.is_none() {
-            if self.is_leaf() {
-                let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
-                if distance < z_far_range && self.data.is_none() {
-                    self.build_leaf_node(device, world);
-                }
-            } else {
-                self.add_children();
-                for child in self.children.iter_mut() {
-                    child.update(device, world, viewport);
-                    self.bounding_box = self.bounding_box.grow(&child.bounding_box);
+        match self.tree {
+            NodeTree::None => {
+                if self.depth == 0 {
+                    let distance = vec2(self.x, self.z).distance(vec2(viewport.eye.x, viewport.eye.z)) - self.radius;
+                    if distance < z_far_range {
+                        self.build_leaf_node(device, world);
+                    }
+                } else {
+                    self.add_children(device, world, viewport);
                 }
             }
+            _ => {}
         }
     }
 
-    pub fn is_leaf(&self) -> bool {
-        self.depth == 0
-    }
+    pub fn add_children(&mut self, device: &wgpu::Device, world: &mut WorldData, viewport: &camera::Viewport) {
+        let mut children = vec![];
+        let child_size = self.size / 2.0;
 
-    pub fn add_children(&mut self) {
-        if self.children.len() == 0 {
-            let child_size = self.size / 2.0;
-            for cz in -1..1 {
-                for cx in -1..1 {
-                    let child = Node::new(
-                        self.x + ((cx as f32 + 0.5) * child_size),
-                        self.z + ((cz as f32 + 0.5) * child_size),
-                        self.depth - 1,
-                    );
-                    self.bounding_box = self.bounding_box.grow(&child.bounding_box);
-                    self.children.push(child);
-                }
+        for cz in -1..1 {
+            for cx in -1..1 {
+                let mut child = Node::new(
+                    self.x + ((cx as f32 + 0.5) * child_size),
+                    self.z + ((cz as f32 + 0.5) * child_size),
+                    self.depth - 1,
+                );
+                child.update(device, world, viewport);
+                self.bounding_box = self.bounding_box.grow(&child.bounding_box);
+                children.push(child);
             }
         }
+
+        self.tree = NodeTree::Branch(Box::new(children));
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
-        let mut model_instances: HashMap<String, Vec<pipelines::model::Instance>> = HashMap::new();
-        let (plane, y_min, y_max) = world.heightmap.sub(self.x, self.z, settings::TILE_SIZE);
+        let mut model_instances: HashMap<String, Vec<systems::assets::Instance>> = HashMap::new();
+        let (y_min, y_max) = world.map.min_max_elevation(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max.max(0.0);
 
-        let lods = (0..=settings::LODS.len())
-            .map(|lod| plane.create_indices(&device, lod as u32 + 1))
-            .collect();
+        let seed = format!("{}_NODE_{}_{}", settings::MAP_SEED, self.x, self.z);
+        let mut rng: Pcg64 = Seeder::from(seed).make_rng();
 
-        let terrain_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("terrain_vertex_buffer"),
-            contents: bytemuck::cast_slice(&plane.vertices),
-            usage: wgpu::BufferUsage::VERTEX,
-        });
+        for (i, asset) in assets::ASSETS.iter().enumerate() {
+            for (n, mesh) in asset.meshes.iter().enumerate() {
+                let assets = node_assets::create_assets(self.x, self.z, self.size, world, mesh, &format!("{}_{}", i, n));
+                for asset in assets {
+                    let name = mesh.variants.get(rng.gen_range(0..mesh.variants.len())).unwrap();
 
-        for asset in assets::ASSETS {
-            for mesh in asset.meshes {
-                let model = world
-                    .models
-                    .meshes
-                    .get(&mesh.name.to_string())
-                    .expect(format!("Mesh {} not found!", mesh.name).as_str());
-                let assets = self.create_assets(world, &mesh);
-                for asset in &assets {
+                    let model = world
+                        .assets
+                        .assets
+                        .models
+                        .get(&name.to_string())
+                        .expect(format!("Mesh {} not found!", name).as_str());
+
                     let asset_bb = model.bounding_box.transform(asset.transform);
                     self.bounding_box = self.bounding_box.grow(&asset_bb);
-                }
 
-                model_instances.insert(mesh.name.to_string(), assets);
+                    let instances = model_instances.entry(name.to_string()).or_insert(vec![]);
+                    instances.push(asset);
+                }
             }
         }
 
-        self.data = Some(NodeData {
-            terrain_buffer,
-            water_buffer: world.water.create_buffer(&device, self.x, self.z),
-            model_instances,
-            lods,
-        });
+        let size = (settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH)) as f32;
+        let uniforms = node_uniforms::UniformBuffer::new(
+            device,
+            &world.terrain.node_uniform_bind_group_layout,
+            node_uniforms::Uniforms {
+                translation: [self.x, self.z],
+                size,
+            },
+        );
+
+        self.tree = NodeTree::Leaf(NodeData { model_instances, uniforms });
     }
 
-    fn create_assets(&self, world: &WorldData, mesh: &assets::Mesh) -> Vec<pipelines::model::Instance> {
-        let count = (self.size * self.size * mesh.density) as u32;
-
-        (0..count)
-            .into_par_iter()
-            .map(|i| {
-                let seed = format!("{}_NODE_{}_{}_{}_{}", settings::MAP_SEED, self.x, self.z, mesh.name, i);
-                let mut rng: Pcg64 = Seeder::from(seed).make_rng();
-                let m = vec2(
-                    self.x + (rng.gen::<f32>() - 0.5) * self.size,
-                    self.z + (rng.gen::<f32>() - 0.5) * self.size,
-                );
-                let v = world.get_vertex(m);
-                let elev = world.get_elevation(v, m) - 0.25;
-                (
-                    elev,
-                    v.normal,
-                    m.x,
-                    m.y,
-                    rng.gen::<f32>(),
-                    rng.gen_range(mesh.min_size..mesh.max_size),
-                )
-            })
-            .filter(|(my, normal, ..)| *my > 0.0 && normal[1] > mesh.max_slope)
-            .map(|(my, _, mx, mz, rot, scale)| {
-                let t = Matrix4::from_translation(vec3(mx, my, mz)) * Matrix4::from_angle_y(Deg(rot * 360.0)) * Matrix4::from_scale(scale);
-                pipelines::model::Instance { transform: t.into() }
-            })
-            .collect::<Vec<pipelines::model::Instance>>()
-    }
-
-    pub fn get_nodes(&self, camera: &camera::Instance) -> Vec<(&Self, &NodeData)> {
-        if camera.frustum.test_bounding_box(&self.bounding_box) {
-            match &self.data {
-                Some(t) => vec![(&self, &t)],
-                None => self.children.iter().flat_map(|child| child.get_nodes(camera)).collect(),
+    pub fn get_nodes<'a>(&'a self, frustum: &camera::FrustumCuller) -> Vec<&'a Self> {
+        optick::event!();
+        if frustum.test_bounding_box(&self.bounding_box) {
+            match &self.tree {
+                NodeTree::Branch(children) => children.iter().flat_map(|child| child.get_nodes(frustum)).collect(),
+                NodeTree::Leaf(_) => vec![&self],
+                NodeTree::None => vec![],
             }
         } else {
             vec![]
         }
+    }
+
+    pub fn get_data<'a>(&'a self) -> Option<&'a NodeData> {
+        match &self.tree {
+            NodeTree::Branch(_) => None,
+            NodeTree::Leaf(data) => Some(&data),
+            NodeTree::None => None,
+        }
+    }
+
+    pub fn get_distance(&self, x: f32, z: f32) -> f32 {
+        vec2(self.x, self.z).distance(vec2(x, z)) - self.radius
     }
 }

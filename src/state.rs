@@ -37,7 +37,11 @@ impl State {
                     features: wgpu::Features::SAMPLED_TEXTURE_BINDING_ARRAY
                         | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES
                         | wgpu::Features::DEPTH_CLAMPING,
-                    limits: wgpu::Limits::default(),
+                    limits: wgpu::Limits {
+                        max_bind_groups: 7,
+                        max_sampled_textures_per_shader_stage: 32,
+                        ..Default::default()
+                    },
                 },
                 None,
             )
@@ -104,11 +108,15 @@ impl State {
         let device = &mut self.device;
         let world = &mut self.world;
         let queue = &mut self.queue;
-        self.anti_aliasing.execute(&device, &queue, &frame.view, |target| {
-            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
-            world.render(&mut encoder, &target);
-            queue.submit(std::iter::once(encoder.finish()));
-        });
+        self.anti_aliasing
+            .execute(&device, &queue, &frame.view, |color_target, depth_target| {
+                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
+                world.render(&mut encoder, &color_target, &depth_target);
+                {
+                    optick::event!("submit");
+                    queue.submit(std::iter::once(encoder.finish()));
+                }
+            });
 
         Ok(())
     }

@@ -30,7 +30,7 @@ impl Noise {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::R32Float,
-            usage: wgpu::TextureUsage::STORAGE | wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_SRC | wgpu::TextureUsage::COPY_DST,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         };
         let texture = device.create_texture(frame_descriptor);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -64,16 +64,7 @@ impl Noise {
     }
 
     pub fn create_bindings(&self, device: &wgpu::Device) -> NoiseBindings {
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
+        let sampler = texture::create_sampler(device, wgpu::AddressMode::Repeat, wgpu::FilterMode::Nearest);
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("noise_texture_bind_group_layout"),
             entries: &[

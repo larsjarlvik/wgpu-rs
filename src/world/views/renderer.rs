@@ -8,6 +8,7 @@ pub struct Args<'t> {
 }
 
 pub fn render(label: &str, encoder: &mut wgpu::CommandEncoder, args: Args) {
+    optick::event!();
     let ops = wgpu::Operations {
         load: match args.clear_color {
             true => wgpu::LoadOp::Clear(settings::CLEAR_COLOR),

@@ -23,10 +23,12 @@ crossbeam-channel = "0.5.1"
 smaa = "0.2.2"
 rand_pcg = "0.3.0"
 rand_seeder = "0.2.2"
+optick = "1.3.1"
+serde_json = "1.0.64"
 
 [dependencies.gltf]
 version = "0.15.0"
-features = ["names"]
+features = ["names", "extras"]
 
 [build-dependencies]
 anyhow = "1.0"
@@ -34,3 +36,6 @@ fs_extra = "1.1"
 glob = "0.3"
 shaderc = "0.7"
 rayon = "1.1"
+
+[profile.release]
+incremental = true

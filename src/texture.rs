@@ -50,7 +50,7 @@ pub fn create_mipmapped_view(device: &wgpu::Device, queue: &wgpu::Queue, pixels:
 pub fn create_bind_group_layout(binding: u32, sample_type: wgpu::TextureSampleType) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStage::FRAGMENT,
+        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
         ty: wgpu::BindingType::Texture {
             multisampled: false,
             sample_type,
@@ -62,7 +62,7 @@ pub fn create_bind_group_layout(binding: u32, sample_type: wgpu::TextureSampleTy
 pub fn create_array_bind_group_layout(binding: u32, sample_type: wgpu::TextureSampleType, count: usize) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
-        visibility: wgpu::ShaderStage::FRAGMENT,
+        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
         ty: wgpu::BindingType::Texture {
             multisampled: false,
             sample_type,

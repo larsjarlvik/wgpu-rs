@@ -1,5 +1,6 @@
 use super::{frustum, uniforms, Viewport};
 use cgmath::*;
+use std::ops::Range;
 
 pub struct Instance {
     pub uniforms: uniforms::UniformBuffer,
@@ -28,11 +29,13 @@ impl Instance {
         }
     }
 
-    pub fn update(&mut self, queue: &wgpu::Queue, target: Point3<f32>, eye: Point3<f32>, world_matrix: Matrix4<f32>) {
+    pub fn update(&mut self, queue: &wgpu::Queue, target: Point3<f32>, eye: Point3<f32>, world_matrix: Matrix4<f32>, near_far: Range<f32>) {
         self.frustum = frustum::FrustumCuller::from_matrix(world_matrix);
         self.uniforms.data.look_at = target.into();
         self.uniforms.data.eye_pos = eye.into();
         self.uniforms.data.view_proj = (world_matrix).into();
+        self.uniforms.data.z_near = near_far.start;
+        self.uniforms.data.z_far = near_far.end;
 
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }

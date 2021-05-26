@@ -74,6 +74,7 @@ fn main() -> Result<()> {
             .into_string()
             .map_err(|e| format!("path contains invalid utf8: '{:?}'", e))?;
 
+        println!("cargo:rerun-if-changed={}", resolved_name);
         Ok(shaderc::ResolvedInclude {
             resolved_name,
             content: std::fs::read_to_string(path).map_err(|e| e.to_string())?,

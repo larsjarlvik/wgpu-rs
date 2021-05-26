@@ -1455,6 +1455,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
 
 [[package]]
+name = "optick"
+version = "1.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7e7ab6068cdba9928db83674b18fe7aa2efbaa9920698d260ecbaf7906c6548"
+
+[[package]]
 name = "owned_ttf_parser"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2265,10 +2271,12 @@ dependencies = [
  "gltf",
  "image",
  "once_cell",
+ "optick",
  "rand",
  "rand_pcg",
  "rand_seeder",
  "rayon",
+ "serde_json",
  "shaderc",
  "smaa",
  "strum",

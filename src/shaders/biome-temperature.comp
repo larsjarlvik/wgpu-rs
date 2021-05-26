@@ -1,0 +1,23 @@
+#version 450
+#include "include/compute.glsl"
+
+#define NOISE_VARIATION 3.0
+#define ELEV_DROP_OFF 0.2
+#define LATITUDE_EFFECT 20.0
+#define AMBIENT 24.0
+#define EQUATOR 1.0
+
+void main() {
+    vec2 xz = gl_GlobalInvocationID.xy;
+    vec4 biome = imageLoad(biome_texture, ivec2(xz));
+
+    float to_north = EQUATOR - (xz.y / float(u_size));
+    float north = (to_north * 2.0 - 1.0) * LATITUDE_EFFECT;
+
+    float elev_strength = ((fbm((xz + 0.34) * 0.02, 3) * 2.0 - 1.0) * 2.0 - 1.0) * 4.0;
+    float elev = ((1.0 - clamp(imageLoad(elevation_normal_texture, ivec2(xz)).x, 0.0, 1000.0)) * ELEV_DROP_OFF) + elev_strength;
+    float noise = (fbm(xz * 0.001, 2) * 2.0 - 1.0) * NOISE_VARIATION;
+
+    biome.x = AMBIENT + north + elev + noise;
+    imageStore(biome_texture, ivec2(xz), biome);
+}

@@ -11,7 +11,7 @@ mod assets;
 mod camera;
 mod input;
 mod logger;
-mod models;
+mod model;
 mod noise;
 mod pipelines;
 mod plane;
@@ -36,12 +36,15 @@ fn main() {
     let mut state = block_on(state::State::new(&window));
     let mut fps = 0;
     let mut last_update = Instant::now();
+    let mut profiling = false;
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
             state.input.process_device_event(event);
         }
         Event::RedrawRequested(_) => {
+            optick::next_frame();
+
             logger::measure_time("Update", || {
                 state.update();
             });
@@ -80,6 +83,18 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::Escape),
                     ..
                 } => exit(control_flow),
+                KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::P),
+                    ..
+                } => {
+                    if profiling {
+                        optick::stop_capture("wgpu-profile");
+                    } else {
+                        optick::start_capture();
+                    }
+                    profiling = !profiling;
+                }
                 KeyboardInput {
                     state: ElementState::Pressed,
                     virtual_keycode: Some(VirtualKeyCode::F),

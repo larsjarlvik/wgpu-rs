@@ -1,7 +1,7 @@
 use super::renderer;
 use crate::{
     camera,
-    world::{bundles, node, WorldData},
+    world::{node, systems, WorldData},
 };
 use cgmath::*;
 
@@ -10,7 +10,7 @@ pub struct Eye {
     pub water_bundle: wgpu::RenderBundle,
     pub models_bundle: wgpu::RenderBundle,
     pub sky_bundle: wgpu::RenderBundle,
-    pub model_instances: bundles::ModelInstances,
+    pub asset_instances: systems::assets::InstanceBufferMap,
     pub camera: camera::Instance,
 }
 
@@ -18,14 +18,16 @@ impl Eye {
     pub fn new(device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport, root_node: &node::Node) -> Self {
         let camera = camera::Instance::from_controller(device, &viewport, [0.0, 1.0, 0.0, 1.0]);
         let nodes = root_node.get_nodes(&camera.frustum);
-        let mut model_instances = bundles::ModelInstances::new(device, &world_data.model);
+        let mut asset_instances = world_data.assets.get_instances(device);
 
         Self {
-            terrain_bundle: bundles::get_terrain_bundle(device, &camera, &world_data, &nodes),
-            water_bundle: bundles::get_water_bundle(device, &camera, &world_data, &nodes),
-            sky_bundle: bundles::get_sky_bundle(device, &camera, &world_data.sky),
-            models_bundle: bundles::get_models_bundle(device, &camera, world_data, &mut model_instances, &nodes),
-            model_instances,
+            terrain_bundle: world_data.terrain.get_bundle(device, &camera, &world_data, &nodes),
+            water_bundle: world_data.water.get_bundle(device, &camera, &world_data, &nodes),
+            sky_bundle: world_data.sky.get_bundle(device, &camera),
+            models_bundle: world_data
+                .assets
+                .get_bundle(device, &camera, world_data, &mut asset_instances, &nodes),
+            asset_instances,
             camera,
         }
     }
@@ -49,14 +51,16 @@ impl Eye {
         );
 
         let nodes = root_node.get_nodes(&self.camera.frustum);
-        self.terrain_bundle = bundles::get_terrain_bundle(device, &self.camera, &world_data, &nodes);
-        self.water_bundle = bundles::get_water_bundle(device, &self.camera, &world_data, &nodes);
-        self.models_bundle = bundles::get_models_bundle(device, &self.camera, &world_data, &mut self.model_instances, &nodes);
+        self.terrain_bundle = world_data.terrain.get_bundle(device, &self.camera, &world_data, &nodes);
+        self.water_bundle = world_data.water.get_bundle(device, &self.camera, &world_data, &nodes);
+        self.models_bundle = world_data
+            .assets
+            .get_bundle(device, &self.camera, &world_data, &mut self.asset_instances, &nodes);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport) {
         self.camera.resize(viewport.width, viewport.height);
-        self.sky_bundle = bundles::get_sky_bundle(device, &self.camera, &world_data.sky);
+        self.sky_bundle = world_data.sky.get_bundle(device, &self.camera);
     }
 
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView, depth_target: &wgpu::TextureView) {

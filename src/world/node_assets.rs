@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
-use super::WorldData;
-use crate::{assets, pipelines, settings};
+use super::{systems, WorldData};
+use crate::{assets, settings};
 use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
@@ -72,7 +72,7 @@ impl NodeAsset {
         true
     }
 
-    fn create_instance(&self, mesh: &assets::Mesh, world: &WorldData) -> pipelines::assets::Instance {
+    fn create_instance(&self, mesh: &assets::Mesh, world: &WorldData) -> systems::assets::Instance {
         let seed = format!("{}_TRANSFORM_{}_{}_{}", settings::MAP_SEED, self.tile.x, self.tile.z, self.key);
         let mut rng: Pcg64 = Seeder::from(seed).make_rng();
 
@@ -96,7 +96,7 @@ impl NodeAsset {
         }
 
         let t = Matrix4::from_translation(vec3(self.pos.x, elev, self.pos.y)) * Matrix4::from(r) * Matrix4::from_scale(self.scale);
-        pipelines::assets::Instance { transform: t.into() }
+        systems::assets::Instance { transform: t.into() }
     }
 }
 
@@ -118,7 +118,7 @@ fn get_offsets(radius: f32, scale: f32) -> Vec<Vector3<f32>> {
     ]
 }
 
-pub fn create_assets(x: f32, z: f32, size: f32, world: &WorldData, mesh: &assets::Mesh, key: &str) -> Vec<pipelines::assets::Instance> {
+pub fn create_assets(x: f32, z: f32, size: f32, world: &WorldData, mesh: &assets::Mesh, key: &str) -> Vec<systems::assets::Instance> {
     let seed = format!("{}_NODE_{}_{}_{}", settings::MAP_SEED, x, z, key);
     let mut rng: Pcg64 = Seeder::from(seed).make_rng();
     let mut count = (rng.gen::<f32>() * mesh.density.floor() * settings::TILE_SIZE as f32 / 20.0) as usize;

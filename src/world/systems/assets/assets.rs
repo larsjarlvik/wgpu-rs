@@ -15,11 +15,11 @@ pub struct ModelBuffer {
     pub bounding_box: camera::BoundingBox,
 }
 
-pub struct Assets {
+pub struct AssetBuffers {
     pub models: HashMap<String, ModelBuffer>,
 }
 
-impl Assets {
+impl AssetBuffers {
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

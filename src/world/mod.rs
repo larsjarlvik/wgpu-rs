@@ -1,19 +1,19 @@
-use crate::{camera, noise, pipelines, plane, settings};
+use crate::{camera, noise, plane, settings};
 use cgmath::*;
 use std::{collections::HashMap, time::Instant};
-mod bundles;
 mod lights;
 mod map;
 mod node;
 mod node_assets;
 mod node_uniforms;
+mod systems;
 mod views;
 
 pub struct WorldData {
-    pub terrain: pipelines::terrain::Terrain,
-    pub water: pipelines::water::Water,
-    pub model: pipelines::assets::Assets,
-    pub sky: pipelines::sky::Sky,
+    pub terrain: systems::terrain::Terrain,
+    pub water: systems::water::Water,
+    pub assets: systems::assets::Assets,
+    pub sky: systems::sky::Sky,
     pub noise: noise::Noise,
     pub lights: lights::Lights,
     pub lods: Vec<HashMap<plane::ConnectType, plane::LodBuffer>>,
@@ -38,7 +38,7 @@ impl World {
         let map = map::Map::new(device, queue, &noise).await;
 
         let lights = lights::Lights::new(device);
-        let water = pipelines::water::Water::new(
+        let water = systems::water::Water::new(
             device,
             viewport,
             &noise,
@@ -46,15 +46,15 @@ impl World {
             &lights.uniform_bind_group_layout,
             &lights.texture_bind_group_layout,
         );
-        let sky = pipelines::sky::Sky::new(device, viewport);
-        let model = pipelines::assets::Assets::new(
+        let sky = systems::sky::Sky::new(device, viewport);
+        let assets = systems::assets::Assets::new(
             device,
             queue,
             viewport,
             &lights.uniform_bind_group_layout,
             &lights.texture_bind_group_layout,
         );
-        let terrain = pipelines::terrain::Terrain::new(
+        let terrain = systems::terrain::Terrain::new(
             device,
             queue,
             viewport,
@@ -69,7 +69,7 @@ impl World {
             terrain,
             water,
             noise,
-            model,
+            assets,
             sky,
             lods,
             map,
@@ -98,7 +98,7 @@ impl World {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
-        self.data.water = pipelines::water::Water::new(
+        self.data.water = systems::water::Water::new(
             device,
             viewport,
             &self.data.noise,
@@ -106,7 +106,7 @@ impl World {
             &self.data.lights.uniform_bind_group_layout,
             &self.data.lights.texture_bind_group_layout,
         );
-        self.data.sky = pipelines::sky::Sky::new(device, viewport);
+        self.data.sky = systems::sky::Sky::new(device, viewport);
         self.views.resize(device, &self.data, viewport);
     }
 

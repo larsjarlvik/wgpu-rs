@@ -28,8 +28,8 @@ impl Sky {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/sky.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/sky.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../../shaders/compiled/sky.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../../shaders/compiled/sky.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("sky_pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -64,5 +64,22 @@ impl Sky {
         );
 
         Self { render_pipeline, uniforms }
+    }
+
+    pub fn get_bundle(&self, device: &wgpu::Device, camera: &camera::Instance) -> wgpu::RenderBundle {
+        optick::event!();
+        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+            label: None,
+            color_formats: &[settings::COLOR_TEXTURE_FORMAT],
+            depth_stencil_format: None,
+            sample_count: 1,
+        });
+
+        encoder.set_pipeline(&self.render_pipeline);
+        encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
+        encoder.set_bind_group(1, &self.uniforms.bind_group, &[]);
+        encoder.draw(0..6, 0..1);
+
+        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("sky") })
     }
 }

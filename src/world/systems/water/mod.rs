@@ -1,4 +1,8 @@
-use crate::{camera, noise, plane, settings, texture};
+use crate::{
+    camera, noise, plane, settings, texture,
+    world::{self, node::Node},
+};
+use cgmath::*;
 use std::{collections::HashMap, time::Instant};
 use wgpu::util::DeviceExt;
 mod uniforms;
@@ -102,8 +106,8 @@ impl Water {
             push_constant_ranges: &[],
         });
 
-        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/water.vert.spv"));
-        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../shaders/compiled/water.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::include_spirv!("../../../shaders/compiled/water.vert.spv"));
+        let fs_module = device.create_shader_module(&wgpu::include_spirv!("../../../shaders/compiled/water.frag.spv"));
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("water_pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -159,4 +163,59 @@ impl Water {
         self.uniforms.data.time = time.elapsed().as_millis() as f32;
         queue.write_buffer(&self.uniforms.buffer, 0, bytemuck::cast_slice(&[self.uniforms.data]));
     }
+
+    pub fn get_bundle(
+        &self,
+        device: &wgpu::Device,
+        camera: &camera::Instance,
+        world_data: &world::WorldData,
+        nodes: &Vec<&Node>,
+    ) -> wgpu::RenderBundle {
+        optick::event!();
+        let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
+            label: Some("water_bundle"),
+            color_formats: &[settings::COLOR_TEXTURE_FORMAT],
+            depth_stencil_format: Some(settings::DEPTH_TEXTURE_FORMAT),
+            sample_count: 1,
+        });
+        encoder.set_pipeline(&self.render_pipeline);
+        encoder.set_bind_group(0, &camera.uniforms.bind_group, &[]);
+        encoder.set_bind_group(1, &self.uniforms.bind_group, &[]);
+        encoder.set_bind_group(2, &self.noise_bindings.bind_group, &[]);
+        encoder.set_bind_group(3, &self.texture_bind_group, &[]);
+        encoder.set_bind_group(5, &world_data.lights.uniforms.bind_group, &[]);
+        encoder.set_bind_group(6, &world_data.lights.texture_bind_group, &[]);
+        encoder.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+        let plane = camera.uniforms.data.clip[3];
+        let eye = vec3(
+            camera.uniforms.data.eye_pos[0],
+            camera.uniforms.data.eye_pos[1],
+            camera.uniforms.data.eye_pos[2],
+        );
+
+        for node in nodes {
+            for lod in 0..=settings::LODS.len() {
+                let water_lod = world_data.lods.get(lod).expect("Could not get LOD!");
+
+                if check_clip(plane, node.bounding_box.min.y)
+                    && plane::get_lod(eye, vec3(node.x, 0.0, node.z), camera.uniforms.data.z_far) == lod as u32
+                {
+                    if let Some(data) = &node.get_data() {
+                        let ct = plane::get_connect_type(eye, vec3(node.x, 0.0, node.z), lod as u32, camera.uniforms.data.z_far);
+                        let lod_buffer = water_lod.get(&ct).unwrap();
+                        encoder.set_bind_group(4, &data.uniforms.bind_group, &[]);
+                        encoder.set_index_buffer(lod_buffer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                        encoder.draw_indexed(0..lod_buffer.length, 0, 0..1);
+                    }
+                }
+            }
+        }
+
+        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("water") })
+    }
+}
+
+fn check_clip(plane: f32, y_min: f32) -> bool {
+    y_min <= plane
 }

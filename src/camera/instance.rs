@@ -8,20 +8,20 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub fn from_controller(device: &wgpu::Device, cameras: &Viewport, clip: [f32; 4]) -> Self {
+    pub fn from_controller(device: &wgpu::Device, viewport: &Viewport, clip: [f32; 4]) -> Self {
         let frustum = frustum::FrustumCuller::new();
 
         Self {
             uniforms: uniforms::UniformBuffer::new(
                 &device,
-                &cameras.bind_group_layout,
+                &viewport.bind_group_layout,
                 uniforms::Uniforms {
                     view_proj: Matrix4::identity().into(),
                     eye_pos: [0.0, 0.0, 0.0],
                     look_at: [0.0, 0.0, 0.0],
-                    z_near: cameras.z_near,
-                    z_far: cameras.z_far,
-                    viewport_size: [cameras.width as f32, cameras.height as f32],
+                    z_near: viewport.z_near,
+                    z_far: viewport.z_far,
+                    viewport_size: [viewport.width as f32, viewport.height as f32],
                     clip,
                 },
             ),

@@ -12,7 +12,7 @@ pub struct Map {
     pub compute: compute::Compute,
     pub textures: textures::Textures,
     pub size: u32,
-    data: RawData,
+    data: Option<RawData>,
 }
 
 struct RawData {
@@ -21,25 +21,34 @@ struct RawData {
 }
 
 impl Map {
-    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue, noise: &noise::Noise) -> Self {
-        let start = Instant::now();
-
+    pub async fn new(device: &wgpu::Device, noise: &noise::Noise) -> Self {
         let size = settings::TILE_SIZE * 2u32.pow(settings::TILE_DEPTH);
         let textures = textures::Textures::new(device, size);
         let compute = compute::Compute::new(device, noise, &textures, size);
 
+        Self {
+            size,
+            textures,
+            compute,
+            data: None,
+        }
+    }
+
+    pub async fn generate(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let start = Instant::now();
+
         // Terrain
-        let elevation_task = &Task::new("Elevation", &compute.elevation_pipeline, 1, 1);
-        let erosion_task = &Task::new("Erosion", &compute.erosion_pipeline, 2, 4);
-        let smooth_task = &Task::new("Smooth", &compute.smooth_pipeline, 3, 1);
-        let normal_task = &Task::new("Normals", &compute.normal_pipeline, 1, 1);
+        let elevation_task = &Task::new("Elevation", &self.compute.elevation_pipeline, 1, 1);
+        let erosion_task = &Task::new("Erosion", &self.compute.erosion_pipeline, 2, 4);
+        let smooth_task = &Task::new("Smooth", &self.compute.smooth_pipeline, 3, 1);
+        let normal_task = &Task::new("Normals", &self.compute.normal_pipeline, 1, 1);
 
         // Biomes
-        let temperature_task = &Task::new("Temperature", &compute.temperature_pipeline, 1, 1);
-        let moisture_task = &Task::new("Moisture", &compute.moisture_pipeline, 1, 1);
-        let decoration_task = &Task::new("Decoration", &compute.decoration_pipeline, 1, 1);
+        let temperature_task = &Task::new("Temperature", &self.compute.temperature_pipeline, 1, 1);
+        let moisture_task = &Task::new("Moisture", &self.compute.moisture_pipeline, 1, 1);
+        let decoration_task = &Task::new("Decoration", &self.compute.decoration_pipeline, 1, 1);
 
-        compute.run(
+        self.compute.run(
             device,
             queue,
             vec![
@@ -54,19 +63,19 @@ impl Map {
         );
 
         let parse = Instant::now();
-        let elevation_normals = textures.read_texture(device, queue, &textures.elevation_normal_texture, size).await;
-        let biome = textures.read_texture(device, queue, &textures.biome_texture, size).await;
-        let data = RawData { elevation_normals, biome };
+        let elevation_normals = self
+            .textures
+            .read_texture(device, queue, &self.textures.elevation_normal_texture, self.size)
+            .await;
+        let biome = self
+            .textures
+            .read_texture(device, queue, &self.textures.biome_texture, self.size)
+            .await;
+
+        self.data = Some(RawData { elevation_normals, biome });
 
         println!("Parse data: {} ms", parse.elapsed().as_millis());
         println!("Build map: {} ms", start.elapsed().as_millis());
-
-        Self {
-            size,
-            textures,
-            compute,
-            data,
-        }
     }
 
     pub fn get_position_normal(&self, p: Vector2<f32>) -> (Vector3<f32>, Vector3<f32>) {
@@ -74,10 +83,14 @@ impl Map {
         let (x, z) = ((p.x + half_size) as u32, (p.y + half_size) as u32);
         let a = (z * self.size + x) as usize;
 
-        match self.data.elevation_normals.get(a) {
-            Some(v) => (vec3(p.x.floor(), v.x, p.y.floor()), vec3(v.y, v.z, v.w)),
-            None => (vec3(p.x.floor(), 0.0, p.y.floor()), vec3(0.0, 1.0, 0.0)),
+        if let Some(data) = &self.data {
+            return match data.elevation_normals.get(a) {
+                Some(v) => (vec3(p.x.floor(), v.x, p.y.floor()), vec3(v.y, v.z, v.w)),
+                None => (vec3(p.x.floor(), 0.0, p.y.floor()), vec3(0.0, 1.0, 0.0)),
+            };
         }
+
+        (vec3(p.x.floor(), 0.0, p.y.floor()), vec3(0.0, 1.0, 0.0))
     }
 
     pub fn get_biome(&self, p: Vector2<f32>) -> (f32, f32) {
@@ -85,10 +98,14 @@ impl Map {
         let (x, z) = ((p.x + half_size) as u32, (p.y + half_size) as u32);
         let a = (z * self.size + x) as usize;
 
-        match self.data.biome.get(a) {
-            Some(b) => (b.x, b.y),
-            None => (0.0, 0.0),
+        if let Some(data) = &self.data {
+            return match data.biome.get(a) {
+                Some(b) => (b.x, b.y),
+                None => (0.0, 0.0),
+            };
         }
+
+        (0.0, 0.0)
     }
 
     pub fn get_smooth_elevation(&self, p: Vector2<f32>, (pos, normal): (Vector3<f32>, Vector3<f32>)) -> f32 {

@@ -22,19 +22,14 @@ pub struct Assets {
     pub sampler: wgpu::Sampler,
     pub render_pipeline: wgpu::RenderPipeline,
     pub shadow_pipeline: wgpu::RenderPipeline,
+    pub uniform_bind_group_layout: wgpu::BindGroupLayout,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
     pub assets: assets::AssetMap,
     noise_bindings: noise::NoiseBindings,
 }
 
 impl Assets {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        viewport: &camera::Viewport,
-        noise: &noise::Noise,
-        env: &world::enivornment::Environment,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport, noise: &noise::Noise, env: &world::enivornment::Environment) -> Self {
         let noise_bindings = noise.create_bindings(device);
 
         let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -163,18 +158,28 @@ impl Assets {
             multisample: wgpu::MultisampleState::default(),
         });
 
-        let now = Instant::now();
-        let assets = assets::create(device, queue, &uniform_bind_group_layout, &texture_bind_group_layout, &sampler);
-        println!("Assets: {} ms", now.elapsed().as_millis());
-
+        let assets = HashMap::new();
         Self {
             sampler,
             render_pipeline,
             shadow_pipeline,
+            uniform_bind_group_layout,
             texture_bind_group_layout,
             noise_bindings,
             assets,
         }
+    }
+
+    pub fn load_assets(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let now = Instant::now();
+        self.assets = assets::create(
+            device,
+            queue,
+            &self.uniform_bind_group_layout,
+            &self.texture_bind_group_layout,
+            &self.sampler,
+        );
+        println!("Assets: {} ms", now.elapsed().as_millis());
     }
 
     pub fn get_bundle(

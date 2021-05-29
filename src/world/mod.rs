@@ -35,12 +35,12 @@ impl World {
             .collect();
 
         let noise = noise::Noise::new(device, queue).await;
-        let map = map::Map::new(device, queue, &noise).await;
+        let map = map::Map::new(device, &noise).await;
 
         let environment = enivornment::Environment::new(device);
         let water = systems::water::Water::new(device, viewport, &noise, &tile, &environment);
         let sky = systems::sky::Sky::new(device, viewport);
-        let assets = systems::assets::Assets::new(device, queue, viewport, &noise, &environment);
+        let assets = systems::assets::Assets::new(device, viewport, &noise, &environment);
         let terrain = systems::terrain::Terrain::new(device, queue, viewport, &noise, &tile, &map, &environment);
 
         let mut data = WorldData {
@@ -54,7 +54,7 @@ impl World {
             environment,
         };
 
-        let root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
+        let root_node = node::Node::new(0.0, 0.0, 0);
         let views = views::Views::new(device, &mut data, viewport, &root_node);
 
         Self {
@@ -63,6 +63,13 @@ impl World {
             views,
             root_node,
         }
+    }
+
+    pub async fn generate(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) {
+        self.data.map.generate(device, queue).await;
+        self.data.assets.load_assets(device, queue);
+        self.root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
+        self.views = views::Views::new(device, &mut self.data, viewport, &self.root_node);
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, time: Instant) {

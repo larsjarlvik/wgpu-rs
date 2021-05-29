@@ -31,13 +31,16 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("WGPU-RS")
+        .with_visible(false)
         .build(&event_loop)
         .expect("Failed to create window!");
+
     let mut state = block_on(state::State::new(&window));
     let mut fps = 0;
     let mut last_update = Instant::now();
     let mut profiling = false;
 
+    window.set_visible(true);
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent { ref event, .. } => {
             state.input.process_device_event(event);
@@ -58,7 +61,9 @@ fn main() {
 
             fps += 1;
             if last_update.elapsed().as_millis() >= 1000 {
-                window.set_title(format!("WGPU-RS: {} FPS, AA: {}", fps, state.anti_aliasing.display()).as_str());
+                if let Some(anti_aliasing) = &state.anti_aliasing {
+                    window.set_title(format!("WGPU-RS: {} FPS, AA: {}", fps, anti_aliasing.display()).as_str());
+                }
                 last_update = Instant::now();
                 fps = 0;
             }
@@ -112,7 +117,9 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::G),
                     ..
                 } => {
-                    state.anti_aliasing.toggle();
+                    if let Some(anti_aliasing) = &mut state.anti_aliasing {
+                        anti_aliasing.toggle();
+                    }
                 }
                 input => {
                     &state.input.process_key(input);

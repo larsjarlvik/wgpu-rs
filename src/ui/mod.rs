@@ -32,7 +32,7 @@ impl UI {
 
         {
             let mut widgets = ui.set_widgets();
-            widget::Text::new("Hello World!")
+            widget::Text::new("Loading...")
                 .middle_of(widgets.window)
                 .color(color::WHITE)
                 .font_size(32)
@@ -65,7 +65,7 @@ impl UI {
             attachment: target,
             resolve_target: None,
             ops: wgpu::Operations {
-                load: wgpu::LoadOp::Load,
+                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                 store: true,
             },
         };

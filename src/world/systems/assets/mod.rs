@@ -8,7 +8,7 @@ use wgpu::util::DeviceExt;
 mod assets;
 mod data;
 mod uniforms;
-pub use {self::assets::Asset, self::assets::AssetBuffers, self::data::Instance, self::data::Vertex};
+pub use {self::assets::Asset, self::assets::AssetMap, self::data::Instance, self::data::Vertex};
 
 pub struct InstanceBuffer {
     pub buffer: wgpu::Buffer,
@@ -22,7 +22,7 @@ pub struct Assets {
     pub render_pipeline: wgpu::RenderPipeline,
     pub shadow_pipeline: wgpu::RenderPipeline,
     pub texture_bind_group_layout: wgpu::BindGroupLayout,
-    pub assets: assets::AssetBuffers,
+    pub assets: assets::AssetMap,
     noise_bindings: noise::NoiseBindings,
 }
 
@@ -163,7 +163,7 @@ impl Assets {
         });
 
         let now = Instant::now();
-        let assets = assets::AssetBuffers::new(device, queue, &uniform_bind_group_layout, &texture_bind_group_layout, &sampler);
+        let assets = assets::create(device, queue, &uniform_bind_group_layout, &texture_bind_group_layout, &sampler);
         println!("Assets: {} ms", now.elapsed().as_millis());
 
         Self {
@@ -181,11 +181,11 @@ impl Assets {
         device: &wgpu::Device,
         camera: &camera::Instance,
         world_data: &world::WorldData,
-        model_instances: &mut InstanceBufferMap,
+        asset_instances: &mut InstanceBufferMap,
         nodes: &Vec<&Node>,
     ) -> wgpu::RenderBundle {
         optick::event!();
-        update_instance_buffer(device, model_instances, nodes);
+        update_instance_buffer(device, asset_instances, nodes);
 
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
@@ -200,20 +200,20 @@ impl Assets {
         encoder.set_bind_group(4, &world_data.environment.uniforms.bind_group, &[]);
         encoder.set_bind_group(5, &world_data.environment.texture_bind_group, &[]);
 
-        for (key, model_instances) in model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
-            let model = self.assets.models.get(key).unwrap();
-            encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
+        for (key, asset_instances) in asset_instances.iter_mut().filter(|(_, val)| val.length > 0) {
+            let asset = self.assets.get(key).unwrap();
+            encoder.set_vertex_buffer(1, asset_instances.buffer.slice(..));
 
-            for mesh in &model.primitives {
+            for mesh in &asset.primitives {
                 encoder.set_bind_group(0, &mesh.uniforms.bind_group, &[]);
                 encoder.set_bind_group(1, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..mesh.num_elements, 0, 0..model_instances.length as _);
+                encoder.draw_indexed(0..mesh.num_elements, 0, 0..asset_instances.length as _);
             }
         }
 
-        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("models") })
+        encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("assets") })
     }
 
     pub fn get_shadow_bundle(
@@ -221,11 +221,11 @@ impl Assets {
         device: &wgpu::Device,
         camera: &camera::Instance,
         world_data: &world::WorldData,
-        model_instances: &mut InstanceBufferMap,
+        asset_instances: &mut InstanceBufferMap,
         nodes: &Vec<&Node>,
     ) -> wgpu::RenderBundle {
         optick::event!();
-        update_instance_buffer(device, model_instances, nodes);
+        update_instance_buffer(device, asset_instances, nodes);
 
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
@@ -239,28 +239,28 @@ impl Assets {
         encoder.set_bind_group(3, &self.noise_bindings.bind_group, &[]);
         encoder.set_bind_group(4, &world_data.environment.uniforms.bind_group, &[]);
 
-        for (key, model_instances) in model_instances.iter_mut().filter(|(_, val)| val.length > 0) {
-            let model = self.assets.models.get(key).unwrap();
-            encoder.set_vertex_buffer(1, model_instances.buffer.slice(..));
+        for (key, asset_instances) in asset_instances.iter_mut().filter(|(_, val)| val.length > 0) {
+            let asset = self.assets.get(key).unwrap();
+            encoder.set_vertex_buffer(1, asset_instances.buffer.slice(..));
 
-            for mesh in &model.primitives {
+            for mesh in &asset.primitives {
                 encoder.set_bind_group(0, &mesh.uniforms.bind_group, &[]);
                 encoder.set_bind_group(1, &mesh.texture_bind_group, &[]);
                 encoder.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
                 encoder.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                encoder.draw_indexed(0..mesh.num_elements, 0, 0..model_instances.length as _);
+                encoder.draw_indexed(0..mesh.num_elements, 0, 0..asset_instances.length as _);
             }
         }
 
         encoder.finish(&wgpu::RenderBundleDescriptor {
-            label: Some("models_shadow"),
+            label: Some("assets_shadow"),
         })
     }
 
     pub fn get_instances(&self, device: &wgpu::Device) -> InstanceBufferMap {
         let mut asset_instances = HashMap::new();
 
-        for (key, _) in self.assets.models.iter() {
+        for (key, _) in self.assets.iter() {
             let instances: Vec<Instance> = vec![];
             let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("instance_buffer"),
@@ -274,12 +274,12 @@ impl Assets {
     }
 }
 
-fn update_instance_buffer(device: &wgpu::Device, model_instances: &mut InstanceBufferMap, nodes: &Vec<&Node>) {
-    model_instances.par_iter_mut().for_each(|(key, instance)| {
+fn update_instance_buffer(device: &wgpu::Device, asset_instances: &mut InstanceBufferMap, nodes: &Vec<&Node>) {
+    asset_instances.par_iter_mut().for_each(|(key, instance)| {
         let instances = nodes
             .iter()
             .filter_map(|n| n.get_data())
-            .filter_map(|d| d.model_instances.get(key))
+            .filter_map(|d| d.asset_instances.get(key))
             .flat_map(|mi| mi.clone())
             .collect::<Vec<Instance>>();
 

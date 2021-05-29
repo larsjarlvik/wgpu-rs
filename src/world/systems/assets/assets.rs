@@ -26,67 +26,62 @@ pub struct Asset {
     pub radius: f32,
 }
 
-pub struct AssetBuffers {
-    pub models: HashMap<String, Asset>,
-}
+pub type AssetMap = HashMap<String, Asset>;
 
-impl AssetBuffers {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        uniform_bind_group_layout: &wgpu::BindGroupLayout,
-        texture_bind_group_layout: &wgpu::BindGroupLayout,
-        sampler: &wgpu::Sampler,
-    ) -> Self {
-        let mut models = HashMap::new();
-        let paths = fs::read_dir("./res/assets").expect("Could not find ./res/assets!");
+pub fn create(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    uniform_bind_group_layout: &wgpu::BindGroupLayout,
+    texture_bind_group_layout: &wgpu::BindGroupLayout,
+    sampler: &wgpu::Sampler,
+) -> AssetMap {
+    let mut assets = HashMap::new();
+    let paths = fs::read_dir("./res/assets").expect("Could not find ./res/assets!");
 
-        for asset in paths {
-            let model = model::Model::new(device, queue, &asset.unwrap().path());
+    for asset in paths {
+        let model = model::Model::new(device, queue, &asset.unwrap().path());
+        for mesh in model.meshes.iter() {
+            let primitives = mesh
+                .primitives
+                .iter()
+                .map(|p| {
+                    to_buffers(
+                        device,
+                        sampler,
+                        p,
+                        &model.materials,
+                        uniform_bind_group_layout,
+                        texture_bind_group_layout,
+                    )
+                })
+                .collect();
 
-            for mesh in model.meshes.iter() {
-                let primitives = mesh
-                    .primitives
-                    .iter()
-                    .map(|p| {
-                        to_buffers(
-                            device,
-                            sampler,
-                            p,
-                            &model.materials,
-                            uniform_bind_group_layout,
-                            texture_bind_group_layout,
-                        )
-                    })
-                    .collect();
+            let rx = mesh.get_extra_f32("rotation_x");
+            let ry = mesh.get_extra_f32("rotation_y");
+            let rz = mesh.get_extra_f32("rotation_z");
+            let rotation = [(-(rx * 0.5), rx * 0.5), (-(ry * 0.5), ry * 0.5), (-(rz * 0.5), rz * 0.5)];
 
-                let rx = mesh.get_extra_f32("rotation_x");
-                let ry = mesh.get_extra_f32("rotation_y");
-                let rz = mesh.get_extra_f32("rotation_z");
-                let rotation = [(-(rx * 0.5), rx * 0.5), (-(ry * 0.5), ry * 0.5), (-(rz * 0.5), rz * 0.5)];
-
-                models.insert(
-                    mesh.name.clone(),
-                    Asset {
-                        density: mesh.get_extra_f32("density"),
-                        size_range: mesh.get_extra_range("size"),
-                        slope_range: mesh.get_extra_range("slope"),
-                        temp_range: mesh.get_extra_range("temp"),
-                        temp_preferred: mesh.get_extra_f32("temp_preferred"),
-                        moist_range: mesh.get_extra_range("moist"),
-                        moist_preferred: mesh.get_extra_f32("moist_preferred"),
-                        radius: mesh.get_extra_f32("radius"),
-                        align: mesh.get_extra_bool("align"),
-                        rotation,
-                        primitives,
-                        bounding_box: mesh.bounding_box.clone(),
-                    },
-                );
-            }
+            assets.insert(
+                mesh.name.clone(),
+                Asset {
+                    density: mesh.get_extra_f32("density"),
+                    size_range: mesh.get_extra_range("size"),
+                    slope_range: mesh.get_extra_range("slope"),
+                    temp_range: mesh.get_extra_range("temp"),
+                    temp_preferred: mesh.get_extra_f32("temp_preferred"),
+                    moist_range: mesh.get_extra_range("moist"),
+                    moist_preferred: mesh.get_extra_f32("moist_preferred"),
+                    radius: mesh.get_extra_f32("radius"),
+                    align: mesh.get_extra_bool("align"),
+                    rotation,
+                    primitives,
+                    bounding_box: mesh.bounding_box.clone(),
+                },
+            );
         }
-
-        Self { models }
     }
+
+    assets
 }
 
 fn to_buffers(

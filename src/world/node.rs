@@ -4,7 +4,7 @@ use cgmath::*;
 use std::collections::HashMap;
 
 pub struct NodeData {
-    pub model_instances: HashMap<String, Vec<systems::assets::Instance>>,
+    pub asset_instances: HashMap<String, Vec<systems::assets::Instance>>,
     pub uniforms: node_uniforms::UniformBuffer,
 }
 
@@ -89,18 +89,18 @@ impl Node {
     }
 
     fn build_leaf_node(&mut self, device: &wgpu::Device, world: &mut WorldData) {
-        let mut model_instances: HashMap<String, Vec<systems::assets::Instance>> = HashMap::new();
+        let mut asset_instances: HashMap<String, Vec<systems::assets::Instance>> = HashMap::new();
         let (y_min, y_max) = world.map.min_max_elevation(self.x, self.z, settings::TILE_SIZE);
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max.max(0.0);
 
-        for (name, asset) in &world.assets.assets.models {
+        for (name, asset) in &world.assets.assets {
             let node_assets = node_assets::create_assets(self.x, self.z, self.size, world, &asset, &format!("{}", name.clone()));
             for node_asset in node_assets {
                 let asset_bb = asset.bounding_box.transform(node_asset.transform);
                 self.bounding_box = self.bounding_box.grow(&asset_bb);
 
-                let instances = model_instances.entry(name.clone()).or_insert(vec![]);
+                let instances = asset_instances.entry(name.clone()).or_insert(vec![]);
                 instances.push(node_asset);
             }
         }
@@ -115,7 +115,7 @@ impl Node {
             },
         );
 
-        self.tree = NodeTree::Leaf(NodeData { model_instances, uniforms });
+        self.tree = NodeTree::Leaf(NodeData { asset_instances, uniforms });
     }
 
     pub fn get_nodes<'a>(&'a self, frustum: &camera::FrustumCuller) -> Vec<&'a Self> {

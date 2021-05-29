@@ -8,7 +8,7 @@ use cgmath::*;
 pub struct Eye {
     pub terrain_bundle: wgpu::RenderBundle,
     pub water_bundle: wgpu::RenderBundle,
-    pub models_bundle: wgpu::RenderBundle,
+    pub asset_bundle: wgpu::RenderBundle,
     pub sky_bundle: wgpu::RenderBundle,
     pub asset_instances: systems::assets::InstanceBufferMap,
     pub camera: camera::Instance,
@@ -24,7 +24,7 @@ impl Eye {
             terrain_bundle: world_data.terrain.get_bundle(device, &camera, &world_data, &nodes),
             water_bundle: world_data.water.get_bundle(device, &camera, &world_data, &nodes),
             sky_bundle: world_data.sky.get_bundle(device, &camera),
-            models_bundle: world_data
+            asset_bundle: world_data
                 .assets
                 .get_bundle(device, &camera, world_data, &mut asset_instances, &nodes),
             asset_instances,
@@ -53,7 +53,7 @@ impl Eye {
         let nodes = root_node.get_nodes(&self.camera.frustum);
         self.terrain_bundle = world_data.terrain.get_bundle(device, &self.camera, &world_data, &nodes);
         self.water_bundle = world_data.water.get_bundle(device, &self.camera, &world_data, &nodes);
-        self.models_bundle = world_data
+        self.asset_bundle = world_data
             .assets
             .get_bundle(device, &self.camera, &world_data, &mut self.asset_instances, &nodes);
     }
@@ -91,7 +91,7 @@ impl Eye {
             "environment",
             encoder,
             renderer::Args {
-                bundles: vec![&self.terrain_bundle, &self.models_bundle],
+                bundles: vec![&self.terrain_bundle, &self.asset_bundle],
                 color_targets: &[&color_target],
                 depth_target: Some(&depth_target),
                 clear_color: false,

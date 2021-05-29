@@ -10,7 +10,7 @@ use cgmath::*;
 
 pub struct Reflection {
     pub terrain_bundle: wgpu::RenderBundle,
-    pub models_bundle: wgpu::RenderBundle,
+    pub asset_bundle: wgpu::RenderBundle,
     pub sky_bundle: wgpu::RenderBundle,
     pub asset_instances: systems::assets::InstanceBufferMap,
     pub camera: camera::Instance,
@@ -26,7 +26,7 @@ impl Reflection {
         Self {
             terrain_bundle: world_data.terrain.get_bundle(device, &camera, &world_data, &nodes),
             sky_bundle: world_data.sky.get_bundle(device, &camera),
-            models_bundle: world_data
+            asset_bundle: world_data
                 .assets
                 .get_bundle(device, &camera, world_data, &mut asset_instances, &nodes),
             asset_instances,
@@ -58,7 +58,7 @@ impl Reflection {
 
         let nodes = root_node.get_nodes(&Box::new(self.camera.frustum));
         self.terrain_bundle = world_data.terrain.get_bundle(device, &self.camera, &world_data, &nodes);
-        self.models_bundle = world_data
+        self.asset_bundle = world_data
             .assets
             .get_bundle(device, &self.camera, &world_data, &mut self.asset_instances, &nodes);
     }
@@ -85,7 +85,7 @@ impl Reflection {
             "environment",
             encoder,
             renderer::Args {
-                bundles: vec![&self.terrain_bundle, &self.models_bundle],
+                bundles: vec![&self.terrain_bundle, &self.asset_bundle],
                 color_targets: &[&world_data.water.reflection_texture_view],
                 depth_target: Some(&world_data.water.reflection_depth_texture_view),
                 clear_color: false,

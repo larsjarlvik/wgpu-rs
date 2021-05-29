@@ -4,6 +4,7 @@ use wgpu::util::DeviceExt;
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
     pub wind_factor: f32,
+    pub render_distance: f32,
 }
 
 pub struct UniformBuffer {

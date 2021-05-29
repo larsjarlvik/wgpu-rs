@@ -42,6 +42,10 @@ impl Mesh {
         *self.extras.get(name).unwrap_or(&0.0)
     }
 
+    pub fn get_extra_f32_or(&self, name: &str, default: f32) -> f32 {
+        *self.extras.get(name).unwrap_or(&default)
+    }
+
     pub fn get_extra_range(&self, name: &str) -> [f32; 2] {
         [
             *self.extras.get(format!("{}_min", name).as_str()).unwrap_or(&0.0),

@@ -5,6 +5,11 @@
 #include "include/environment.glsl"
 #include "include/fog.glsl"
 
+layout(set=0, binding=0) uniform Uniforms {
+    float wind_factor;
+    float render_distance;
+} uniforms;
+
 layout(location=0) in vec2 v_tex_coords;
 layout(location=1) in vec4 v_position;
 layout(location=2) in mat3 v_tangent;
@@ -25,5 +30,5 @@ void main() {
     vec3 n = normalize(v_tangent * (2.0 * normal.xyz - 1.0));
 
     f_color = vec4(base_color.rgb * calculate_light(v_position.xyz, n, 16.0, 1.0, true), 1.0);
-    f_color = with_fog(f_color, v_position.xyz, 0.5);
+    f_color = with_fog(f_color, v_position.xyz, uniforms.render_distance, 0.5);
 }

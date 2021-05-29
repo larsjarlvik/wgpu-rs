@@ -22,7 +22,7 @@ impl Cascade {
         Self {
             asset_bundle: world_data
                 .assets
-                .get_shadow_bundle(device, &camera, world_data, &mut asset_instances, &nodes),
+                .get_shadow_bundle(device, viewport, &camera, world_data, &mut asset_instances, &nodes),
             asset_instances,
             camera,
             i,
@@ -66,7 +66,7 @@ impl Shadow {
             c.camera.frustum = camera::FrustumCuller::from_matrix(viewport.proj * view);
             c.asset_bundle = world_data
                 .assets
-                .get_shadow_bundle(device, &c.camera, world_data, &mut c.asset_instances, &nodes);
+                .get_shadow_bundle(device, viewport, &c.camera, world_data, &mut c.asset_instances, &nodes);
         });
     }
 

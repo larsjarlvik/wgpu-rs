@@ -54,5 +54,5 @@ void main() {
     water_color = mix(ground, water_color, clamp(depth * 10.0, 0.0, 1.0));
 
     f_color = vec4(water_color, 1.0);
-    f_color = with_fog(f_color, v_position.xyz, 0.5);
+    f_color = with_fog(f_color, v_position.xyz, 1.0, 0.5);
 }

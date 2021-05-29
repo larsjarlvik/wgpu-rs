@@ -7,6 +7,7 @@
 
 layout(set=0, binding=0) uniform Uniforms {
     float wind_factor;
+    float render_distance;
 } uniforms;
 
 layout(location=0) in vec3 a_position;

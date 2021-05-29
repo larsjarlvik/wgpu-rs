@@ -144,5 +144,5 @@ void main() {
 
     vec3 normal = normalize(v_tbn * (t.normal * 2.0 - 1.0));
     f_color = vec4(t.base_color * calculate_light(v_position.xyz, normal, 16.0, 1.0, true), 1.0);
-    f_color = with_fog(f_color, v_position.xyz, 0.5);
+    f_color = with_fog(f_color, v_position.xyz, 1.0, 0.5);
 }

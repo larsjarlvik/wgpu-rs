@@ -21,6 +21,7 @@ pub struct Asset {
     pub temp_preferred: f32,
     pub moist_range: [f32; 2],
     pub moist_preferred: f32,
+    pub render_distance: f32,
     pub rotation: [(f32, f32); 3],
     pub align: bool,
     pub radius: f32,
@@ -40,7 +41,9 @@ pub fn create(
 
     for asset in paths {
         let model = model::Model::new(device, queue, &asset.unwrap().path());
+
         for mesh in model.meshes.iter() {
+            let render_distance = mesh.get_extra_f32_or("render_distance", 1.0);
             let primitives = mesh
                 .primitives
                 .iter()
@@ -52,6 +55,7 @@ pub fn create(
                         &model.materials,
                         uniform_bind_group_layout,
                         texture_bind_group_layout,
+                        render_distance,
                     )
                 })
                 .collect();
@@ -73,6 +77,7 @@ pub fn create(
                     moist_preferred: mesh.get_extra_f32("moist_preferred"),
                     radius: mesh.get_extra_f32("radius"),
                     align: mesh.get_extra_bool("align"),
+                    render_distance,
                     rotation,
                     primitives,
                     bounding_box: mesh.bounding_box.clone(),
@@ -91,6 +96,7 @@ fn to_buffers(
     materials: &Vec<model::Material>,
     uniform_bind_group_layout: &wgpu::BindGroupLayout,
     texture_bind_group_layout: &wgpu::BindGroupLayout,
+    render_distance: f32,
 ) -> Buffers {
     let mut vertices = vec![];
     for i in 0..primitive.positions.len() {
@@ -142,7 +148,14 @@ fn to_buffers(
     });
 
     let wind_factor = *material.extras.get("wind_factor").unwrap_or(&0.0);
-    let uniforms = super::uniforms::UniformBuffer::new(device, uniform_bind_group_layout, super::uniforms::Uniforms { wind_factor });
+    let uniforms = super::uniforms::UniformBuffer::new(
+        device,
+        uniform_bind_group_layout,
+        super::uniforms::Uniforms {
+            wind_factor,
+            render_distance,
+        },
+    );
 
     Buffers {
         texture_bind_group,

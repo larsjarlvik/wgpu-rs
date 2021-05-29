@@ -12,6 +12,7 @@ pub use {self::assets::Asset, self::assets::AssetMap, self::data::Instance, self
 
 pub struct InstanceBuffer {
     pub buffer: wgpu::Buffer,
+    pub render_distance: f32,
     pub length: u32,
 }
 
@@ -40,7 +41,7 @@ impl Assets {
             label: Some("uniform_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -179,13 +180,14 @@ impl Assets {
     pub fn get_bundle(
         &self,
         device: &wgpu::Device,
+        viewport: &camera::Viewport,
         camera: &camera::Instance,
         world_data: &world::WorldData,
         asset_instances: &mut InstanceBufferMap,
         nodes: &Vec<&Node>,
     ) -> wgpu::RenderBundle {
         optick::event!();
-        update_instance_buffer(device, asset_instances, nodes);
+        update_instance_buffer(device, viewport, asset_instances, nodes);
 
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
@@ -219,13 +221,14 @@ impl Assets {
     pub fn get_shadow_bundle(
         &self,
         device: &wgpu::Device,
+        viewport: &camera::Viewport,
         camera: &camera::Instance,
         world_data: &world::WorldData,
         asset_instances: &mut InstanceBufferMap,
         nodes: &Vec<&Node>,
     ) -> wgpu::RenderBundle {
         optick::event!();
-        update_instance_buffer(device, asset_instances, nodes);
+        update_instance_buffer(device, viewport, asset_instances, nodes);
 
         let mut encoder = device.create_render_bundle_encoder(&wgpu::RenderBundleEncoderDescriptor {
             label: None,
@@ -260,27 +263,35 @@ impl Assets {
     pub fn get_instances(&self, device: &wgpu::Device) -> InstanceBufferMap {
         let mut asset_instances = HashMap::new();
 
-        for (key, _) in self.assets.iter() {
+        for (key, asset) in self.assets.iter() {
             let instances: Vec<Instance> = vec![];
             let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("instance_buffer"),
                 contents: bytemuck::cast_slice(&instances),
                 usage: wgpu::BufferUsage::VERTEX,
             });
-            asset_instances.insert(key.clone(), InstanceBuffer { buffer, length: 0 });
+            asset_instances.insert(
+                key.clone(),
+                InstanceBuffer {
+                    buffer,
+                    render_distance: asset.render_distance,
+                    length: 0,
+                },
+            );
         }
 
         asset_instances
     }
 }
 
-fn update_instance_buffer(device: &wgpu::Device, asset_instances: &mut InstanceBufferMap, nodes: &Vec<&Node>) {
+fn update_instance_buffer(device: &wgpu::Device, viewport: &camera::Viewport, asset_instances: &mut InstanceBufferMap, nodes: &Vec<&Node>) {
     asset_instances.par_iter_mut().for_each(|(key, instance)| {
         let instances = nodes
             .iter()
-            .filter_map(|n| n.get_data())
-            .filter_map(|d| d.asset_instances.get(key))
-            .flat_map(|mi| mi.clone())
+            .filter(|node| node.get_distance(viewport.eye.x, viewport.eye.z) < instance.render_distance * viewport.z_far)
+            .filter_map(|node| node.get_data())
+            .filter_map(|node_data| node_data.asset_instances.get(key))
+            .flat_map(|instances| instances.clone())
             .collect::<Vec<Instance>>();
 
         instance.length = instances.len() as u32;

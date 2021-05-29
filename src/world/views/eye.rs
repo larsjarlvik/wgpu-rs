@@ -26,7 +26,7 @@ impl Eye {
             sky_bundle: world_data.sky.get_bundle(device, &camera),
             asset_bundle: world_data
                 .assets
-                .get_bundle(device, &camera, world_data, &mut asset_instances, &nodes),
+                .get_bundle(device, viewport, &camera, world_data, &mut asset_instances, &nodes),
             asset_instances,
             camera,
         }
@@ -55,7 +55,7 @@ impl Eye {
         self.water_bundle = world_data.water.get_bundle(device, &self.camera, &world_data, &nodes);
         self.asset_bundle = world_data
             .assets
-            .get_bundle(device, &self.camera, &world_data, &mut self.asset_instances, &nodes);
+            .get_bundle(device, viewport, &self.camera, &world_data, &mut self.asset_instances, &nodes);
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, world_data: &WorldData, viewport: &camera::Viewport) {

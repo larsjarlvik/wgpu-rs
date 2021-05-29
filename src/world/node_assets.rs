@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use super::{systems, WorldData};
-use crate::{assets, settings};
+use crate::settings;
 use cgmath::*;
 use rand::Rng;
 use rand_pcg::Pcg64;
@@ -18,7 +18,7 @@ struct NodeAsset {
 }
 
 impl NodeAsset {
-    fn new(rng: &mut Pcg64, x: f32, z: f32, size: f32, world: &WorldData, mesh: &assets::Mesh, key: String) -> Self {
+    fn new(rng: &mut Pcg64, x: f32, z: f32, size: f32, world: &WorldData, mesh: &systems::assets::Asset, key: String) -> Self {
         let m = vec2(x + (rng.gen::<f32>() - 0.5) * size, z + (rng.gen::<f32>() - 0.5) * size);
         let scale = rng.gen_range(mesh.size_range[0]..mesh.size_range[1]);
         let (temp, moist) = world.map.get_biome(m);
@@ -53,7 +53,7 @@ impl NodeAsset {
         }
     }
 
-    fn validate(&self, mesh: &assets::Mesh) -> bool {
+    fn validate(&self, mesh: &systems::assets::Asset) -> bool {
         let seed = format!("{}_CREATE_{}_{}_{}", settings::MAP_SEED, self.tile.x, self.tile.z, self.key);
         let mut rng: Pcg64 = Seeder::from(seed).make_rng();
 
@@ -72,7 +72,7 @@ impl NodeAsset {
         true
     }
 
-    fn create_instance(&self, mesh: &assets::Mesh, world: &WorldData) -> systems::assets::Instance {
+    fn create_instance(&self, mesh: &systems::assets::Asset, world: &WorldData) -> systems::assets::Instance {
         let seed = format!("{}_TRANSFORM_{}_{}_{}", settings::MAP_SEED, self.tile.x, self.tile.z, self.key);
         let mut rng: Pcg64 = Seeder::from(seed).make_rng();
 
@@ -118,10 +118,17 @@ fn get_offsets(radius: f32, scale: f32) -> Vec<Vector3<f32>> {
     ]
 }
 
-pub fn create_assets(x: f32, z: f32, size: f32, world: &WorldData, mesh: &assets::Mesh, key: &str) -> Vec<systems::assets::Instance> {
+pub fn create_assets(
+    x: f32,
+    z: f32,
+    size: f32,
+    world: &WorldData,
+    mesh: &systems::assets::Asset,
+    key: &str,
+) -> Vec<systems::assets::Instance> {
     let seed = format!("{}_NODE_{}_{}_{}", settings::MAP_SEED, x, z, key);
     let mut rng: Pcg64 = Seeder::from(seed).make_rng();
-    let mut count = (rng.gen::<f32>() * mesh.density.floor() * settings::TILE_SIZE as f32 / 20.0) as usize;
+    let mut count = (rng.gen::<f32>() * mesh.density.floor() * settings::TILE_SIZE as f32 / 60.0) as usize;
 
     if rng.gen::<f32>() < mesh.density.fract() {
         count += 1;

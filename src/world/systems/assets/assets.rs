@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs};
 
-use crate::{assets, camera, model, texture};
+use crate::{camera, model, texture};
 use wgpu::util::DeviceExt;
 
 pub struct Buffers {
@@ -11,13 +11,23 @@ pub struct Buffers {
     pub uniforms: super::uniforms::UniformBuffer,
 }
 
-pub struct ModelBuffer {
+pub struct Asset {
     pub primitives: Vec<Buffers>,
     pub bounding_box: camera::BoundingBox,
+    pub density: f32,
+    pub size_range: [f32; 2],
+    pub slope_range: [f32; 2],
+    pub temp_range: [f32; 2],
+    pub temp_preferred: f32,
+    pub moist_range: [f32; 2],
+    pub moist_preferred: f32,
+    pub rotation: [(f32, f32); 3],
+    pub align: bool,
+    pub radius: f32,
 }
 
 pub struct AssetBuffers {
-    pub models: HashMap<String, ModelBuffer>,
+    pub models: HashMap<String, Asset>,
 }
 
 impl AssetBuffers {
@@ -29,42 +39,49 @@ impl AssetBuffers {
         sampler: &wgpu::Sampler,
     ) -> Self {
         let mut models = HashMap::new();
+        let paths = fs::read_dir("./res/assets").expect("Could not find ./res/assets!");
 
-        for asset in assets::ASSETS {
-            let model = model::Model::new(device, queue, &asset.model);
+        for asset in paths {
+            let model = model::Model::new(device, queue, &asset.unwrap().path());
 
-            for mesh in asset.meshes {
-                for variant in mesh.variants {
-                    let mesh = model
-                        .meshes
-                        .iter()
-                        .filter(|m| m.name == *variant)
-                        .nth(0)
-                        .expect(format!("Could not load mesh {} from {}", &variant, &asset.model).as_str());
+            for mesh in model.meshes.iter() {
+                let primitives = mesh
+                    .primitives
+                    .iter()
+                    .map(|p| {
+                        to_buffers(
+                            device,
+                            sampler,
+                            p,
+                            &model.materials,
+                            uniform_bind_group_layout,
+                            texture_bind_group_layout,
+                        )
+                    })
+                    .collect();
 
-                    let primitives = mesh
-                        .primitives
-                        .iter()
-                        .map(|p| {
-                            to_buffers(
-                                device,
-                                sampler,
-                                p,
-                                &model.materials,
-                                uniform_bind_group_layout,
-                                texture_bind_group_layout,
-                            )
-                        })
-                        .collect();
+                let rx = mesh.get_extra_f32("rotation_x");
+                let ry = mesh.get_extra_f32("rotation_y");
+                let rz = mesh.get_extra_f32("rotation_z");
+                let rotation = [(-(rx * 0.5), rx * 0.5), (-(ry * 0.5), ry * 0.5), (-(rz * 0.5), rz * 0.5)];
 
-                    models.insert(
-                        variant.to_string(),
-                        ModelBuffer {
-                            primitives,
-                            bounding_box: mesh.bounding_box.clone(),
-                        },
-                    );
-                }
+                models.insert(
+                    mesh.name.clone(),
+                    Asset {
+                        density: mesh.get_extra_f32("density"),
+                        size_range: mesh.get_extra_range("size"),
+                        slope_range: mesh.get_extra_range("slope"),
+                        temp_range: mesh.get_extra_range("temp"),
+                        temp_preferred: mesh.get_extra_f32("temp_preferred"),
+                        moist_range: mesh.get_extra_range("moist"),
+                        moist_preferred: mesh.get_extra_f32("moist_preferred"),
+                        radius: mesh.get_extra_f32("radius"),
+                        align: mesh.get_extra_bool("align"),
+                        rotation,
+                        primitives,
+                        bounding_box: mesh.bounding_box.clone(),
+                    },
+                );
             }
         }
 

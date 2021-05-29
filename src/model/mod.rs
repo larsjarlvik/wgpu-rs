@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rayon::prelude::*;
 mod material;
 mod mesh;
@@ -13,8 +15,8 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, name: &str) -> Self {
-        let (gltf, buffers, images) = gltf::import(format!("./res/assets/{}.glb", name)).expect("Failed to import GLTF!");
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, path: &PathBuf) -> Self {
+        let (gltf, buffers, images) = gltf::import(path).expect("Failed to import GLTF!");
 
         let materials = gltf
             .materials()

@@ -1,9 +1,6 @@
 use super::{node_uniforms, systems, WorldData};
-use crate::{assets, camera, settings, world::node_assets};
+use crate::{camera, settings, world::node_assets};
 use cgmath::*;
-use rand::Rng;
-use rand_pcg::Pcg64;
-use rand_seeder::Seeder;
 use std::collections::HashMap;
 
 pub struct NodeData {
@@ -97,28 +94,14 @@ impl Node {
         self.bounding_box.min.y = y_min;
         self.bounding_box.max.y = y_max.max(0.0);
 
-        let seed = format!("{}_NODE_{}_{}", settings::MAP_SEED, self.x, self.z);
-        let mut rng: Pcg64 = Seeder::from(seed).make_rng();
+        for (name, asset) in &world.assets.assets.models {
+            let node_assets = node_assets::create_assets(self.x, self.z, self.size, world, &asset, &format!("{}", name.clone()));
+            for node_asset in node_assets {
+                let asset_bb = asset.bounding_box.transform(node_asset.transform);
+                self.bounding_box = self.bounding_box.grow(&asset_bb);
 
-        for (i, asset) in assets::ASSETS.iter().enumerate() {
-            for (n, mesh) in asset.meshes.iter().enumerate() {
-                let assets = node_assets::create_assets(self.x, self.z, self.size, world, mesh, &format!("{}_{}", i, n));
-                for asset in assets {
-                    let name = mesh.variants.get(rng.gen_range(0..mesh.variants.len())).unwrap();
-
-                    let model = world
-                        .assets
-                        .assets
-                        .models
-                        .get(&name.to_string())
-                        .expect(format!("Mesh {} not found!", name).as_str());
-
-                    let asset_bb = model.bounding_box.transform(asset.transform);
-                    self.bounding_box = self.bounding_box.grow(&asset_bb);
-
-                    let instances = model_instances.entry(name.to_string()).or_insert(vec![]);
-                    instances.push(asset);
-                }
+                let instances = model_instances.entry(name.clone()).or_insert(vec![]);
+                instances.push(node_asset);
             }
         }
 

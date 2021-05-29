@@ -5,6 +5,6 @@ void main() {
     vec2 xz = gl_GlobalInvocationID.xy;
     vec4 biome = imageLoad(biome_texture, ivec2(xz));
 
-    biome.y = clamp(fbm(xz.yx * 0.0008, 3) * 1.2 - 0.1, 0.0, 1.0);
+    biome.y = clamp(fbm(xz.yx * 0.0008, 3) * 1.4 - 0.2, 0.0, 1.0);
     imageStore(biome_texture, ivec2(xz), biome);
 }

@@ -8,7 +8,7 @@ use wgpu::util::DeviceExt;
 mod assets;
 mod data;
 mod uniforms;
-pub use {self::assets::AssetBuffers, self::data::Instance, self::data::Vertex};
+pub use {self::assets::Asset, self::assets::AssetBuffers, self::data::Instance, self::data::Vertex};
 
 pub struct InstanceBuffer {
     pub buffer: wgpu::Buffer,

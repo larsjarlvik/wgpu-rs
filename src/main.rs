@@ -7,7 +7,6 @@ use winit::{
     window::WindowBuilder,
 };
 mod anti_aliasing;
-mod assets;
 mod camera;
 mod input;
 mod logger;

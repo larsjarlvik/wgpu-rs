@@ -35,6 +35,12 @@ impl AntiAliasing {
         }
     }
 
+    pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
+        self.depth_texture_view = texture::create_view(device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
+        self.fxaa = pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height);
+        self.smaa.resize(device, viewport.width, viewport.height);
+    }
+
     pub fn execute<F: Fn(&wgpu::TextureView, &wgpu::TextureView)>(
         &mut self,
         device: &wgpu::Device,

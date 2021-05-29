@@ -1,4 +1,4 @@
-use crate::{anti_aliasing, camera, input::Input, world};
+use crate::{anti_aliasing, camera, input::Input, ui, world};
 use std::time::Instant;
 use winit::window::Window;
 
@@ -11,6 +11,7 @@ pub struct State {
     queue: wgpu::Queue,
     swap_chain: wgpu::SwapChain,
     world: world::World,
+    ui: ui::UI,
     start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
@@ -56,6 +57,8 @@ impl State {
         let world = world::World::new(&device, &queue, &viewport).await;
         let anti_aliasing = anti_aliasing::AntiAliasing::new(&device, &queue, &viewport);
 
+        let ui = ui::UI::new(&device, &viewport);
+
         Self {
             surface,
             device,
@@ -64,6 +67,7 @@ impl State {
             swap_chain,
             viewport,
             world,
+            ui,
             input: Input::new(),
             start_time: Instant::now(),
             last_frame: Instant::now(),
@@ -80,8 +84,9 @@ impl State {
         self.viewport.valid = true;
         self.viewport.resize(new_size.width, new_size.height);
         self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
-        self.anti_aliasing = anti_aliasing::AntiAliasing::new(&self.device, &self.queue, &self.viewport);
+        self.anti_aliasing.resize(&self.device, &self.viewport);
         self.world.resize(&self.device, &self.viewport);
+        self.ui.resize(&self.viewport);
     }
 
     fn frame_time(&mut self) -> f32 {
@@ -108,6 +113,7 @@ impl State {
         let device = &mut self.device;
         let world = &mut self.world;
         let queue = &mut self.queue;
+
         self.anti_aliasing
             .execute(&device, &queue, &frame.view, |color_target, depth_target| {
                 let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
@@ -117,6 +123,8 @@ impl State {
                     queue.submit(std::iter::once(encoder.finish()));
                 }
             });
+
+        self.ui.render(&device, &queue, &frame.view);
 
         Ok(())
     }

@@ -17,6 +17,7 @@ mod plane;
 mod settings;
 mod state;
 mod texture;
+mod ui;
 mod world;
 pub use state::*;
 

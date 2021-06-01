@@ -16,7 +16,7 @@ pub const VERTICAL_SCALE: f32 = 150.0;
 pub const SEA_LEVEL: f32 = 0.4;
 pub const TERRAIN_OCTAVES: u32 = 4;
 pub const TILE_SIZE: u32 = 80;
-pub const TILE_DEPTH: u32 = 5;
+pub const TILE_DEPTH: u32 = 3;
 pub static LODS: [f32; 3] = [0.1, 0.2, 0.3];
 
 pub static SKY_COLOR: Vector3<f32> = vec3(0.312, 0.573, 0.757);

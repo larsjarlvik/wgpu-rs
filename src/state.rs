@@ -1,28 +1,18 @@
-use crate::{anti_aliasing, camera, input::Input, ui, world};
-use futures::executor::block_on;
+use crate::{camera, input::Input, states, ui};
 use std::time::Instant;
 use winit::window::Window;
-
-enum GameState {
-    Created,
-    Loading,
-    Running,
-}
 
 pub struct State {
     pub viewport: camera::Viewport,
     pub input: Input,
-    pub anti_aliasing: Option<anti_aliasing::AntiAliasing>,
+    pub state: states::StateMachine,
     surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
     swap_chain: wgpu::SwapChain,
-    world: Option<world::World>,
     ui: ui::UI,
-    start_time: Instant,
     last_frame: Instant,
     frame_time: Vec<f32>,
-    game_state: GameState,
 }
 
 impl State {
@@ -65,6 +55,9 @@ impl State {
         let ui = ui::UI::new(&device, &viewport);
         window.request_redraw();
 
+        // State
+        let state = states::StateMachine::new();
+
         Self {
             surface,
             device,
@@ -72,13 +65,10 @@ impl State {
             swap_chain,
             viewport,
             ui,
-            anti_aliasing: None,
-            world: None,
             input: Input::new(),
-            start_time: Instant::now(),
             last_frame: Instant::now(),
             frame_time: Vec::new(),
-            game_state: GameState::Created,
+            state,
         }
     }
 
@@ -93,12 +83,15 @@ impl State {
         self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
         self.ui.resize(&self.viewport);
 
-        if let Some(anti_aliasing) = &mut self.anti_aliasing {
-            anti_aliasing.resize(&self.device, &self.viewport);
-        }
-
-        if let Some(world) = &mut self.world {
-            world.resize(&self.device, &self.viewport);
+        match &mut self.state.current {
+            states::GameState::Loading(s) => {
+                s.anti_aliasing.resize(&self.device, &self.viewport);
+            }
+            states::GameState::Running(s) => {
+                s.anti_aliasing.resize(&self.device, &self.viewport);
+                s.world.resize(&self.device, &self.viewport);
+            }
+            _ => {}
         }
     }
 
@@ -117,50 +110,18 @@ impl State {
         let frame_time = self.frame_time();
         self.viewport.update(&self.input, frame_time);
         self.input.after_update();
-
-        if let Some(world) = &mut self.world {
-            world.update(&self.device, &self.queue, &self.viewport, self.start_time);
-        }
+        self.ui.update(&self.state);
+        self.state.update(&self.device, &self.queue, &self.viewport);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-
         let device = &mut self.device;
         let queue = &mut self.queue;
 
-        match self.game_state {
-            GameState::Created => {
-                self.ui.render(&device, &queue, &frame.view);
-                self.game_state = GameState::Loading;
-            }
-            GameState::Loading => {
-                self.ui.render(&device, &queue, &frame.view);
-                let mut world = block_on(world::World::new(&device, &queue, &self.viewport));
-                let anti_aliasing = anti_aliasing::AntiAliasing::new(&device, &queue, &self.viewport);
+        self.state.render(device, queue, &frame);
 
-                block_on(world.generate(&self.device, &self.queue, &self.viewport));
-
-                self.world = Some(world);
-                self.anti_aliasing = Some(anti_aliasing);
-                self.game_state = GameState::Running;
-            }
-            GameState::Running => {
-                if let Some(anti_aliasing) = &mut self.anti_aliasing {
-                    if let Some(world) = &self.world {
-                        anti_aliasing.execute(&device, &queue, &frame.view, |color_target, depth_target| {
-                            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("refraction") });
-                            world.render(&mut encoder, &color_target, &depth_target);
-                            {
-                                optick::event!("submit");
-                                queue.submit(std::iter::once(encoder.finish()));
-                            }
-                        });
-                    }
-                }
-            }
-        }
-
+        self.ui.render(&device, &queue, &frame.view);
         Ok(())
     }
 }

@@ -1,7 +1,6 @@
+use crate::{camera, settings, states};
 use conrod_core::{color, event::Input, widget, widget_ids, Colorable, Positionable, Widget};
 use conrod_wgpu::Image;
-
-use crate::{camera, settings};
 use std::fs;
 
 widget_ids! {
@@ -13,6 +12,8 @@ widget_ids! {
 
 pub struct UI {
     ui: conrod_core::Ui,
+    ids: Ids,
+    load_op: wgpu::LoadOp<wgpu::Color>,
     renderer: conrod_wgpu::Renderer,
     image_map: conrod_core::image::Map<Image>,
     viewport: [f32; 4],
@@ -30,20 +31,13 @@ impl UI {
             ui.fonts.insert_from_file(&font_path.unwrap().path()).unwrap();
         }
 
-        {
-            let mut widgets = ui.set_widgets();
-            widget::Text::new("Loading...")
-                .middle_of(widgets.window)
-                .color(color::WHITE)
-                .font_size(32)
-                .set(ids.title, &mut widgets);
-        }
-
         Self {
             ui,
+            ids,
             renderer,
             image_map,
             viewport: [0.0, 0.0, viewport.width as f32, viewport.height as f32],
+            load_op: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
         }
     }
 
@@ -59,13 +53,37 @@ impl UI {
         }
     }
 
+    pub fn update(&mut self, state: &states::StateMachine) {
+        let mut widgets = self.ui.set_widgets();
+
+        match state.current {
+            states::GameState::Empty(_) => {
+                widget::Text::new("Loading...")
+                    .middle_of(widgets.window)
+                    .color(color::WHITE)
+                    .font_size(32)
+                    .set(self.ids.title, &mut widgets);
+            }
+            states::GameState::Loading(_) => {
+                widget::Text::new("Creating World...")
+                    .middle_of(widgets.window)
+                    .color(color::WHITE)
+                    .font_size(32)
+                    .set(self.ids.title, &mut widgets);
+            }
+            states::GameState::Running(_) => {
+                self.load_op = wgpu::LoadOp::Load;
+            }
+        }
+    }
+
     pub fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, target: &wgpu::TextureView) {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ui") });
         let color_attachment_desc = wgpu::RenderPassColorAttachmentDescriptor {
             attachment: target,
             resolve_target: None,
             ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                load: self.load_op,
                 store: true,
             },
         };

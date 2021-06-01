@@ -38,18 +38,7 @@ impl Fxaa {
             ],
         });
 
-        let texture_extent = wgpu::Extent3d { width, height, depth: 1 };
-        let frame_descriptor = &wgpu::TextureDescriptor {
-            label: None,
-            size: texture_extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: settings::COLOR_TEXTURE_FORMAT,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
-        };
-        let texture = device.create_texture(frame_descriptor);
-        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let texture_view = create_texture(device, width, height);
         let sampler = texture::create_sampler(device, wgpu::AddressMode::ClampToEdge, wgpu::FilterMode::Linear);
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("texture_array"),
@@ -110,6 +99,10 @@ impl Fxaa {
         }
     }
 
+    pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        self.texture_view = create_texture(device, width, height);
+    }
+
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
         encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -146,4 +139,18 @@ pub fn create_bundle(
     encoder.set_bind_group(1, &uniform_bind_group, &[]);
     encoder.draw(0..6, 0..1);
     encoder.finish(&wgpu::RenderBundleDescriptor { label: Some("fxaa") })
+}
+
+fn create_texture(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
+    let texture_extent = wgpu::Extent3d { width, height, depth: 1 };
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: None,
+        size: texture_extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: settings::COLOR_TEXTURE_FORMAT,
+        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_DST,
+    });
+    texture.create_view(&wgpu::TextureViewDescriptor::default())
 }

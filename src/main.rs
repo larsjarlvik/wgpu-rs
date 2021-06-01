@@ -16,6 +16,7 @@ mod pipelines;
 mod plane;
 mod settings;
 mod state;
+mod states;
 mod texture;
 mod ui;
 mod world;
@@ -61,8 +62,8 @@ fn main() {
 
             fps += 1;
             if last_update.elapsed().as_millis() >= 1000 {
-                if let Some(anti_aliasing) = &state.anti_aliasing {
-                    window.set_title(format!("WGPU-RS: {} FPS, AA: {}", fps, anti_aliasing.display()).as_str());
+                if let states::GameState::Running(s) = &state.state.current {
+                    window.set_title(format!("WGPU-RS: {} FPS, AA: {}", fps, s.anti_aliasing.display()).as_str());
                 }
                 last_update = Instant::now();
                 fps = 0;
@@ -117,8 +118,8 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::G),
                     ..
                 } => {
-                    if let Some(anti_aliasing) = &mut state.anti_aliasing {
-                        anti_aliasing.toggle();
+                    if let states::GameState::Running(s) = &mut state.state.current {
+                        s.anti_aliasing.toggle(&state.device, &state.queue, &state.viewport);
                     }
                 }
                 input => {

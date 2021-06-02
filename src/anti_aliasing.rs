@@ -33,6 +33,8 @@ impl AntiAliasing {
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
         self.depth_texture_view = Some(texture::create_view(device, width, height, settings::DEPTH_TEXTURE_FORMAT));
 
         match &mut self.mode {
@@ -75,9 +77,9 @@ impl AntiAliasing {
 
     pub fn toggle(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.mode = match self.mode {
+            Mode::None => Mode::Smaa(create_smaa(device, queue, self.width, self.height)),
             Mode::Smaa(_) => Mode::Fxaa(create_fxaa(device, self.width, self.height)),
             Mode::Fxaa(_) => Mode::None,
-            Mode::None => Mode::Smaa(create_smaa(device, queue, self.width, self.height)),
         }
     }
 

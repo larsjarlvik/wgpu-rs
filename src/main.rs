@@ -22,6 +22,8 @@ mod ui;
 mod world;
 pub use state::*;
 
+use crate::states::ActiveState;
+
 fn exit(control_flow: &mut ControlFlow) {
     logger::print();
     *control_flow = ControlFlow::Exit
@@ -55,14 +57,17 @@ fn main() {
 
             logger::measure_time("Render", || match state.render() {
                 Ok(_) => {}
-                Err(wgpu::SwapChainError::Lost) => state.resize(winit::dpi::PhysicalSize::new(state.viewport.width, state.viewport.height)),
+                Err(wgpu::SwapChainError::Lost) => state.resize(winit::dpi::PhysicalSize::new(
+                    state.state_data.viewport.width,
+                    state.state_data.viewport.height,
+                )),
                 Err(wgpu::SwapChainError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("Render error: {:?}", e),
             });
 
             fps += 1;
             if last_update.elapsed().as_millis() >= 1000 {
-                if let states::GameState::Running(s) = &state.state.current {
+                if let ActiveState::Running(s) = &state.current {
                     window.set_title(format!("WGPU-RS: {} FPS, AA: {}", fps, s.anti_aliasing.display()).as_str());
                 }
                 last_update = Instant::now();
@@ -70,7 +75,7 @@ fn main() {
             }
         }
         Event::MainEventsCleared => {
-            if state.viewport.valid {
+            if state.state_data.viewport.valid {
                 window.request_redraw();
             }
         }
@@ -118,8 +123,9 @@ fn main() {
                     virtual_keycode: Some(VirtualKeyCode::G),
                     ..
                 } => {
-                    if let states::GameState::Running(s) = &mut state.state.current {
-                        s.anti_aliasing.toggle(&state.device, &state.queue, &state.viewport);
+                    if let ActiveState::Running(s) = &mut state.current {
+                        s.anti_aliasing
+                            .toggle(&state.state_data.device, &state.state_data.queue, &state.state_data.viewport);
                     }
                 }
                 input => {

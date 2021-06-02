@@ -1,5 +1,5 @@
-use crate::{camera, settings, states};
-use conrod_core::{color, event::Input, widget, widget_ids, Colorable, Positionable, Widget};
+use crate::{camera, settings};
+use conrod_core::{event::Input, widget_ids};
 use conrod_wgpu::Image;
 use std::fs;
 
@@ -10,16 +10,16 @@ widget_ids! {
     }
 }
 
-pub struct UI {
-    ui: conrod_core::Ui,
-    ids: Ids,
-    load_op: wgpu::LoadOp<wgpu::Color>,
+pub struct Ui {
+    pub ui: conrod_core::Ui,
+    pub ids: Ids,
+    pub load_op: wgpu::LoadOp<wgpu::Color>,
     renderer: conrod_wgpu::Renderer,
     image_map: conrod_core::image::Map<Image>,
     viewport: [f32; 4],
 }
 
-impl UI {
+impl Ui {
     pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
         let renderer = conrod_wgpu::Renderer::new(&device, 1, settings::COLOR_TEXTURE_FORMAT);
         let image_map = conrod_core::image::Map::new();
@@ -49,30 +49,6 @@ impl UI {
             if viewport.width != win_w || viewport.height != win_h {
                 let event = Input::Resize(viewport.width as f64, viewport.height as f64);
                 self.ui.handle_event(event);
-            }
-        }
-    }
-
-    pub fn update(&mut self, state: &states::StateMachine) {
-        let mut widgets = self.ui.set_widgets();
-
-        match state.current {
-            states::GameState::Empty(_) => {
-                widget::Text::new("Loading...")
-                    .middle_of(widgets.window)
-                    .color(color::WHITE)
-                    .font_size(32)
-                    .set(self.ids.title, &mut widgets);
-            }
-            states::GameState::Loading(_) => {
-                widget::Text::new("Creating World...")
-                    .middle_of(widgets.window)
-                    .color(color::WHITE)
-                    .font_size(32)
-                    .set(self.ids.title, &mut widgets);
-            }
-            states::GameState::Running(_) => {
-                self.load_op = wgpu::LoadOp::Load;
             }
         }
     }

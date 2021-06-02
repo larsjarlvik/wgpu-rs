@@ -1,16 +1,15 @@
+use crate::states::StateTypes;
 use crate::{camera, input::Input, states, ui};
 use std::time::Instant;
 use winit::window::Window;
 
 pub struct State {
-    pub viewport: camera::Viewport,
     pub input: Input,
-    pub state: states::StateMachine,
+    pub current: states::ActiveState,
+    pub state_data: states::StateData,
+    pub fresh: bool,
     surface: wgpu::Surface,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
     swap_chain: wgpu::SwapChain,
-    ui: ui::UI,
     last_frame: Instant,
     frame_time: Vec<f32>,
 }
@@ -52,47 +51,43 @@ impl State {
         let swap_chain = viewport.create_swap_chain(&device, &surface);
 
         // UI
-        let ui = ui::UI::new(&device, &viewport);
+        let ui = ui::Ui::new(&device, &viewport);
         window.request_redraw();
 
         // State
-        let state = states::StateMachine::new();
+        let mut state_data = states::StateData {
+            device,
+            queue,
+            viewport,
+            ui,
+        };
+        let mut current = states::ActiveState::Empty(states::EmptyState {});
+        current.initialize(&mut state_data);
+        let fresh = false;
 
         Self {
             surface,
-            device,
-            queue,
             swap_chain,
-            viewport,
-            ui,
             input: Input::new(),
             last_frame: Instant::now(),
             frame_time: Vec::new(),
-            state,
+            state_data,
+            current,
+            fresh,
         }
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width == 0 || new_size.height == 0 {
-            self.viewport.valid = false;
+            self.state_data.viewport.valid = false;
             return;
         }
 
-        self.viewport.valid = true;
-        self.viewport.resize(new_size.width, new_size.height);
-        self.swap_chain = self.viewport.create_swap_chain(&self.device, &self.surface);
-        self.ui.resize(&self.viewport);
-
-        match &mut self.state.current {
-            states::GameState::Loading(s) => {
-                s.anti_aliasing.resize(&self.device, &self.viewport);
-            }
-            states::GameState::Running(s) => {
-                s.anti_aliasing.resize(&self.device, &self.viewport);
-                s.world.resize(&self.device, &self.viewport);
-            }
-            _ => {}
-        }
+        self.state_data.viewport.valid = true;
+        self.state_data.viewport.resize(new_size.width, new_size.height);
+        self.swap_chain = self.state_data.viewport.create_swap_chain(&self.state_data.device, &self.surface);
+        self.state_data.ui.resize(&self.state_data.viewport);
+        self.current.resize(&self.state_data);
     }
 
     fn frame_time(&mut self) -> f32 {
@@ -108,20 +103,28 @@ impl State {
 
     pub fn update(&mut self) {
         let frame_time = self.frame_time();
-        self.viewport.update(&self.input, frame_time);
+        self.state_data.viewport.update(&self.input, frame_time);
+
+        if self.fresh {
+            if let Some(next_state) = self.current.update(&self.state_data) {
+                self.current = next_state;
+                self.current.initialize(&mut self.state_data);
+                self.fresh = false;
+                return;
+            }
+        }
+
+        self.fresh = true;
         self.input.after_update();
-        self.ui.update(&self.state);
-        self.state.update(&self.device, &self.queue, &self.viewport);
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SwapChainError> {
         let frame = self.swap_chain.get_current_frame()?.output;
-        let device = &mut self.device;
-        let queue = &mut self.queue;
 
-        self.state.render(device, queue, &frame);
-
-        self.ui.render(&device, &queue, &frame.view);
+        self.current.render(&self.state_data, &frame);
+        self.state_data
+            .ui
+            .render(&self.state_data.device, &self.state_data.queue, &frame.view);
         Ok(())
     }
 }

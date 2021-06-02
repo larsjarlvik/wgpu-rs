@@ -79,6 +79,8 @@ impl State {
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.state_data.window_width = new_size.width;
+        self.state_data.winder_height = new_size.height;
         self.swap_chain = create_swap_chain(&self.state_data.device, &self.surface, new_size.width, new_size.height);
         self.state_data.ui.resize(new_size.width, new_size.height);
         self.current.resize(&self.state_data);

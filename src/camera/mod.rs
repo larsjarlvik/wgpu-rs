@@ -1,4 +1,4 @@
-use crate::{input, settings};
+use crate::input;
 use cgmath::*;
 use winit::event::VirtualKeyCode;
 mod bounding_box;
@@ -66,15 +66,21 @@ impl Viewport {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            self.valid = false;
+            return;
+        }
+
+        self.valid = true;
         self.width = width;
         self.height = height;
     }
 
     pub fn update(&mut self, input: &input::Input, frame_time: f32) {
-        if input.keys.contains(&VirtualKeyCode::PageUp) {
+        if input.keys.contains_key(&VirtualKeyCode::PageUp) {
             self.z_far += 1.0;
         }
-        if input.keys.contains(&VirtualKeyCode::PageDown) && self.z_far > 400.0 {
+        if input.keys.contains_key(&VirtualKeyCode::PageDown) && self.z_far > 400.0 {
             self.z_far -= 1.0;
         }
 
@@ -94,16 +100,5 @@ impl Viewport {
         );
 
         self.proj = perspective(Deg(self.fov_y), self.width as f32 / self.height as f32, self.z_near, self.z_far);
-    }
-
-    pub fn create_swap_chain(&self, device: &wgpu::Device, surface: &wgpu::Surface) -> wgpu::SwapChain {
-        let swap_chain_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: settings::COLOR_TEXTURE_FORMAT,
-            width: self.width,
-            height: self.height,
-            present_mode: wgpu::PresentMode::Immediate,
-        };
-        device.create_swap_chain(&surface, &swap_chain_desc)
     }
 }

@@ -22,16 +22,16 @@ impl Controller {
         self.acceleration = vec3(0.0, 0.0, 0.0);
 
         // Movement
-        if input.keys.contains(&VirtualKeyCode::W) {
+        if input.keys.contains_key(&VirtualKeyCode::W) {
             self.acceleration.z += settings::CAMERA_ACCELERATION * time_step;
         }
-        if input.keys.contains(&VirtualKeyCode::A) {
+        if input.keys.contains_key(&VirtualKeyCode::A) {
             self.acceleration.x += settings::CAMERA_ACCELERATION * time_step;
         }
-        if input.keys.contains(&VirtualKeyCode::S) {
+        if input.keys.contains_key(&VirtualKeyCode::S) {
             self.acceleration.z -= settings::CAMERA_ACCELERATION * time_step;
         }
-        if input.keys.contains(&VirtualKeyCode::D) {
+        if input.keys.contains_key(&VirtualKeyCode::D) {
             self.acceleration.x -= settings::CAMERA_ACCELERATION * time_step;
         }
 

@@ -1,4 +1,4 @@
-use crate::{camera, pipelines, settings, texture};
+use crate::{pipelines, settings, texture};
 use smaa::{SmaaMode, SmaaTarget};
 
 pub enum Mode {
@@ -17,28 +17,27 @@ impl Default for Mode {
 pub struct AntiAliasing {
     pub mode: Mode,
     pub depth_texture_view: Option<wgpu::TextureView>,
+    width: u32,
+    height: u32,
 }
 
 impl AntiAliasing {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> Self {
-        let depth_texture_view = texture::create_view(device, viewport.width, viewport.height, settings::DEPTH_TEXTURE_FORMAT);
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> Self {
+        let depth_texture_view = texture::create_view(device, width, height, settings::DEPTH_TEXTURE_FORMAT);
         Self {
-            mode: Mode::Smaa(create_smaa(device, queue, viewport)),
+            mode: Mode::Smaa(create_smaa(device, queue, width, height)),
             depth_texture_view: Some(depth_texture_view),
+            width,
+            height,
         }
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, viewport: &camera::Viewport) {
-        self.depth_texture_view = Some(texture::create_view(
-            device,
-            viewport.width,
-            viewport.height,
-            settings::DEPTH_TEXTURE_FORMAT,
-        ));
+    pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
+        self.depth_texture_view = Some(texture::create_view(device, width, height, settings::DEPTH_TEXTURE_FORMAT));
 
         match &mut self.mode {
-            Mode::Smaa(smaa) => smaa.resize(device, viewport.width, viewport.height),
-            Mode::Fxaa(fxaa) => fxaa.resize(device, viewport.width, viewport.height),
+            Mode::Smaa(smaa) => smaa.resize(device, width, height),
+            Mode::Fxaa(fxaa) => fxaa.resize(device, width, height),
             Mode::None => {}
         }
     }
@@ -74,11 +73,11 @@ impl AntiAliasing {
         }
     }
 
-    pub fn toggle(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) {
+    pub fn toggle(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         self.mode = match self.mode {
-            Mode::Smaa(_) => Mode::Fxaa(create_fxaa(device, viewport)),
+            Mode::Smaa(_) => Mode::Fxaa(create_fxaa(device, self.width, self.height)),
             Mode::Fxaa(_) => Mode::None,
-            Mode::None => Mode::Smaa(create_smaa(device, queue, viewport)),
+            Mode::None => Mode::Smaa(create_smaa(device, queue, self.width, self.height)),
         }
     }
 
@@ -91,17 +90,10 @@ impl AntiAliasing {
     }
 }
 
-fn create_smaa(device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport) -> SmaaTarget {
-    SmaaTarget::new(
-        &device,
-        &queue,
-        viewport.width,
-        viewport.height,
-        settings::COLOR_TEXTURE_FORMAT,
-        SmaaMode::Smaa1X,
-    )
+fn create_smaa(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32) -> SmaaTarget {
+    SmaaTarget::new(&device, &queue, width, height, settings::COLOR_TEXTURE_FORMAT, SmaaMode::Smaa1X)
 }
 
-fn create_fxaa(device: &wgpu::Device, viewport: &camera::Viewport) -> pipelines::fxaa::Fxaa {
-    pipelines::fxaa::Fxaa::new(&device, viewport.width, viewport.height)
+fn create_fxaa(device: &wgpu::Device, width: u32, height: u32) -> pipelines::fxaa::Fxaa {
+    pipelines::fxaa::Fxaa::new(&device, width, height)
 }

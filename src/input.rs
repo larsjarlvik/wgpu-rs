@@ -1,8 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use winit::{dpi::PhysicalPosition, event::*};
 
 pub struct Input {
-    pub keys: HashSet<VirtualKeyCode>,
+    pub keys: HashMap<VirtualKeyCode, bool>,
     pub mouse_buttons: HashSet<MouseButton>,
     pub mouse_delta: (f32, f32),
     pub mouse_scroll_delta: f32,
@@ -11,7 +11,7 @@ pub struct Input {
 impl Input {
     pub fn new() -> Self {
         Input {
-            keys: HashSet::new(),
+            keys: HashMap::new(),
             mouse_buttons: HashSet::new(),
             mouse_delta: (0.0, 0.0),
             mouse_scroll_delta: 0.0,
@@ -21,7 +21,9 @@ impl Input {
     pub fn process_key(&mut self, input: &KeyboardInput) {
         if let Some(key_code) = input.virtual_keycode {
             if input.state == ElementState::Pressed {
-                self.keys.insert(key_code);
+                if !self.keys.contains_key(&key_code) {
+                    self.keys.insert(key_code, false);
+                }
             } else {
                 self.keys.remove(&key_code);
             }
@@ -54,5 +56,9 @@ impl Input {
     pub fn after_update(&mut self) {
         self.mouse_scroll_delta = 0.0;
         self.mouse_delta = (0.0, 0.0);
+
+        for (_, repeat) in self.keys.iter_mut() {
+            *repeat = true;
+        }
     }
 }

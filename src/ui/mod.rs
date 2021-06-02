@@ -1,18 +1,11 @@
-use crate::{camera, settings};
-use conrod_core::{event::Input, widget_ids};
+use crate::settings;
+use conrod_core::event::Input;
 use conrod_wgpu::Image;
 use std::fs;
-
-widget_ids! {
-    pub struct Ids {
-        canvas,
-        title,
-    }
-}
+pub mod screens;
 
 pub struct Ui {
     pub ui: conrod_core::Ui,
-    pub ids: Ids,
     pub load_op: wgpu::LoadOp<wgpu::Color>,
     renderer: conrod_wgpu::Renderer,
     image_map: conrod_core::image::Map<Image>,
@@ -20,11 +13,10 @@ pub struct Ui {
 }
 
 impl Ui {
-    pub fn new(device: &wgpu::Device, viewport: &camera::Viewport) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let renderer = conrod_wgpu::Renderer::new(&device, 1, settings::COLOR_TEXTURE_FORMAT);
         let image_map = conrod_core::image::Map::new();
-        let mut ui = conrod_core::UiBuilder::new([viewport.width as f64, viewport.height as f64]).build();
-        let ids = Ids::new(ui.widget_id_generator());
+        let mut ui = conrod_core::UiBuilder::new([width as f64, height as f64]).build();
         let paths = fs::read_dir("./res/fonts").expect("Could not find ./res/fonts!");
 
         for font_path in paths {
@@ -33,21 +25,20 @@ impl Ui {
 
         Self {
             ui,
-            ids,
             renderer,
             image_map,
-            viewport: [0.0, 0.0, viewport.width as f32, viewport.height as f32],
+            viewport: [0.0, 0.0, width as f32, height as f32],
             load_op: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
         }
     }
 
-    pub fn resize(&mut self, viewport: &camera::Viewport) {
-        self.viewport = [0.0, 0.0, viewport.width as f32, viewport.height as f32];
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.viewport = [0.0, 0.0, width as f32, height as f32];
         self.ui.updated_widgets();
         if let Some(win_rect) = self.ui.rect_of(self.ui.window) {
             let (win_w, win_h) = (win_rect.w() as u32, win_rect.h() as u32);
-            if viewport.width != win_w || viewport.height != win_h {
-                let event = Input::Resize(viewport.width as f64, viewport.height as f64);
+            if width != win_w || height != win_h {
+                let event = Input::Resize(width as f64, height as f64);
                 self.ui.handle_event(event);
             }
         }

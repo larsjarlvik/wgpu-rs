@@ -2,6 +2,7 @@ use crate::settings;
 use conrod_core::event::Input;
 use conrod_wgpu::Image;
 use std::fs;
+mod config;
 pub mod screens;
 
 pub struct Ui {

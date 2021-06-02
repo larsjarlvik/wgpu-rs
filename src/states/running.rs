@@ -35,9 +35,9 @@ impl RunningState {
 
 impl StateTypes for RunningState {
     fn initialize(&mut self, data: &mut StateData) {
+        block_on(self.world.generate(&data.device, &data.queue, &self.viewport));
         data.ui.ui.set_widgets();
         data.ui.load_op = wgpu::LoadOp::Load;
-        block_on(self.world.generate(&data.device, &data.queue, &self.viewport));
     }
 
     fn update(&mut self, data: &mut StateData) -> Option<ActiveState> {

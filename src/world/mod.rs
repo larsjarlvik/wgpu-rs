@@ -69,12 +69,12 @@ impl World {
         self.data.map.generate(device, queue).await;
         self.data.assets.load_assets(device, queue);
         self.root_node = node::Node::new(0.0, 0.0, settings::TILE_DEPTH);
+        self.root_node.update(device, &mut self.data, viewport);
         self.views = views::Views::new(device, &mut self.data, viewport, &self.root_node);
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, viewport: &camera::Viewport, time: Instant) {
         let view = Matrix4::look_at_rh(viewport.eye, viewport.target, Vector3::unit_y());
-
         self.root_node.update(device, &mut self.data, viewport);
         self.data.environment.update(queue, viewport, view, time);
         self.views.update(device, queue, &self.data, viewport, &self.root_node, &view);

@@ -1,5 +1,7 @@
 use conrod_core::*;
 
+use crate::ui::config;
+
 widget_ids! {
     pub struct Ids {
         canvas,
@@ -27,12 +29,12 @@ pub fn create(ui: &mut Ui, status: &Status) {
     widget::Text::new(format!("FPS: {}", status.fps).as_str())
         .top_left_of(ids.canvas)
         .color(color::BLACK)
-        .font_size(16)
+        .font_size(config::FONT_S)
         .set(ids.fps, &mut widgets);
 
     widget::Text::new(format!("Anti Aliasing: {}", status.anti_aliasing).as_str())
-        .down_from(ids.fps, 4.0)
+        .down_from(ids.fps, config::SPACING_S)
         .color(color::BLACK)
-        .font_size(16)
+        .font_size(config::FONT_S)
         .set(ids.anti_aliasing, &mut widgets);
 }
